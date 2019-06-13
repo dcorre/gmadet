@@ -12,6 +12,10 @@ import json
 import requests
 import h5py
 
+from astroquery.vizier import Vizier
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+
 try: # Python 3.x
     from urllib.parse import quote as urlencode
     from urllib.request import urlretrieve
@@ -35,7 +39,7 @@ def gaia_query(ra_deg, dec_deg, rad_deg, maxmag=20,
                 maxsources: maximum number of sources
     returns: astropy.table object
     """
-    vquery = Vizier(columns=['Source', 'RAJ2000', 'e_RAJ2000',
+    vquery = Vizier(columns=['+_r', 'Source', 'RAJ2000', 'e_RAJ2000',
                              'DEJ2000','e_DEJ2000','Dup','Gmag','e_Gmag', 'o_Gmag',
                              'BPmag', 'e_BPmag', 'o_BPmag', 'RPmag', 'e_RPmag', 'o_RPmag'],
     #                column_filters={"gmag":
@@ -61,7 +65,7 @@ def sdss_query(ra_deg, dec_deg, rad_deg, maxmag=20,
                 maxsources: maximum number of sources
     returns: astropy.table object
     """
-    vquery = Vizier(columns=['objID', 'RA_ICRS', 'e_RA_ICRS',
+    vquery = Vizier(columns=['+_r', 'objID', 'RA_ICRS', 'e_RA_ICRS',
                              'DE_ICRS','e_DE_ICRS','umag','e_umag','gmag', 'e_gmag',
                              'rmag', 'e_rmag', 'imag', 'e_imag', 'zmag', 'e_zmag',
                              'zsp','spCl', 'subCl'],
@@ -87,7 +91,7 @@ def _2MASS_query(ra_deg, dec_deg, rad_deg, maxmag=20,
                 maxsources: maximum number of sources
     returns: astropy.table object
     """
-    vquery = Vizier(columns=['2MASS', 'RAJ2000', 'DEJ2000',
+    vquery = Vizier(columns=['+_r', '2MASS', 'RAJ2000', 'DEJ2000',
                              'Jmag','e_Jmag','Jsnr',
                              'Hmag','e_Hmag','Hsnr',
                              'Kmag','e_Kmag','Ksnr',
@@ -139,7 +143,7 @@ def USNO_A2_query(ra_deg, dec_deg, rad_deg, maxmag=20,
                 maxsources: maximum number of sources
     returns: astropy.table object
     """
-    vquery = Vizier(columns=['USNO-A2.0', 'RAJ2000', 'DEJ2000',
+    vquery = Vizier(columns=['+_r', 'USNO-A2.0', 'RAJ2000', 'DEJ2000',
                              'Bmag','Rmag'],
     #                column_filters={"gmag":
     #                                ("<%f" % maxmag)
