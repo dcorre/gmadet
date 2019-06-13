@@ -8,8 +8,8 @@
 # Input arguments are filename without fits suffix, typical fwhm, sextracting threshold and maximal distance for catalogue crosschecking in degrees
 # 
 # Example:
-#   python3 baf.py tarot 1.5 4 3*0.000907203
-#   python3 baf.py oaj 3.5 4 3*0.0001543390
+#   python3 baf.py tarot 1.5 4 0.000907203
+#   python3 baf.py oaj 3.5 4 0.0001543390
 
 import sys
 import math
@@ -140,10 +140,10 @@ def crosscheck_with_catalogues(filename,degrad):
         mag = lajna.split()[2]
         merr = lajna.split()[3]
         try:
-            wohoo = USNO_B1_query(ra,dec,float(degrad))
+            wohoo = USNO_B1_query(ra,dec,float(eval(degrad)))
             #print(wohoo)
         except:
-            print("NEW TRANSIENT "+counter)
+            print("New transient "+str(counter)+" at "+ra+" "+dec)
             counter=counter+1
             f4.write(ra+" "+dec+" "+mag+" "+merr+"\n")
         lajna=f3.readline()
