@@ -4,6 +4,7 @@
 """Detection of sources."""
 
 import errno, glob, os, shutil, subprocess, sys
+import numpy as np
 
 def mv_p(src, dest):
   try:
@@ -22,23 +23,26 @@ def mkdir_p(path):
 
 
 
-def psf(path, soft="sextractor", useweight=False):
+def psf(filename, soft="sextractor", useweight=False):
     """Compute PSF in astronomical images"""
     
-    imagelist=glob.glob(path+'/*.fits')
+    #imagelist=glob.glob(path+'/*.fits')
+    imagelist = np.atleast_1d(filename)
     print (imagelist)
     for ima in imagelist:
          root = os.path.splitext(ima)[0]
          if useweight:
              weight = root + '.weight.fits'
-             print("Processing " + ima + " ...", end='\r', flush=True),
+             #print("Processing " + ima + " ...", end='\r', flush=True),
              subprocess.call(['sex', '-c', 'prepsfex.sex', ima, '-WEIGHT_IMAGE', weight])
          else:
-             print("Processing " + ima + " ...", end='\r', flush=True),
+             print ('Sextractor')
+             #print("Processing " + ima + " ...", end='\r', flush=True),
              subprocess.call(['sex', '-c', 'prepsfex.sex', ima])
 
          cat = 'prepsfex.cat'
-         subprocess.call(['psfex', cat])
+         print ('psfex')
+         subprocess.call(['psfex', '-c', '/home/corre/codes/gmadet/gmadet/config.psfsex', cat])
          mv_p('snap_prepsfex.fits', root + '.psf.fits')
 
 def sources_det(path, outdir='sources_cat/', soft="sextractor", useweight=False):
@@ -52,11 +56,11 @@ def sources_det(path, outdir='sources_cat/', soft="sextractor", useweight=False)
             root = os.path.splitext(ima)[0]
             if useweight:
                 weight = root + '.weight.fits'
-                print("Processing " + ima + " ...", end='\r', flush=True),
+                #print("Processing " + ima + " ...", end='\r', flush=True),
                 subprocess.call(['sex', '-c', 'sourcesdet.sex', ima, '-WEIGHT_IMAGE', weight])
             else:
                 print (ima.split('/')[-1].split('.')[0])
-                print("Processing " + ima + " ...", end='\r', flush=True),
+                #print("Processing " + ima + " ...", end='\r', flush=True),
                 subprocess.call(['sex', '-c', 'sourcesdet.sex', ima,
                                  '-CATALOG_NAME', outdir+ima.split('/')[-1].split('.')[0]+'.cat'])
 

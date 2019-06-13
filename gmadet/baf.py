@@ -1,16 +1,21 @@
 #! /usr/bin/env python
+# -*- coding: utf-8 -*-
 
-import sys
-import math
-import glob
+import sys, subprocess, glob, math, shutil
+
+# Create login.cl at execution of the script if flag set to true
+if sys.argv[3] == True:
+    proc = subprocess.Popen(['mkiraf'], stdin = subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) 
+    outs, errs = proc.communicate('y\nxterm')
+
 from catalogues import *
+from sources_det import psf
 
-#from pyraf import iraf
-#from pyraf.iraf import daophot
+from pyraf import iraf
+from pyraf.iraf import daophot
 
 #filename = sys.argv[1]
 #filename without .fits suffix
-
 
 
 def get_photometry(filename,fwhmpsf):
@@ -38,9 +43,14 @@ def get_photometry(filename,fwhmpsf):
     IMmean = IMstatres[1].split()[2]
     iraf.datapars.sigma = math.sqrt(float(IMmean) * float(iraf.datapars.epadu) + float(iraf.datapars.readnoi)**2) / float(iraf.datapars.epadu)
 
-    iraf.daofind(filename,output="default",verify="no", threshold=400)
+    iraf.daofind(filename,output="default",verify="no", threshold=5)
     iraf.datapars.datamax = "INDEF"
     iraf.daophot.phot(image=filename,coords="default", output="default", interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="yes")
+
+
+def psfex(filename):
+    psf(filename) 
+    psffilename = filename.split('.')[0] + '.psf.fits'
 
 
 def select_good_stars(filename,limiting_mag_err):
@@ -123,7 +133,7 @@ def crosscheck_with_catalogues(filename,degrad):
 
 
 
-
+psfex(sys.argv[1])
 
 #get_photometry(sys.argv[1],sys.argv[2])
 #select_good_stars(sys.argv[1],0.5)
