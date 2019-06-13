@@ -5,10 +5,11 @@
 #          David Corre, Orsay, France, corre@lal.in2p3.fr
 # v1.1, last modified 2019 June
 # Good luck everyone with pyraf installation
-# Input arguments are filename without fits suffix, typical fwhm and sextracting threshold
+# Input arguments are filename without fits suffix, typical fwhm, sextracting threshold and maximal distance for catalogue crosschecking in degrees
 # 
 # Example:
-#   python3 baf.py tarot 1.5 4
+#   python3 baf.py tarot 1.5 4 3*0.000907203
+#   python3 baf.py oaj 3.5 4 3*0.0001543390
 
 import sys
 import math
@@ -24,8 +25,10 @@ magnitude_error_threshold = 0.5
 # Parameter for catalogue crosschecking, maximal allowed distance between sextracted and catalogue position in degrees
 # Tarot 1px = 0.000907203 deg
 # OAJ 1px = 1.543390792967E-04 deg
-allowed_crosscheck_radius = 3*0.000907203       # Tarot
+# allowed_crosscheck_radius = 3*0.000907203       # Tarot
 # allowed_crosscheck_radius = 3*0.0001543390      # OAJ
+
+allowed_crosscheck_radius = sys.argv[4]
 
 def get_photometry(filename,fwhmpsf,THRESH):
 # Performs sextracting by daofind and photometry by daophot 
