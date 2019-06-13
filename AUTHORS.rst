@@ -10,4 +10,5 @@ Development Lead
 Contributors
 ------------
 
+Martin Blazek
 None yet. Why not be the first?
