@@ -140,7 +140,7 @@ def crosscheck_with_catalogues(filename,degrad):
         mag = lajna.split()[2]
         merr = lajna.split()[3]
         try:
-            wohoo = USNO_B1_query(ra,dec,degrad)
+            wohoo = USNO_B1_query(ra,dec,float(degrad))
             #print(wohoo)
         except:
             print("NEW TRANSIENT "+counter)
