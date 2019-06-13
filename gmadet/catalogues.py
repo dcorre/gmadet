@@ -114,7 +114,7 @@ def USNO_B1_query(ra_deg, dec_deg, rad_deg, maxmag=20,
                 maxsources: maximum number of sources
     returns: astropy.table object
     """
-    vquery = Vizier(columns=['USNO-B1.0', 'RAJ2000', 'e_RAJ2000','DEJ2000', 'e_DEJ2000',
+    vquery = Vizier(columns=['+_r','USNO-B1.0', 'RAJ2000', 'e_RAJ2000','DEJ2000', 'e_DEJ2000',
                              'B1mag','R1mag','B2mag',
                              'R2mag','Imag', 'Ndet'],
     #                column_filters={"gmag":
@@ -205,7 +205,6 @@ def glade_query(ra_deg, dec_deg, rad_deg, dist_constraint=[0,3000], maxmag=20,
                 maxsources: maximum number of sources
                 online: True: online query - False: use catalog locally
                 catalogFile: path to glade catalog
-
     Use online because offline conesearch returns different results
     returns: astropy.table object
     """
@@ -247,10 +246,10 @@ def glade_query(ra_deg, dec_deg, rad_deg, dist_constraint=[0,3000], maxmag=20,
                       names = ['PGC', 'GWGC','HyperLEDA','_2MASS', 'SDSS-DR12','Flag1','RAJ2000',
                               'DEJ2000', 'Dist', 'z', 'Bmag', 'BMAG',
                               'Jmag', 'Hmag', 'Kmag', 'Flag2', 'Flag3'])
-        # constraint on distance
+        # constraint on distance
         mask = (table['Dist'] > dist_constraint[0]) & (table['Dist'] < dist_constraint[1])
         table = table[mask]
-        # cone search
+        # cone search
         mask = (table['RAJ2000'] - ra_deg)**2 + (table['DEJ2000'] - dec_deg)**2 <= rad_deg**2
         table=table[mask]
 
