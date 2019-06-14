@@ -15,6 +15,7 @@ import h5py
 from astroquery.vizier import Vizier
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+from astroquery.xmatch import XMatch
 
 try: # Python 3.x
     from urllib.parse import quote as urlencode
@@ -27,6 +28,31 @@ try: # Python 3.x
     import http.client as httplib 
 except ImportError:  # Python 2.x
     import httplib   
+
+def xmatch(coordinates, catalog, radius):
+    """
+    Perform cross-match with a catalog using the CDS XMatch 
+    parameters: coordinates, catalog, radius:
+                coordinates: astropy table with RA, DEC of all detected sources
+                catalog: Vizier identifier of the catalog
+                radius in arcsecond
+    returns: astropy.table object
+
+    Vizier catalog identifiers:
+    Gaia DR2: I/345/gaia2
+    SDSS DR12: V/147/sdss12
+    2MASS: II/246/out
+    USNO B1: I/284/out
+    USNO A2: I/252/out
+    GLADE 2: VII/281/glade2
+    """
+    
+    matched_stars = XMatch.query(coordinates,
+                     cat2='vizier:%s' % catalog,
+                     max_distance=radius * u.arcsec, colRA1='_RAJ2000',
+                     colDec1='_DEJ2000')
+
+    return matched_stars
 
 
 def gaia_query(ra_deg, dec_deg, rad_deg, maxmag=20,
@@ -129,6 +155,7 @@ def USNO_B1_query(ra_deg, dec_deg, rad_deg, maxmag=20,
     field = SkyCoord(ra=ra_deg, dec=dec_deg,
                            unit=(u.deg, u.deg),
                            frame='icrs')
+    #field = radec_deg
     return vquery.query_region(field,
                                width=("%fd" % rad_deg),
                                catalog="I/284/out")[0]

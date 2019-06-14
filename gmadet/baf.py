@@ -12,7 +12,7 @@
 #   python3 baf.py tarot 1.5 4 0.000907203
 #   python3 baf.py oaj 3.5 4 0.0001543390
 
-import sys, subprocess, glob, math, shutil
+import sys, subprocess, glob, math, shutil, os
 
 # Create login.cl at execution of the script if flag set to true
 if sys.argv[5] == True:
@@ -24,6 +24,9 @@ from sources_det import psf
 
 from pyraf import iraf
 from pyraf.iraf import daophot
+
+from astropy.io import ascii
+from astropy.table import vstack, Table
 
 # Parameter to get rid of the faint stars with high magnitude error
 magnitude_error_threshold = 0.5
@@ -119,6 +122,7 @@ def select_good_stars(filename,limiting_mag_err):
     f1.close()
     f2.close()
 
+
 def convert_xy_radec(filename):
 # Performs pyraf transformation of x-y into RA-DEC coordinates
 # filename is WITHOUT suffix .fits
@@ -127,15 +131,17 @@ def convert_xy_radec(filename):
     magfile = filename+".magfiltered"
     magfilewcs = filename+".magwcs"
     iraf.wcsctran(input=magfile, output=magfilewcs, image=filename, inwcs="physical", outwcs="world")
+    #shutil.remove(magfile)
 
 
 def crosscheck_with_catalogues(filename,degrad):
 # Performs crosscheck with USNO B1.0 catalogue with *.magwcs
-# filename is WITHOUT suffix .fits and maximal allowed difference degrad is in degrees
+# filename is WITHOUT suffix .fits and maximal allowed difference degrad is in arcseconds
 # Input file is *.magwcs and the output is the list of the stars *.oc which were not identified in the catalogue
     magfilewcs = filename+".magwcs"
     transients = filename+".oc"
-    
+     
+    """
     f3 = open(magfilewcs,"r")
     lajna = f3.readline()
     lajna = f3.readline()
@@ -161,13 +167,37 @@ def crosscheck_with_catalogues(filename,degrad):
     
     f3.close()
     f4.close()
+    """
     
+    # Load detected sources in astropy table
+    detected_sources = ascii.read(magfilewcs, names=['_RAJ2000','_DEJ2000', 'mag_int', 'mag_inst_err'])
+    # Add units
+    detected_sources['_RAJ2000'] *= u.deg
+    detected_sources['_DEJ2000'] *= u.deg
+    # Add index for each source
+    detected_sources['idx'] = np.arange(len(detected_sources))
+
+    # Use Xmatch to crossmatch with catalog
+    crossmatch = xmatch(detected_sources, 'I/284/out', float(eval(degrad))*3600)
+    # Initialise flag array. 0: unknown sources / 1: known sources
+    flag = np.zeros(len(detected_sources))
+    # Do not consider duplicates
+    referenced_star_idx = np.unique(crossmatch['idx'])
+    # Set flag indexes to 1 for detected sources associated to a star
+    flag[referenced_star_idx] = 1
+
+    # Table for candidates
+    candidates = detected_sources[flag == 0]
+
+    # Write candidates file
+    candidates.write(transients, format='ascii.commented_header', overwrite=True)
 
 
 #psfex(sys.argv[1])
 get_photometry(sys.argv[1],sys.argv[2],sys.argv[3])
 select_good_stars(sys.argv[1],magnitude_error_threshold)
 convert_xy_radec(sys.argv[1])
+print ('Crossmatch with catalog')
 crosscheck_with_catalogues(sys.argv[1],allowed_crosscheck_radius)
 
 
