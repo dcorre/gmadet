@@ -9,42 +9,43 @@
 # Input arguments are filename without fits suffix, typical fwhm, sextracting threshold and maximal distance for catalogue crosschecking in degrees
 # 
 # Example:
-#   python3 baf.py tarot 1.5 4 0.000907203
-#   python3 baf.py oaj 3.5 4 0.0001543390
+#   python gmadet.py --filename /folder/image.fits --FWHM 1.5 --SNR 4 --radius_crossmatch 0.000907203 --telescope TCH
+#   python gmadet.py --filename /folder/image.fits --FWHM 3.5 --SNR 4 --radius_crossmatch 0.0001543390 --telescope OAJ
 
 import sys, subprocess, glob, math, shutil, os
-
-# Create login.cl at execution of the script if flag set to true
-if sys.argv[5] == True:
-    proc = subprocess.Popen(['mkiraf'], stdin = subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    outs, errs = proc.communicate('y\nxterm')
+import argparse
 
 from catalogues import *
-from sources_det import psf
+from astromatic import psfex, scamp
 
-from pyraf import iraf
-from pyraf.iraf import daophot
-
-from astropy.io import ascii
+from astropy.io import ascii, fits
 from astropy.table import vstack, Table
 
-# Parameter to get rid of the faint stars with high magnitude error
-magnitude_error_threshold = 0.5
 
-# Parameter for catalogue crosschecking, maximal allowed distance between sextracted and catalogue position in degrees
-# Tarot 1px = 0.000907203 deg
-# OAJ 1px = 1.543390792967E-04 deg
-# allowed_crosscheck_radius = 3*0.000907203       # Tarot
-# allowed_crosscheck_radius = 3*0.0001543390      # OAJ
+def astrometric_calib(filename):
+    """perform astrometric calibration"""
+    scamp(filename)
 
-allowed_crosscheck_radius = sys.argv[4]
+def get_photometry(filename,fwhmpsf,THRESH, mkiraf=True):
+    """
+    Performs sextracting by daofind and photometry by daophot 
+    filename is WITHOUT suffix .fits
+    fwhmpsf is rough estimation of typical frame FWHM
+    THRESH is signal-to-noise ratio, typically 4 or so
+    Outputs are two files *.coo.1 and *.mag.1 with x-y coordinates
+    """
+    
+    # Create login.cl at execution of the script if flag set to true
+    if mkiraf:
+        proc = subprocess.Popen(['mkiraf'], stdin = subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        outs, errs = proc.communicate('y\nxterm')
 
-def get_photometry(filename,fwhmpsf,THRESH):
-# Performs sextracting by daofind and photometry by daophot 
-# filename is WITHOUT suffix .fits
-# fwhmpsf is rough estimation of typical frame FWHM
-# THRESH is signal-to-noise ratio, typically 4 or so
-# Outputs are two files *.coo.1 and *.mag.1 with x-y coordinates
+    # Now we make the Pyraf imports
+    from pyraf import iraf
+    from pyraf.iraf import daophot
+
+    # Parameter to get rid of the faint stars with high magnitude error
+    magnitude_error_threshold = 0.5
 
     iraf.noao
     iraf.digiphot
@@ -75,8 +76,8 @@ def get_photometry(filename,fwhmpsf,THRESH):
     
 
 
-def psfex(filename):
-    psf(filename) 
+def run_psfex(filename):
+    psfex(filename) 
     psffilename = filename.split('.')[0] + '.psf.fits'
 
 
@@ -110,9 +111,9 @@ def select_good_stars(filename,limiting_mag_err):
         if (errmessage != "NoError") or (mag == "INDEF") or (merr == "INDEF"):
             print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
         else:
-            print(merr)
+            #print(merr)
             if (float(merr) < limiting_mag_err):
-                print(xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
+                #print(xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
                 f2.write(xpos+" "+ypos+" "+mag+" "+merr+"\n")                
             else:
                 print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
@@ -124,51 +125,41 @@ def select_good_stars(filename,limiting_mag_err):
 
 
 def convert_xy_radec(filename):
-# Performs pyraf transformation of x-y into RA-DEC coordinates
-# filename is WITHOUT suffix .fits
-# Input is the *.magfiltered file from select_good_stars() function
-# Output is the *.magwcs file
+    """
+    Performs pyraf transformation of x-y into RA-DEC coordinates
+    filename is WITHOUT suffix .fits
+    Input is the *.magfiltered file from select_good_stars() function
+    Output is the *.magwcs file
+    """
+
+    from pyraf import iraf
+
     magfile = filename+".magfiltered"
     magfilewcs = filename+".magwcs"
     iraf.wcsctran(input=magfile, output=magfilewcs, image=filename, inwcs="physical", outwcs="world")
     #shutil.remove(magfile)
 
 
-def crosscheck_with_catalogues(filename,degrad):
-# Performs crosscheck with USNO B1.0 catalogue with *.magwcs
-# filename is WITHOUT suffix .fits and maximal allowed difference degrad is in arcseconds
-# Input file is *.magwcs and the output is the list of the stars *.oc which were not identified in the catalogue
+def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1']):
+    """
+    Performs crosscheck with USNO B1.0 catalogue with *.magwcs
+    filename is WITHOUT suffix .fits and maximal allowed difference radius is in arcseconds
+    Input file is *.magwcs and the output is the list of the stars *.oc which were not identified in the catalogue
+
+    Parameter for catalogue crosschecking, maximal allowed distance between sextracted and catalogue position in degrees
+    Tarot 1px = 0.000907203 deg
+    OAJ 1px = 1.543390792967E-04 deg
+    allowed_crosscheck_radius = 3*0.000907203       # Tarot
+    allowed_crosscheck_radius = 3*0.0001543390      # OAJ
+    """
+
+    cat_dict = {'I/284/out':'USNO-B1', 'I/345/gaia2':'GAIA DR2', 'II/349/ps1':'PS1 DR1'}
+
     magfilewcs = filename+".magwcs"
     transients = filename+".oc"
-     
-    """
-    f3 = open(magfilewcs,"r")
-    lajna = f3.readline()
-    lajna = f3.readline()
-    lajna = f3.readline()
-    lajna = f3.readline()
     
-    f4 = open(transients,"w")
-    counter = 1
-    while lajna:
-        #print(lajna)
-        ra = lajna.split()[0]
-        dec = lajna.split()[1]
-        mag = lajna.split()[2]
-        merr = lajna.split()[3]
-        try:
-            wohoo = USNO_B1_query(ra,dec,float(eval(degrad)))
-            #print(wohoo)
-        except:
-            print("New transient "+str(counter)+" at "+ra+" "+dec)
-            counter=counter+1
-            f4.write(ra+" "+dec+" "+mag+" "+merr+"\n")
-        lajna=f3.readline()
-    
-    f3.close()
-    f4.close()
-    """
-    
+    #radius *= u.deg
+
     # Load detected sources in astropy table
     detected_sources = ascii.read(magfilewcs, names=['_RAJ2000','_DEJ2000', 'mag_int', 'mag_inst_err'])
     # Add units
@@ -176,30 +167,108 @@ def crosscheck_with_catalogues(filename,degrad):
     detected_sources['_DEJ2000'] *= u.deg
     # Add index for each source
     detected_sources['idx'] = np.arange(len(detected_sources))
+    
+    # Initialise candidates with all detected sources
+    candidates = detected_sources
 
-    # Use Xmatch to crossmatch with catalog
-    crossmatch = xmatch(detected_sources, 'I/284/out', float(eval(degrad))*3600)
-    # Initialise flag array. 0: unknown sources / 1: known sources
-    flag = np.zeros(len(detected_sources))
-    # Do not consider duplicates
-    referenced_star_idx = np.unique(crossmatch['idx'])
-    # Set flag indexes to 1 for detected sources associated to a star
-    flag[referenced_star_idx] = 1
-
-    # Table for candidates
-    candidates = detected_sources[flag == 0]
+    for catalog in catalogs:
+        # Use Xmatch to crossmatch with catalog
+        crossmatch = xmatch(candidates, catalog, radius*3600)
+        # Initialise flag array. 0: unknown sources / 1: known sources
+        flag = np.zeros(len(candidates))
+        # Do not consider duplicates
+        referenced_star_idx = np.unique(crossmatch['idx'])
+        # Set flag indexes to 1 for detected sources associated to a star
+        flag[referenced_star_idx] = 1
+        
+        # Table for candidates
+        candidates = candidates[flag == 0]
+        # Update indexes
+        candidates['idx'] = np.arange(len(candidates))
+        print ('%d/%d candidates left after crossmatching with %s' % (len(candidates),len(detected_sources), cat_dict[catalog]))
 
     # Write candidates file
     candidates.write(transients, format='ascii.commented_header', overwrite=True)
 
+    return candidates
 
-#psfex(sys.argv[1])
-get_photometry(sys.argv[1],sys.argv[2],sys.argv[3])
-select_good_stars(sys.argv[1],magnitude_error_threshold)
-convert_xy_radec(sys.argv[1])
-print ('Crossmatch with catalog')
-crosscheck_with_catalogues(sys.argv[1],allowed_crosscheck_radius)
+def check_moving_objects(filename, candidates, telescope):
+    """
+    Crossmatch the list of candidates with moving objects using SkyBoT
+    
+    """
+    header = fits.getheader(filename)
+    if telescope in ['TCH', 'TCA', 'TRE']:
+        ra_deg = float(header['CRVAL1'])*u.deg
+        dec_deg = float(header['CRVAL2'])*u.deg
+        date = header['DATE-GPS']
+        radius = 2 *u.deg
+        Texp = float(header['exposure']) * u.second
+    
+    moving_objects = skybot(ra_deg, dec_deg, date, radius, Texp)
 
+    moving_objects.write('moving_objects.dat', format='ascii.commented_header', overwrite=True)
+    moving_objects['RA', 'DEC'].write('moving_objects.reg', format='ascii.commented_header', overwrite=True)
+
+    candidates_out = crossmatch_skybot(candidates, moving_objects, radius=10)
+
+    print ('%d match with a moving object found' % (len(candidates)-len(candidates_out)))
+
+    return candidates_out
+if __name__ == "__main__":
+
+
+    parser = argparse.ArgumentParser(
+            description='Finding unknown objects in astronomical images.')
+
+    parser.add_argument('--filename',
+                        dest='filename',
+                        required=True,
+                        type=str,
+                        help='Path to file')
+
+    parser.add_argument('--telescope',
+                        dest='telescope',
+                        required=True,
+                        type=str,
+                        help='Telescope identifier')
+
+    parser.add_argument('--FWHM',
+                        dest='FWHM',
+                        required=True,
+                        type=float,
+                        help='Typical telescope FWHM')
+
+    parser.add_argument('--mag_err_cut',
+                        dest='mag_err_cut',
+                        required=False,
+                        default=0.5,
+                        type=float,
+                        help='Consider only sources with magnitude error < mag_err_cut')
+
+    parser.add_argument('--radius_crossmatch',
+                        dest='radius_crossmatch',
+                        required=True,
+                        type=float,
+                        help='Radius to use for crossmatching, in arcseconds')
+
+    parser.add_argument('--SNR',
+                        dest='SNR',
+                        required=True,
+                        type=float,
+                        help='Consider only sources above this SNR')
+
+    args = parser.parse_args()
+
+
+    #astrometric_calib(args.filename)
+    #psfex(args.filename)
+    get_photometry(args.filename, args.FWHM, args.SNR)
+    select_good_stars(args.filename, args.mag_err_cut)
+    convert_xy_radec(args.filename)
+    print ('Crossmatch with catalogs')
+    candidates = crosscheck_with_catalogues(args.filename,args.radius_crossmatch)
+    check_moving_objects(args.filename, candidates, args.telescope)
 
 
 
