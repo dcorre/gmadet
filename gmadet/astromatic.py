@@ -5,6 +5,8 @@
 
 import errno, glob, os, shutil, subprocess, sys
 import numpy as np
+from astropy.io import fits
+
 
 def mv_p(src, dest):
   try:
@@ -22,8 +24,55 @@ def mkdir_p(path):
       raise
 
 
+def scamp(filename, useweight=False):
+    """Compute PSF in astronomical images"""
+    
+    #imagelist=glob.glob(path+'/*.fits')
+    path = os.path.dirname(filename)
+    imagelist = np.atleast_1d(filename)
+    for ima in imagelist:
+         root = os.path.splitext(ima)[0]
+         print ('Sextractor')
+         #print("Processing " + ima + " ...", end='\r', flush=True),
+         subprocess.call(['sex', '-c', 'prepscamp.sex', ima])
 
-def psf(filename, soft="sextractor", useweight=False):
+         cat = 'prepscamp.cat'
+         print ('scamp')
+         subprocess.call(['scamp', cat, '-c', 'scamp.conf'])
+         mv_p('snap_prepsfex.fits', root + '.psf.fits')
+
+    # Adding header
+    hdulist=fits.open(filename)
+    
+    # First remove old ones
+    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","PIXSCALX","PIXSCALY","CUNIT1","CUNIT2","WCSAXES","WCSNAME","RADESYS","WCSVERS","CTYPE1","CTYPE2", "EQUINOX"]
+
+    for keyword in keywords_to_remove:
+        if keyword in hdulist[0].header:
+                del hdulist[0].header[keyword]
+    s=''
+    with open('prepscamp.head') as f: 
+        for line in f: 
+            s = s + line + '\n' 
+    newheader = fits.Header.fromstring(s, sep='\n')
+    for key, value in newheader.items():
+        print (key, value)
+        #truncate long keys
+        if len(key) > 8:
+            key = key[:7]
+        try:
+            hdulist[0].header.set(key.upper(), value)
+        except:
+            try:
+                hdulist[0].header.set(key.upper(), str(value))
+            except:
+                pass
+    
+    hdulist.writeto(path+'/test_scamp.fits',overwrite=True)
+
+
+
+def psfex(filename, useweight=False):
     """Compute PSF in astronomical images"""
     
     #imagelist=glob.glob(path+'/*.fits')
@@ -42,10 +91,11 @@ def psf(filename, soft="sextractor", useweight=False):
 
          cat = 'prepsfex.cat'
          print ('psfex')
-         subprocess.call(['psfex', '-c', '/home/corre/codes/gmadet/gmadet/config.psfsex', cat])
+         #subprocess.call(['psfex', cat, '-c', 'config.psfex'])
+         subprocess.call(['psfex', cat])
          mv_p('snap_prepsfex.fits', root + '.psf.fits')
 
-def sources_det(path, outdir='sources_cat/', soft="sextractor", useweight=False):
+def sextractor(path, outdir='sources_cat/', useweight=False):
     """Detect sources in astronomical images"""
     
     imagelist=glob.glob(path+'/*.fits')
