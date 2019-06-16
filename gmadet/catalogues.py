@@ -15,19 +15,11 @@ import h5py
 from astroquery.vizier import Vizier
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+from astropy.time import Time
 from astroquery.xmatch import XMatch
+from astroquery.imcce import Skybot
+from astroML.crossmatch import crossmatch_angular
 
-try: # Python 3.x
-    from urllib.parse import quote as urlencode
-    from urllib.request import urlretrieve
-except ImportError:  # Python 2.x
-    from urllib import pathname2url as urlencode
-    from urllib import urlretrieve
-
-try: # Python 3.x
-    import http.client as httplib 
-except ImportError:  # Python 2.x
-    import httplib   
 
 def xmatch(coordinates, catalog, radius):
     """
@@ -53,6 +45,71 @@ def xmatch(coordinates, catalog, radius):
                      colDec1='_DEJ2000')
 
     return matched_stars
+
+def skybot(ra_deg, dec_deg, date, radius, Texp):
+    """
+    query SkyBoT catalog using astroquery.skybot to search for moving objects 
+    parameters: ra_deg, dec_deg, date, Texp, radius:
+                ra_deg, dec_deg: RA and DEC in degrees astropy.units
+                date: date of observation (UTC)
+                Texp: exposure time in astropy.unit
+                radius in arcsecond
+    returns: astropy.table object
+    """
+    # if present, substitue T by a whitespace
+    if 'T' in date:
+        date=date.replace('T', ' ')
+
+    field = SkyCoord(ra_deg, dec_deg)
+    epoch = Time(str(date), format='iso')
+    moving_objects_list = Skybot.cone_search(field, radius, epoch, position_error=120*u.arcsecond)
+
+    # Add RA, DEC at end of exposure
+    moving_objects_list['RA_Tend'] = moving_objects_list['RA'] + moving_objects_list['RA_rate']*Texp
+    moving_objects_list['DEC_Tend'] = moving_objects_list['DEC'] + moving_objects_list['DEC_rate']*Texp
+    # Compute angular distance  between Tstart and Tend
+    c1 = SkyCoord(moving_objects_list['RA'], moving_objects_list['DEC'], frame='icrs')
+    c2 = SkyCoord(moving_objects_list['RA_Tend'], moving_objects_list['DEC_Tend'], frame='icrs')
+    sep = c1.separation(c2)
+    moving_objects_list['RADEC_sep'] = sep
+
+    return moving_objects_list
+
+def crossmatch_skybot(sources, moving_objects, radius=5):
+    """
+    crossmatch list of detected sources with list of moving objects in this field from skybot
+
+    parameters: sources, moving_objects, radius:
+                sources: astropy.table containing list of unknown sources detected 
+                moving_objects: astropy.table containing list of moving objects from skybot
+                                in the same field of view
+                radius in arcsecond
+    returns: astropy.table object
+
+    NOT WORKING WITH PYTHON2.7, seems ok WITH PYTHON3
+    """
+    #sources=ascii.read('/home/corre/codes/Tests/%s.fits.oc' % filename)
+    #moving_objects=ascii.read('/home/corre/codes/gmadet/gmadet/moving_objects.dat')
+    cat1= np.empty((len(sources), 2), dtype=np.float64)
+    cat2= np.empty((len(moving_objects), 2), dtype=np.float64)
+    cat1[:, 0] = sources['_RAJ2000']
+    cat1[:, 1] = sources['_DEJ2000']
+
+    cat2[:, 0] = moving_objects['RA']
+    cat2[:, 1] = moving_objects['DEC']
+    dist, ind = crossmatch_angular(cat1, cat2, radius/3600)
+    match = ~np.isinf(dist)
+    #print (match)
+    dist_match = dist[match]
+    # Convert in arcseconds
+    dist_match *= 3600
+    #print (dist_match)
+    if dist_match: 
+        mov_match = sources[ind[np.unique(match)]]
+        print (mov_match)
+    candidates = sources[match==False]
+
+    return candidates
 
 
 def gaia_query(ra_deg, dec_deg, rad_deg, maxmag=20,
