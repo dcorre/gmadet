@@ -21,10 +21,22 @@ from astromatic import psfex, scamp
 from astropy.io import ascii, fits
 from astropy.table import vstack, Table
 
+from astropy import wcs
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+
+
 
 def astrometric_calib(filename):
     """perform astrometric calibration"""
     scamp(filename)
+
+def sextractor(filename, fwhmpsf, THRESH):
+    """Run sextractor """
+
+    subprocess.call(['sex', '-c', 'sourcesdet.sex', filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(THRESH)])
+
+
 
 def get_photometry(filename,fwhmpsf,THRESH, mkiraf=True):
     """
@@ -124,23 +136,31 @@ def select_good_stars(filename,limiting_mag_err):
     f2.close()
 
 
-def convert_xy_radec(filename):
+def convert_xy_radec(filename, soft='sextractor'):
     """
     Performs pyraf transformation of x-y into RA-DEC coordinates
     filename is WITHOUT suffix .fits
     Input is the *.magfiltered file from select_good_stars() function
     Output is the *.magwcs file
     """
-
-    from pyraf import iraf
-
-    magfile = filename+".magfiltered"
     magfilewcs = filename+".magwcs"
-    iraf.wcsctran(input=magfile, output=magfilewcs, image=filename, inwcs="physical", outwcs="world")
-    #shutil.remove(magfile)
 
+    if soft == 'iraf':
+        from pyraf import iraf
 
-def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1']):
+        magfile = filename+".magfiltered"
+        iraf.wcsctran(input=magfile, output=magfilewcs, image=filename, inwcs="physical", outwcs="world")
+        #shutil.remove(magfile)
+
+    elif soft == 'sextractor':
+        sources = ascii.read('sourcesdet.cat', format='sextractor')
+        header = fits.getheader(filename)
+        w = wcs.WCS(header)
+        ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 0)
+        data = Table([ra,dec, sources['MAG_APER'], sources['MAGERR_APER']], names=['RA', 'DEC', 'Mag_aper', 'Mag_err_aper'])
+        data.write(magfilewcs, format='ascii.commented_header')
+
+def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out']):
     """
     Performs crosscheck with USNO B1.0 catalogue with *.magwcs
     filename is WITHOUT suffix .fits and maximal allowed difference radius is in arcseconds
@@ -149,11 +169,12 @@ def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/g
     Parameter for catalogue crosschecking, maximal allowed distance between sextracted and catalogue position in degrees
     Tarot 1px = 0.000907203 deg
     OAJ 1px = 1.543390792967E-04 deg
+    AZT8 1px = 2.6321694198146E-04 deg
     allowed_crosscheck_radius = 3*0.000907203       # Tarot
     allowed_crosscheck_radius = 3*0.0001543390      # OAJ
     """
 
-    cat_dict = {'I/284/out':'USNO-B1', 'I/345/gaia2':'GAIA DR2', 'II/349/ps1':'PS1 DR1'}
+    cat_dict = {'I/284/out':'USNO-B1', 'I/345/gaia2':'GAIA DR2', 'II/349/ps1':'PS1 DR1', 'I/271/out':'GSC'}
 
     magfilewcs = filename+".magwcs"
     transients = filename+".oc"
@@ -161,6 +182,7 @@ def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/g
     #radius *= u.deg
 
     # Load detected sources in astropy table
+    #detected_sources = ascii.read(magfilewcs, names=['_RAJ2000','_DEJ2000', 'mag_int', 'mag_inst_err'])
     detected_sources = ascii.read(magfilewcs, names=['_RAJ2000','_DEJ2000', 'mag_int', 'mag_inst_err'])
     # Add units
     detected_sources['_RAJ2000'] *= u.deg
@@ -172,6 +194,7 @@ def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/g
     candidates = detected_sources
 
     for catalog in catalogs:
+        print (catalog)
         # Use Xmatch to crossmatch with catalog
         crossmatch = xmatch(candidates, catalog, radius*3600)
         # Initialise flag array. 0: unknown sources / 1: known sources
@@ -198,7 +221,7 @@ def check_moving_objects(filename, candidates, telescope):
     
     """
     header = fits.getheader(filename)
-    if telescope in ['TCH', 'TCA', 'TRE']:
+    if telescope in ['TCH', 'TCA', 'TRE', 'Lisnicky-AZT8']:
         ra_deg = float(header['CRVAL1'])*u.deg
         dec_deg = float(header['CRVAL2'])*u.deg
         date = header['DATE-GPS']
@@ -258,17 +281,28 @@ if __name__ == "__main__":
                         type=float,
                         help='Consider only sources above this SNR')
 
+
+    parser.add_argument('--soft',
+                        dest='soft',
+                        required=True,
+                        type=str,
+                        help='Soft to use for detecting sources')
+
     args = parser.parse_args()
 
 
     #astrometric_calib(args.filename)
     #psfex(args.filename)
-    get_photometry(args.filename, args.FWHM, args.SNR)
-    select_good_stars(args.filename, args.mag_err_cut)
-    convert_xy_radec(args.filename)
+    if args.soft == 'iraf':
+        get_photometry(args.filename, args.FWHM, args.SNR)
+        select_good_stars(args.filename, args.mag_err_cut)
+    elif args.soft == 'sextractor':
+        sextractor(args.filename, args.FWHM, args.SNR)
+
+    convert_xy_radec(args.filename,soft=args.soft)
     print ('Crossmatch with catalogs')
     candidates = crosscheck_with_catalogues(args.filename,args.radius_crossmatch)
-    check_moving_objects(args.filename, candidates, args.telescope)
+    #check_moving_objects(args.filename, candidates, args.telescope)
 
 
 
