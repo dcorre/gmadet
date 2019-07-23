@@ -9,8 +9,9 @@
 # Input arguments are filename without fits suffix, typical fwhm, sextracting threshold and maximal distance for catalogue crosschecking in degrees
 # 
 # Example:
-#   python gmadet.py --filename /folder/image.fits --FWHM 1.5 --SNR 4 --radius_crossmatch 0.000907203 --telescope TCH
-#   python gmadet.py --filename /folder/image.fits --FWHM 3.5 --SNR 4 --radius_crossmatch 0.0001543390 --telescope OAJ
+#   python gmadet.py --filename /folder/image.fits --FWHM 1.5 --threshold 4 --radius_crossmatch 3 --soft iraf
+#   python gmadet.py --filename /folder/image.fits --FWHM 3.5 --threshold 4 --radius_crossmatch 3 --soft sextractor
+# #   python gmadet.py --filename /folder/image.fits --FWHM 4 --threshold 10 --radius_crossmatch 3 --soft sextractor
 
 import sys, subprocess, glob, math, shutil, os
 import argparse
@@ -25,20 +26,35 @@ from astropy import wcs
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
+def clean_folder(filename):
+    """ Remove output files from previous iraf run. No need for sextractor  """
 
+    types = ('*coo.*', '*mag.*', '*.magwcs', '*.magfiltered*')
+    files2delete = []
+   
+    path = os.path.split(filename)
+    if path[0]:
+        folder = path[0] + '/'
+    else:
+        folder = ''
+
+    for f in types:
+        files2delete.extend(glob.glob(folder+f))
+    for f in files2delete:
+        os.remove(f)
 
 def astrometric_calib(filename):
     """perform astrometric calibration"""
     scamp(filename)
 
-def sextractor(filename, fwhmpsf, THRESH):
+def sextractor(filename, fwhmpsf, thresh):
     """Run sextractor """
 
-    subprocess.call(['sex', '-c', 'sourcesdet.sex', filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(THRESH)])
+    subprocess.call(['sex', '-c', 'sourcesdet.sex', filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(thresh)])
 
 
 
-def get_photometry(filename,fwhmpsf,THRESH, mkiraf=True):
+def get_photometry(filename,fwhmpsf,thresh, mkiraf=True):
     """
     Performs sextracting by daofind and photometry by daophot 
     filename is WITHOUT suffix .fits
@@ -81,7 +97,7 @@ def get_photometry(filename,fwhmpsf,THRESH, mkiraf=True):
     iraf.datapars.sigma = math.sqrt(float(IMmean) * float(iraf.datapars.epadu) + float(iraf.datapars.readnoi)**2) / float(iraf.datapars.epadu)
 
     print("--- performing daophot sextracting ---")
-    iraf.daofind(filename,output="default",verify="no", verbose="no", threshold=THRESH)
+    iraf.daofind(filename,output="default",verify="no", verbose="no", threshold=thresh)
     iraf.datapars.datamax = "INDEF"
     print("--- performing daophot photometry ---")
     iraf.daophot.phot(image=filename,coords="default", output="default", interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="no")
@@ -165,6 +181,7 @@ def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/g
     Performs crosscheck with USNO B1.0 catalogue with *.magwcs
     filename is WITHOUT suffix .fits and maximal allowed difference radius is in arcseconds
     Input file is *.magwcs and the output is the list of the stars *.oc which were not identified in the catalogue
+    radius is expressed in pixels
 
     Parameter for catalogue crosschecking, maximal allowed distance between sextracted and catalogue position in degrees
     Tarot 1px = 0.000907203 deg
@@ -178,8 +195,12 @@ def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/g
 
     magfilewcs = filename+".magwcs"
     transients = filename+".oc"
-    
-    #radius *= u.deg
+
+    header = fits.getheader(filename)
+
+    # Get pixel size
+    pixSize = abs(header['CDELT1'])
+    print (pixSize)
 
     # Load detected sources in astropy table
     #detected_sources = ascii.read(magfilewcs, names=['_RAJ2000','_DEJ2000', 'mag_int', 'mag_inst_err'])
@@ -196,7 +217,7 @@ def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/g
     for catalog in catalogs:
         print (catalog)
         # Use Xmatch to crossmatch with catalog
-        crossmatch = xmatch(candidates, catalog, radius*3600)
+        crossmatch = xmatch(candidates, catalog, radius*pixSize*3600)
         # Initialise flag array. 0: unknown sources / 1: known sources
         flag = np.zeros(len(candidates))
         # Do not consider duplicates
@@ -215,18 +236,17 @@ def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/g
 
     return candidates
 
-def check_moving_objects(filename, candidates, telescope):
+def check_moving_objects(filename, candidates):
     """
     Crossmatch the list of candidates with moving objects using SkyBoT
     
     """
     header = fits.getheader(filename)
-    if telescope in ['TCH', 'TCA', 'TRE', 'Lisnicky-AZT8']:
-        ra_deg = float(header['CRVAL1'])*u.deg
-        dec_deg = float(header['CRVAL2'])*u.deg
-        date = header['DATE-GPS']
-        radius = 2 *u.deg
-        Texp = float(header['exposure']) * u.second
+    ra_deg = float(header['CRVAL1'])*u.deg
+    dec_deg = float(header['CRVAL2'])*u.deg
+    date = header['DATE-GPS']
+    radius = 2 *u.deg
+    Texp = float(header['exposure']) * u.second
     
     moving_objects = skybot(ra_deg, dec_deg, date, radius, Texp)
 
@@ -250,12 +270,6 @@ if __name__ == "__main__":
                         type=str,
                         help='Path to file')
 
-    parser.add_argument('--telescope',
-                        dest='telescope',
-                        required=True,
-                        type=str,
-                        help='Telescope identifier')
-
     parser.add_argument('--FWHM',
                         dest='FWHM',
                         required=True,
@@ -275,11 +289,11 @@ if __name__ == "__main__":
                         type=float,
                         help='Radius to use for crossmatching, in arcseconds')
 
-    parser.add_argument('--SNR',
-                        dest='SNR',
+    parser.add_argument('--threshold',
+                        dest='threshold',
                         required=True,
                         type=float,
-                        help='Consider only sources above this SNR')
+                        help='Consider only sources above this threshold')
 
 
     parser.add_argument('--soft',
@@ -294,15 +308,16 @@ if __name__ == "__main__":
     #astrometric_calib(args.filename)
     #psfex(args.filename)
     if args.soft == 'iraf':
-        get_photometry(args.filename, args.FWHM, args.SNR)
+        clean_folder(args.filename)
+        get_photometry(args.filename, args.FWHM, args.threshold)
         select_good_stars(args.filename, args.mag_err_cut)
     elif args.soft == 'sextractor':
-        sextractor(args.filename, args.FWHM, args.SNR)
+        sextractor(args.filename, args.FWHM, args.threshold)
 
     convert_xy_radec(args.filename,soft=args.soft)
     print ('Crossmatch with catalogs')
     candidates = crosscheck_with_catalogues(args.filename,args.radius_crossmatch)
-    #check_moving_objects(args.filename, candidates, args.telescope)
+    #check_moving_objects(args.filename, candidates)
 
 
 
