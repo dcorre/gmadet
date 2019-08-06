@@ -55,9 +55,10 @@ def make_sub_image(filename, OT_coords, coords_type='world',
         pix_ref = OT_coords
     elif coords_type == 'pix':
         pix = OT_coords
-        ra, dec = w.all_pix2world(np.array(pix), 0)
-        pix_ref = [ra,dec]
-
+        #print (pix)
+        #ra, dec = w.all_pix2world(np.array(pix), 0)
+        ra, dec = w.all_pix2world(pix[0],pix[1], 0)
+        pix_ref = [float(ra),float(dec)]
     # Extract subimage from image starting from reference pixel
     subimage = data[int(pix[0]) - int(size[0]/2) : int(pix[0]) + int(size[0]/2),
                     int(pix[1]) - int(size[1]/2) : int(pix[1]) + int(size[1]/2)]

@@ -25,6 +25,9 @@ from astropy.table import vstack, Table
 from astropy import wcs
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+from astropy.time import Time, TimeDelta
+import voeventparse as vp
+import json
 
 def clean_folder(filename):
     """ Remove output files from previous iraf run. No need for sextractor  """
@@ -47,10 +50,16 @@ def astrometric_calib(filename):
     """perform astrometric calibration"""
     scamp(filename)
 
-def sextractor(filename, fwhmpsf, thresh):
+def psfex(filename, telescope):
+    """Run psfex to estimate PSF FWHM"""
+
+    subprocess.call(['sex', '-c', 'config/%s/sourcesdet.sex' % telescope, filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(thresh), '-PARAMETERS_NAME', 'config/%s/sourcesdet.param' % telescope])
+
+
+def sextractor(filename, fwhmpsf, thresh, telescope):
     """Run sextractor """
 
-    subprocess.call(['sex', '-c', 'sourcesdet.sex', filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(thresh)])
+    subprocess.call(['sex', '-c', 'config/%s/sourcesdet.sex' % telescope, filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(thresh), '-PARAMETERS_NAME', 'config/%s/sourcesdet.param' % telescope])
 
 
 
@@ -173,7 +182,7 @@ def convert_xy_radec(filename, soft='sextractor'):
         header = fits.getheader(filename)
         w = wcs.WCS(header)
         ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 0)
-        data = Table([ra,dec, sources['MAG_APER'], sources['MAGERR_APER']], names=['RA', 'DEC', 'Mag_aper', 'Mag_err_aper'])
+        data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_APER'], sources['MAGERR_APER']], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_aper', 'Mag_err_aper'])
         data.write(magfilewcs, format='ascii.commented_header')
 
 def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out']):
@@ -199,12 +208,13 @@ def crosscheck_with_catalogues(filename, radius, catalogs=['I/284/out', 'I/345/g
     header = fits.getheader(filename)
 
     # Get pixel size
-    pixSize = abs(header['CDELT1'])
+    #pixSize = abs(header['CDELT1'])
+    pixSize = abs(header['CD1_1'])
     print (pixSize)
 
     # Load detected sources in astropy table
     #detected_sources = ascii.read(magfilewcs, names=['_RAJ2000','_DEJ2000', 'mag_int', 'mag_inst_err'])
-    detected_sources = ascii.read(magfilewcs, names=['_RAJ2000','_DEJ2000', 'mag_int', 'mag_inst_err'])
+    detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err'])
     # Add units
     detected_sources['_RAJ2000'] *= u.deg
     detected_sources['_DEJ2000'] *= u.deg
@@ -258,6 +268,124 @@ def check_moving_objects(filename, candidates):
     print ('%d match with a moving object found' % (len(candidates)-len(candidates_out)))
 
     return candidates_out
+
+
+def create_subimages(filename, candidates, owncloud_path, VOE_path, usrpwd_path, coords_type='pix', corner_cut=32):
+    """Create sub-images centered on OT position"""
+
+    from create_OT_subimage import make_sub_image
+
+    # Load data and header
+    data, header = fits.getdata(filename, header = True)
+    dateObs = header['DATE-OBS']
+    Tstart = Time(dateObs, format='fits', scale='utc')
+    Tend = Tstart + TimeDelta(float(header['EXPOSURE']), format='sec')
+    Airmass = header['AIRMASS']
+
+    # Do not consider candidates found in the image edge
+    imsize = data.shape
+    mask = (candidates['Xpos'] > corner_cut) & \
+            (candidates['Ypos'] > corner_cut) & \
+            (candidates['Xpos'] < imsize[1] - corner_cut) & \
+            (candidates['Ypos'] < imsize[0] - corner_cut)
+    candidates_cut = candidates[mask]
+
+    # Get information about the current alert from the xml file containing observation plan
+    with open(VOE_path,'rb') as f:
+        obsplan = vp.load(f)
+
+    dict_event={}
+    dict_event['event_type'] = obsplan.find(".//Param[@name='Event_type']").attrib['value']
+    dict_event['event_name'] = obsplan.find(".//Param[@name='Event_ID']").attrib['value']
+    dict_event['event_status'] = obsplan.find(".//Param[@name='Event_status']").attrib['value']
+    dict_event['revision'] = obsplan.find(".//Param[@name='Revision']").attrib['value']
+    dict_event['telescope'] = obsplan.find(".//Param[@name='Name_tel']").attrib['value']
+
+    # Get user email adress and password to login in https://grandma-fa-interface.lal.in2p3.fr
+    with open(usrpwd_path) as f:
+        usrpwd = json.load(f)
+
+
+    # Set up the output repository path to store sub-images
+    outputDir = owncloud_path + '/' + dict_event['event_type'] + '/' + \
+            dict_event['event_name'] + '/' + dict_event['event_status'] + \
+            '_' + dict_event['revision'] + '/OTs/'
+
+    # Create a sub image centered on each candidate found, and gather information
+    tile_id_list = [1] * len(candidates_cut)
+    filter_list = ['Clear'] * len(candidates_cut)
+    Tstart_list = [Tstart.fits] * len(candidates_cut)
+    Tend_list = [Tend.fits] * len(candidates_cut)
+    Airmass_list = [Airmass] * len(candidates_cut)
+    Fits_path = []
+    for i, row in enumerate(candidates_cut):
+        name = dict_event['telescope'] + '_' + \
+                str(round(float(row['_RAJ2000']),5)) + '_' + \
+                str(round(float(row['_DEJ2000']),5)) + '_' + \
+                dateObs + '.fits.gz'
+        #name = 'test' + str(i) + '.fits.gz'
+        Fits_path.append(name)
+        if coords_type == 'world':
+            OT_coords = [row['_RAJ2000'], row['_DEJ2000']]
+        elif coords_type == 'pix':
+            OT_coords = [row['Ypos'], row['Xpos']]
+        make_sub_image(filename, OT_coords, coords_type=coords_type,
+                       output_name=outputDir+name, size=[128,128])
+
+    alias = ['new'] * len(candidates_cut)
+    new = [1] * len(candidates_cut)
+    tile_id_list = [2] * len(candidates_cut)
+    RA_list = candidates_cut['_RAJ2000']
+    Dec_list = candidates_cut['_DEJ2000']
+    filter_list = ['Clear'] * len(candidates_cut)
+    Tstart_list = [Tstart.fits] * len(candidates_cut)
+    Tend_list = [Tend.fits] * len(candidates_cut)
+    Mag_list = candidates_cut['mag_inst']+20
+    Mag_err_list = candidates_cut['mag_inst_err']
+    Magsys_list = ['Instrumental'] * len(candidates_cut)
+    Airmass_list = [Airmass] * len(candidates_cut)
+
+    candidates_2DB = Table([alias,new,tile_id_list,RA_list,Dec_list,filter_list,Tstart_list,Tend_list,Mag_list,Mag_err_list,Magsys_list,Airmass_list,Fits_path], names=['alias','new','tile_id','RA','DEC','filter','Tstart','Tend','Magnitude','Magnitude_error','Magsys','Airmass','fits_name'])
+
+    
+    # Set url to report tile or galaxy observations
+    url = "https://grandma-fa-interface.lal.in2p3.fr/obs_report_OT.php"
+    #url = "http://localhost/test2/obs_report_OT.php"
+
+    # Loop over the observations
+    for i in range(len(candidates_2DB)):
+        data2DB={}
+        for col in candidates_2DB.colnames:
+            data2DB[col] = candidates_2DB[col][i]
+
+        # Add obsplan info to data dictionary
+        for key, value in dict_event.items():
+            data2DB[key] = value
+
+        # Add username and password to data dictionary
+        for key, value in usrpwd.items():
+            data2DB[key] = value
+
+        # Add compulsory keys
+        data2DB["method"] = "POST"
+        data2DB["submit"] = "ok"
+
+        response = requests.post(url, data=data2DB)
+
+        print ('\nDEBUG:\n')
+        print ('Data sent to DB:')
+        print (data2DB)
+        print ('\n\n')
+        print ('Request response text:')
+        print (response.text)
+        print ('\n\n')
+        print ('Request response status code:')
+        print (response.status_code)
+        print ('\n\n')
+        print ('Request response history:')
+        print (response.history)
+
+
 if __name__ == "__main__":
 
 
@@ -302,6 +430,32 @@ if __name__ == "__main__":
                         type=str,
                         help='Soft to use for detecting sources')
 
+
+    parser.add_argument('--telescope',
+                        dest='telescope',
+                        choices=['TRE','TCA','TCH','OAJ','Lisniky-AZT8','UBAI-T60S','UBAI-T60N'],
+                        required=True,
+                        type=str,
+                        help='Alias for the telescopes')
+
+    parser.add_argument('--owncloud_path',
+                        dest='owncloud_path',
+                        required=True,
+                        type=str,
+                        help='Local path to the owncloud')
+
+    parser.add_argument('--VOE_path',
+                        dest='VOE_path',
+                        required=True,
+                        type=str,
+                        help='Path + filename of the VoEvent containing the observation plan')
+
+    parser.add_argument('--usrpwd_path',
+                        dest='usrpwd_path',
+                        required=True,
+                        type=str,
+                        help='Path + filename of the json file containing authentification information for https://grandma-fa-interface.lal.in2p3.fr')
+
     args = parser.parse_args()
 
 
@@ -312,13 +466,14 @@ if __name__ == "__main__":
         get_photometry(args.filename, args.FWHM, args.threshold)
         select_good_stars(args.filename, args.mag_err_cut)
     elif args.soft == 'sextractor':
-        sextractor(args.filename, args.FWHM, args.threshold)
+        sextractor(args.filename, args.FWHM, args.threshold, args.telescope)
 
     convert_xy_radec(args.filename,soft=args.soft)
     print ('Crossmatch with catalogs')
     candidates = crosscheck_with_catalogues(args.filename,args.radius_crossmatch)
     #check_moving_objects(args.filename, candidates)
 
+    create_subimages(args.filename, candidates, args.owncloud_path, args.VOE_path, args.usrpwd_path)
 
 
 

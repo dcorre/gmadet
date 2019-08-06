@@ -37,6 +37,7 @@ def xmatch(coordinates, catalog, radius):
     USNO B1: I/284/out
     USNO A2: I/252/out
     GLADE 2: VII/281/glade2
+    Panstarrs DR1: II/349/ps1
     """
     
     matched_stars = XMatch.query(coordinates,
