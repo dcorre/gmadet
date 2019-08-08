@@ -105,4 +105,4 @@ ENV/
 *.swp
 
 # Ignore the file containing email and password to login to grandma website
-gmadet/utilsDNB/usrpwd.json
+gmadet/utilsDB/usrpwd.json
