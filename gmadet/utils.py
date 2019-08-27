@@ -108,7 +108,7 @@ def make_sub_image(filename, OT_coords, coords_type='world',
        plt.savefig(output_name)
 
 
-def send_data2DB(filename, candidates, owncloud_path, VOE_path, usrpwd_path, FoV=60, coords_type='pix', corner_cut=32,debug=False,fmt='png'):
+def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_path, FoV=60, coords_type='pix', corner_cut=32,debug=False,fmt='png'):
     """Send candidates information to database"""
 
     # Load data and header
@@ -116,16 +116,32 @@ def send_data2DB(filename, candidates, owncloud_path, VOE_path, usrpwd_path, FoV
     dateObs = header['DATE-OBS']
     Tstart = Time(dateObs, format='fits', scale='utc')
     Tend = Tstart + TimeDelta(float(header['EXPOSURE']), format='sec')
-    Airmass = header['AIRMASS']
-
+    
+    # Try to get airmass rom header, else set it to -1
+    try:
+        Airmass = header['AIRMASS']
+    except:
+        Airmass = -1
+    
     # Do not consider candidates found in the image edge
     imsize = data.shape
+    print (imsize, header['NAXIS1'], header['NAXIS2'])
+    # Get the physical pixels of the original size if image were split into different quadrants.
+    for i, candidate in enumerate(candidates):
+        quadrant_idx = candidate['quadrant']
+        quadrant, index_i, index_j = quadrant_idx.split('_')
+        quadrant = quadrant[1:]
+        
+        candidates['Xpos'][i] = candidate['Xpos'] + int(imsize[0]/Nb_cuts[0]) * int(index_j)
+        candidates['Ypos'][i] = candidate['Ypos'] + int(imsize[1]/Nb_cuts[1]) * int(index_i)
+    print (candidates)
+    candidates.write('test_all.oc', format='ascii.commented_header', overwrite=True)
     mask = (candidates['Xpos'] > corner_cut) & \
             (candidates['Ypos'] > corner_cut) & \
             (candidates['Xpos'] < imsize[1] - corner_cut) & \
             (candidates['Ypos'] < imsize[0] - corner_cut)
     candidates_cut = candidates[mask]
-
+    print (candidates_cut)
     # Get information about the current alert from the xml file containing observation plan
     with open(VOE_path,'rb') as f:
         obsplan = vp.load(f)
@@ -148,11 +164,11 @@ def send_data2DB(filename, candidates, owncloud_path, VOE_path, usrpwd_path, FoV
             '_' + dict_event['revision'] + '/OTs/'
 
     # Create a sub image centered on each candidate found, and gather information
-    tile_id_list = [1] * len(candidates_cut)
-    filter_list = ['Clear'] * len(candidates_cut)
-    Tstart_list = [Tstart.fits] * len(candidates_cut)
-    Tend_list = [Tend.fits] * len(candidates_cut)
-    Airmass_list = [Airmass] * len(candidates_cut)
+    #tile_id_list = [1] * len(candidates_cut)
+    #filter_list = candidates_cut['filter_DB']
+    #Tstart_list = [Tstart.fits] * len(candidates_cut)
+    #Tend_list = [Tend.fits] * len(candidates_cut)
+    #Airmass_list = [Airmass] * len(candidates_cut)
     Fits_path = []
     for i, row in enumerate(candidates_cut):
         name = dict_event['telescope'] + '_' + \
@@ -170,23 +186,23 @@ def send_data2DB(filename, candidates, owncloud_path, VOE_path, usrpwd_path, FoV
 
     alias = ['new'] * len(candidates_cut)
     new = [1] * len(candidates_cut)
-    tile_id_list = [2] * len(candidates_cut)
+    tile_id_list = [3] * len(candidates_cut)
     RA_list = candidates_cut['_RAJ2000']
     Dec_list = candidates_cut['_DEJ2000']
-    filter_list = ['Clear'] * len(candidates_cut)
+    filter_list = candidates_cut['filter_DB']
     Tstart_list = [Tstart.fits] * len(candidates_cut)
     Tend_list = [Tend.fits] * len(candidates_cut)
-    Mag_list = candidates_cut['mag_inst']+20
-    Mag_err_list = candidates_cut['mag_inst_err']
-    Magsys_list = ['Instrumental'] * len(candidates_cut)
+    Mag_list = candidates_cut['mag_calib']
+    Mag_err_list = candidates_cut['mag_calib_err']
+    Magsys_list = candidates_cut['magsys']
     Airmass_list = [Airmass] * len(candidates_cut)
 
     candidates_2DB = Table([alias,new,tile_id_list,RA_list,Dec_list,filter_list,Tstart_list,Tend_list,Mag_list,Mag_err_list,Magsys_list,Airmass_list,Fits_path], names=['alias','new','tile_id','RA','DEC','filter','Tstart','Tend','Magnitude','Magnitude_error','Magsys','Airmass','fits_name'])
 
     
     # Set url to report tile or galaxy observations
-    #url = "https://grandma-fa-interface.lal.in2p3.fr/obs_report_OT.php"
-    url = "http://localhost/test2/obs_report_OT.php"
+    url = "https://grandma-fa-interface.lal.in2p3.fr/obs_report_OT.php"
+    #url = "http://localhost/test2/obs_report_OT.php"
 
     # Loop over the observations
     for i in range(len(candidates_2DB)):
@@ -224,5 +240,37 @@ def send_data2DB(filename, candidates, owncloud_path, VOE_path, usrpwd_path, FoV
 
 
 
+
+def get_filter(filename, telescope):
+    """ Get the name of the filter band from header and telescope name
+        And associate the correct name from DB
+    """
+    
+    header = fits.getheader(filename)
+
+    band = header['FILTER']
+
+    if telescope == 'TRE':
+        if band in  ['C', 'Clear', 'NoFilter']:
+            band_DB = 'Clear'
+            band_cat = 'g+r'
+    elif telescope == 'Lisniky-AZT8':
+        if band in ['R']:
+            band_DB = 'R/Johnson'
+            band_cat = 'r'
+    elif telescope == 'UBAI-T60S':
+        if band in ['R']:
+            band_DB = 'R/Johnson'
+            band_cat = 'r'
+    elif telescope == 'UBAI-T60N':
+        if band in ['R']:
+            band_DB = 'R/Johnson'
+            band_cat = 'r'
+    # Need to add all the filters from telescopes
+
+
+    return band_DB, band_cat
+    
+       
 
 
