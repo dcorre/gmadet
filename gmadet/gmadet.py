@@ -9,9 +9,8 @@
 # Input arguments are filename without fits suffix, typical fwhm, sextracting threshold and maximal distance for catalogue crosschecking in degrees
 # 
 # Example:
-#   python gmadet.py --filename /folder/image.fits --FWHM 1.5 --threshold 4 --radius_crossmatch 3 --soft iraf
-#   python gmadet.py --filename /folder/image.fits --FWHM 3.5 --threshold 4 --radius_crossmatch 3 --soft sextractor
-# #   python gmadet.py --filename /folder/image.fits --FWHM 4 --threshold 10 --radius_crossmatch 3 --soft sextractor
+#   python gmadet.py --filename /folder/image.fits --FWHM 1.5 --threshold 4 --radius_crossmatch 3 --soft iraf --telescope TRE --owncloud_path /home/corre/ownCloud --VOE_path /home/corre/ownCloud/GW/Test_Reporting_Obs/Initial_0/Obs_request/GRANDMA20190505_GWTest_Reporting_Obs_ShAO-T60_a.xml --quadrants 4 --doAstrometry True
+#   python gmadet.py --filename /folder/image.fits --FWHM 3.5 --threshold 4 --radius_crossmatch 3 --soft sextractor --telescope TRE --owncloud_path /home/corre/ownCloud --VOE_path /home/corre/ownCloud/GW/Test_Reporting_Obs/Initial_0/Obs_request/GRANDMA20190505_GWTest_Reporting_Obs_ShAO-T60_a.xml --quadrants 1 --doAstrometry False
 
 import sys, subprocess, glob, math, shutil, os
 import argparse
@@ -261,12 +260,13 @@ def convert_xy_radec(filelist, soft='sextractor'):
             sources = ascii.read(folder + 'sourcesdet_%s.cat' % (filename2.split('.fits')[0]), format='sextractor')
             header = fits.getheader(filename)
             w = wcs.WCS(header)
-            ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 0)
+            ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 1)
             filenames = [filename] * len(ra)
             data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_isnt', 'Magerr_inst', 'filenames'])
 
         data.write(magfilewcs, format='ascii.commented_header', overwrite=True)
-
+        data4=data['RA', 'DEC']
+        data4.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
 
 
 def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
@@ -513,7 +513,7 @@ if __name__ == "__main__":
     #total_candidates = ascii.read('total_candidates.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant'])
     total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=False)
     #total_candidates_calib = ascii.read('tot_cand2.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant', 'mag_calib', 'mag_calib_err', 'magsys', 'filter_cat', 'filter_DB'])
-    #send_data2DB(args.filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
+    send_data2DB(args.filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
 
 
 
