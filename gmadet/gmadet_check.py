@@ -302,7 +302,8 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out'], Nb_c
             idx = 3
         elif len(split_file[0]) == 3:
             idx = 4
-        transients_out_list.append(folder + filename2[idx:] + ".oc")
+        #transients_out_list.append(folder + filename2[idx:] + ".oc")
+        transients = folder + filename2 + ".oc"
 
         header = fits.getheader(filename)
 
@@ -334,55 +335,56 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out'], Nb_c
         detected_sources['Xpos'] = detected_sources['Xpos'] + Naxis22 * int(index_j)
         detected_sources['Ypos'] = detected_sources['Ypos'] + Naxis11 * int(index_i)
 
-        if i == 0:
-            detected_sources_tot = deepcopy(detected_sources)
-        else:
-            detected_sources_tot = vstack([detected_sources_tot, detected_sources])
-    # Add units
-    detected_sources_tot['_RAJ2000'] *= u.deg
-    detected_sources_tot['_DEJ2000'] *= u.deg
-    # Add index for each source
-    detected_sources_tot['idx'] = np.arange(len(detected_sources_tot))
+        #if i == 0:
+        #    detected_sources_tot = deepcopy(detected_sources)
+        #else:
+        #    detected_sources_tot = vstack([detected_sources_tot, detected_sources])
     
-    # Initialise candidates with all detected sources
-    candidates = deepcopy(detected_sources_tot)
-    candidates.write('test0.dat', format='ascii.commented_header', overwrite=True)
-    print ('\nCrossmatching sources with catalogs.')
-    print ('Radius used for crossmatching with catalogs: %.2f arcseconds\n' % (radius*pixScale*3600))
-    for catalog in catalogs:
-        #print (catalog)
-        # Use Xmatch to crossmatch with catalog
-        crossmatch = xmatch(candidates, catalog, radius*pixScale*3600)
+        # Add units
+        detected_sources['_RAJ2000'] *= u.deg
+        detected_sources['_DEJ2000'] *= u.deg
+        # Add index for each source
+        detected_sources['idx'] = np.arange(len(detected_sources))
+    
+        # Initialise candidates with all detected sources
+        candidates = deepcopy(detected_sources)
+        candidates.write('test0.dat', format='ascii.commented_header', overwrite=True)
+        print ('\nCrossmatching sources with catalogs.')
+        print ('Radius used for crossmatching with catalogs: %.2f arcseconds\n' % (radius*pixScale*3600))
+        for catalog in catalogs:
+            #print (catalog)
+            # Use Xmatch to crossmatch with catalog
+            crossmatch = xmatch(candidates, catalog, radius*pixScale*3600)
 
-        crossmatch.write('test.dat', format='ascii.commented_header', overwrite=True)
-        # Initialise flag array. 0: unknown sources / 1: known sources
-        flag = np.zeros(len(candidates))
-        # Do not consider duplicates
-        referenced_star_idx = np.unique(crossmatch['idx'])
-        print (referenced_star_idx)
-        print (candidates)
-        #print (np.max(referenced_star_idx))
-        #ref_idx = 
-        # Set flag indexes to 1 for detected sources associated to a star
-        flag[np.array(referenced_star_idx)] = 1
-        print (len(candidates)) 
-        print (flag)
-        # Table for candidates
+            crossmatch.write('test.dat', format='ascii.commented_header', overwrite=True)
+            # Initialise flag array. 0: unknown sources / 1: known sources
+            flag = np.zeros(len(candidates))
+            # Do not consider duplicates
+            referenced_star_idx = np.unique(crossmatch['idx'])
+            print (referenced_star_idx)
+            print (candidates)
+            #print (np.max(referenced_star_idx))
+            #ref_idx = 
+            # Set flag indexes to 1 for detected sources associated to a star
+            flag[np.array(referenced_star_idx)] = 1
+            print (len(candidates)) 
+            print (flag)
+            # Table for candidates
          
-        candidates = candidates[flag == 0]
-        print (len(candidates))
-        # Update indexes
-        candidates['idx'] = np.arange(len(candidates))
-        print ('%d/%d candidates left after crossmatching with %s' % (len(candidates),len(detected_sources), cat_dict[catalog]))
-        if (len(candidates) == 0):
-            break
+            candidates = candidates[flag == 0]
+            print (len(candidates))
+            # Update indexes
+            candidates['idx'] = np.arange(len(candidates))
+            print ('%d/%d candidates left after crossmatching with %s' % (len(candidates),len(detected_sources), cat_dict[catalog]))
+            if (len(candidates) == 0):
+                break
         
-    transients = np.unique(transients_out_list)[0]
-    # Write candidates file
-    candidates.write(transients, format='ascii.commented_header', overwrite=True)
-    """
-        # If some candidates found in one quadrant, add them to the total 
-        if len(candidates) > 0:
+        #transients = np.unique(transients_out_list)[0]
+        # Write candidates file
+        candidates.write(transients, format='ascii.commented_header', overwrite=True)
+        """
+            # If some candidates found in one quadrant, add them to the total 
+            if len(candidates) > 0:
             counter += 1
             candidates2 = candidates
             quadrantcol = Column(np.array([image_table['quadrant'][i]]*len(candidates)), name='quadrant')
