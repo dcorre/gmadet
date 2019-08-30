@@ -332,7 +332,9 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out'], Nb_c
         quad, index_i, index_j = image_table['quadrant'][i].split('_')
         quad = quad[1:]
         detected_sources['Xpos'] = detected_sources['Xpos'] + Naxis22 * int(index_j)
+        detected_sources['Xpos_quad'] = detected_sources['Xpos'] 
         detected_sources['Ypos'] = detected_sources['Ypos'] + Naxis11 * int(index_i)
+        detected_sources['Ypos_quad'] = detected_sources['Ypos'] 
 
         if i == 0:
             detected_sources_tot = deepcopy(detected_sources)
@@ -522,8 +524,8 @@ if __name__ == "__main__":
     #check_moving_objects(args.filename, total_candidates)
    
     #total_candidates = ascii.read('total_candidates.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant'])
-    #total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=False)
-    #total_candidates_calib = ascii.read('tot_cand2.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant', 'mag_calib', 'mag_calib_err', 'magsys', 'filter_cat', 'filter_DB'])
+    total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
+    total_candidates_calib = ascii.read('tot_cand2.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant', 'mag_calib', 'mag_calib_err', 'magsys', 'filter_cat', 'filter_DB'])
     #send_data2DB(args.filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
 
 
