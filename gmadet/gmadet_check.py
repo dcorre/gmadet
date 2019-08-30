@@ -332,8 +332,8 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out'], Nb_c
         Naxis22 = int(Naxis2/Nb_cuts[1])
         quad, index_i, index_j = image_table['quadrant'][i].split('_')
         quad = quad[1:]
-        detected_sources['Xpos'] = detected_sources['Xpos'] + Naxis22 * int(index_j)
-        detected_sources['Ypos'] = detected_sources['Ypos'] + Naxis11 * int(index_i)
+        detected_sources['Xpos'] = detected_sources['Xpos'] #+ Naxis22 * int(index_j)
+        detected_sources['Ypos'] = detected_sources['Ypos'] #+ Naxis11 * int(index_i)
 
         #if i == 0:
         #    detected_sources_tot = deepcopy(detected_sources)
