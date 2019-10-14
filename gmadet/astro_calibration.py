@@ -103,7 +103,7 @@ def perform_astrometry(filename, radius=4, scaleLow=3.5, scaleHigh=4, scaleUnits
 
     erase_astrometry_header(filename)
 
-    subprocess.call(['solve-field', filename, '--ra', ra, '--dec', dec, '--radius', str(radius), '--scale-units', str(scaleUnits), '--scale-low', str(scaleLow), '--scale-high', str(scaleHigh), '--no-plots','--overwrite'])
+    subprocess.call(['solve-field', filename, '--ra', ra, '--dec', dec, '--radius', str(radius), '--scale-units', str(scaleUnits), '--scale-low', str(scaleLow), '--scale-high', str(scaleHigh), '--crpix-center', '--tweak-order','5','--uniformize','0', '--no-plots','--overwrite'])
     clean_astrometry_temp_files(filename)
     
 
