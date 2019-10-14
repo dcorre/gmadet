@@ -45,8 +45,9 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
 
 
         # Get filter
-        band_DB, band_cat = get_filter(key[0], telescope)
-
+        #band_DB, band_cat = get_filter(key[0], telescope)
+        band_DB = 'Clear'
+        band_cat = 'g+r'
 
         detected_sources = ascii.read(key[0]+'.magwcs', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
         # Add units
