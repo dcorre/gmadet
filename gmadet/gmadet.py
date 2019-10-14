@@ -118,8 +118,8 @@ def sextractor(filelist, fwhmpsf, thresh, telescope):
             folder = path + '/'
         else:
             folder = ''
-        print (filename2)
-        print (filename2.split('.fits')[0])
+        #print (filename2)
+        #print (filename2.split('.fits')[0])
         subprocess.call(['sex', '-c', 'config/%s/sourcesdet.sex' % telescope, filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(thresh), '-PARAMETERS_NAME', 'config/%s/sourcesdet.param' % telescope, '-CATALOG_NAME', folder + 'sourcesdet_%s.cat' % (filename2.split('.fits')[0])])
 
 
@@ -269,8 +269,8 @@ def convert_xy_radec(filelist, soft='sextractor'):
         data4.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
 
 
-#def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
-def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out'], Nb_cuts=(1,1)):
+def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
+#def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out'], Nb_cuts=(1,1)):
     """
     Performs crosscheck with USNO B1.0 catalogue with *.magwcs
     filename is WITHOUT suffix .fits and maximal allowed difference radius is in arcseconds
@@ -361,18 +361,18 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out'], Nb_c
         flag = np.zeros(len(candidates))
         # Do not consider duplicates
         referenced_star_idx = np.unique(crossmatch['idx'])
-        print (referenced_star_idx)
-        print (candidates)
+        #print (referenced_star_idx)
+        #print (candidates)
         #print (np.max(referenced_star_idx))
         #ref_idx = 
         # Set flag indexes to 1 for detected sources associated to a star
         flag[np.array(referenced_star_idx)] = 1
-        print (len(candidates)) 
-        print (flag)
+        #print (len(candidates)) 
+        #print (flag)
         # Table for candidates
          
         candidates = candidates[flag == 0]
-        print (len(candidates))
+        #print (len(candidates))
         # Update indexes
         candidates['idx'] = np.arange(len(candidates))
         print ('%d/%d candidates left after crossmatching with %s' % (len(candidates),len(detected_sources), cat_dict[catalog]))
@@ -524,8 +524,8 @@ if __name__ == "__main__":
     #check_moving_objects(args.filename, total_candidates)
    
     #total_candidates = ascii.read('total_candidates.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant'])
-    total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
-    total_candidates_calib = ascii.read('tot_cand2.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant', 'mag_calib', 'mag_calib_err', 'magsys', 'filter_cat', 'filter_DB'])
+    #total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
+    #total_candidates_calib = ascii.read('tot_cand2.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant', 'mag_calib', 'mag_calib_err', 'magsys', 'filter_cat', 'filter_DB'])
     #send_data2DB(args.filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
 
 
