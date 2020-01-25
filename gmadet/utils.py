@@ -3,6 +3,7 @@
 # Author: David Corre
 # email: corre@lal.in2p3.fr
 
+import errno, glob, os, shutil, subprocess, sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii, fits
@@ -19,6 +20,135 @@ from astropy.visualization import (MinMaxInterval, SqrtStretch, LogStretch,SinhS
 import voeventparse as vp
 import json
 import requests
+from copy import deepcopy
+
+def cp_p(src, dest):
+  try:
+    shutil.copy(src, dest)
+  except:
+    pass
+
+def mv_p(src, dest):
+  try:
+    shutil.move(src, dest)
+  except:
+    pass
+
+def mkdir_p(path):
+  try:
+    os.makedirs(path)
+  except OSError as exc:  # Python >2.5
+    if exc.errno == errno.EEXIST and os.path.isdir(path):
+      pass
+    else:
+      raise
+
+def load_config(telescope):
+    """Load the path to the configuration files required by the softs.
+       They are telescope dependent.
+    """
+
+    path2tel = 'config/' + telescope + '/'
+    config = {
+            'sextractor': {
+                'conf': path2tel+'sourcesdet.sex',
+                'param': path2tel+'sourcesdet.param',
+                'default_conv': path2tel+'default.conv'
+                },
+            'scamp': {
+                'sextractor': path2tel+'prepscamp.sex',
+                'param': path2tel+'prepscamp.param',
+                'conf': path2tel+'scamp.conf',
+                },
+            'swarp': {
+
+                },
+            'psfex': {
+
+                }
+            }
+
+    return config
+
+
+def clean_folder(filelist):
+    """ Remove output files from previous iraf run. No need for sextractor  """
+
+    types = ('*coo.*', '*mag.*', '*.magwcs', '*.magfiltered*')
+    files2delete = []
+    for filename in  filelist:
+        path = os.path.split(filename)
+        if path[0]:
+            folder = path[0] + '/'
+        else:
+            folder = ''
+
+        for f in types:
+            files2delete.extend(glob.glob(folder+f))
+            files2delete.extend(glob.glob(f))
+
+    files2delete = np.unique(files2delete)
+    for f in files2delete:
+        os.remove(f)
+
+
+def cut_image(filename, resultDir, Nb_cuts=(2,2)):
+
+    path, filename_ext = os.path.split(filename)
+    if path:
+        folder = path + '/'
+    else:
+        folder = ''
+
+    filename2 = filename_ext.split('.')[0]
+    extension = ''
+    for ext in filename_ext.split('.')[1:]:
+        extension = extension + '.' + ext
+
+    if Nb_cuts == (1,1):
+        filename_out = resultDir + filename2 + extension
+        cp_p(filename,filename_out)
+    else:
+        filename_out = resultDir + filename2 + extension
+        cp_p(filename,filename_out)
+
+        data, header = fits.getdata(filename, header=True)
+        Naxis1 = header['NAXIS1']
+        Naxis2 = header['NAXIS2']
+        Naxis11 = int(Naxis1/Nb_cuts[0])
+        Naxis22 = int(Naxis2/Nb_cuts[1])
+
+        index=0
+        for i in range(Nb_cuts[0]):
+            for j in range(Nb_cuts[1]):
+                index+=1
+                if i == 0 :
+                    x1 = 1
+                else:
+                    x1 = Naxis11 * i + 1
+                if j == 0 :
+                    y1 = 1
+                else:
+                    y1 = Naxis22 * j + 1
+                x2 = Naxis11 * (i+1)
+                y2 = Naxis22 * (j+1)
+
+                filename_out = resultDir + filename2 + "_Q%d" % (index) + extension
+ 
+                # No need to update the header if astrometric calibration is performed with scamp
+                # this will be updated later
+                #datacut = data[x1-1:x2-1,y1-1:y2-1]
+                datacut = data[y1-1:y2-1,x1-1:x2-1]
+                newheader = deepcopy(header)
+                crpix1 = int((y2-y1)/2)
+                crpix2 = int((x2-x1)/2)
+                newheader['CRPIX1'] = crpix1
+                newheader['CRPIX2'] = crpix2
+                w = wcs.WCS(header)
+                ra, dec = w.wcs_pix2world(crpix1+Naxis11*i, crpix2+Naxis22*j, 1)
+                newheader['CRVAL1'] = str(ra)
+                newheader['CRVAL2'] = str(dec)
+                fits.writeto(filename_out, datacut, newheader,overwrite=True)
 
 
 def make_sub_image(filename, OT_coords, coords_type='world',

@@ -2,15 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Python-Pyraf module for GRANDMA detection of Optical candidates
-# Authors: Martin Blazek, Granada, Spain, alf@iaa.es
-#          David Corre, Orsay, France, corre@lal.in2p3.fr
-# v1.1, last modified 2019 June
-# Good luck everyone with pyraf installation
-# Input arguments are filename without fits suffix, typical fwhm, sextracting threshold and maximal distance for catalogue crosschecking in degrees
+# Authors: David Corre, Orsay, France, corre@lal.in2p3.fr
+#          Martin Blazek, Granada, Spain, alf@iaa.es
+#
+# Input arguments are filename, typical fwhm, sextracting threshold and maximal distance for catalogue crosschecking in degrees
 # 
 # Example:
-#   python gmadet.py --filename /folder/image.fits --FWHM 1.5 --threshold 4 --radius_crossmatch 3 --soft iraf --telescope TRE --owncloud_path /home/corre/ownCloud --VOE_path /home/corre/ownCloud/GW/Test_Reporting_Obs/Initial_0/Obs_request/GRANDMA20190505_GWTest_Reporting_Obs_ShAO-T60_a.xml --quadrants 4 --doAstrometry True
-#   python gmadet.py --filename /folder/image.fits --FWHM 3.5 --threshold 4 --radius_crossmatch 3 --soft sextractor --telescope TRE --owncloud_path /home/corre/ownCloud --VOE_path /home/corre/ownCloud/GW/Test_Reporting_Obs/Initial_0/Obs_request/GRANDMA20190505_GWTest_Reporting_Obs_ShAO-T60_a.xml --quadrants 1 --doAstrometry False
+#   python gmadet.py --filename /folder/image.fits --FWHM 3.5 --threshold 4 --radius_crossmatch 3 --soft iraf --telescope TRE 
 
 import sys, subprocess, glob, math, shutil, os
 import argparse
@@ -18,8 +16,8 @@ import warnings
 
 from catalogues import *
 from phot_calibration import phot_calib
-from utils import send_data2DB
-from astromatic import psfex, scamp
+from utils import load_config, clean_folder, send_data2DB, mv_p, mkdir_p
+from astrometry import astrometrynet, scamp
 
 from astropy.io import ascii, fits
 from astropy.table import vstack, Table, Column
@@ -32,95 +30,134 @@ from copy import deepcopy
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-def clean_folder(filelist):
-    """ Remove output files from previous iraf run. No need for sextractor  """
 
-    types = ('*coo.*', '*mag.*', '*.magwcs', '*.magfiltered*')
-    files2delete = []
-    for filename in  filelist:
-        path = os.path.split(filename)
-        if path[0]:
-            folder = path[0] + '/'
-        else:
-            folder = ''
-
-        for f in types:
-            files2delete.extend(glob.glob(folder+f))
-            files2delete.extend(glob.glob(f))
-
-    files2delete = np.unique(files2delete)
-    for f in files2delete:
-        os.remove(f)
-
-def astrometric_calib(filename, Nb_cuts=(2,2), perform=False):
+def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='gmadet_results/', accuracy=0.6, itermax=3, verbose='NORMAL'):
     """perform astrometric calibration"""
-    from astro_calibration import cut_image, perform_astrometry
+    from astrometry import astrometrynet, scamp
+    from utils import cut_image 
 
-    path, filename2 = os.path.split(filename)
+    if soft in ['scamp', 'astrometrynet']:
+        doAstrometry = True
+    else:
+        doAstrometry = False
+
+    path, filename_ext = os.path.split(filename)
+
+    # Get rid of the extension to keep only the name
+    filename2 = filename_ext.split('.')[0]
+    extension = ''
+    for ext in filename_ext.split('.')[1:]:
+        extension = extension + '.' + ext
+
     if path:
         folder = path + '/'
     else:
         folder = ''
-    cut_image(filename, Nb_cuts = Nb_cuts)
+
+    resultDir = folder+outputDir
+    # Create results folder
+    mkdir_p(resultDir)
+
+    # Cut the image in the required number of quadrants
+    cut_image(filename, resultDir, Nb_cuts = Nb_cuts)
 
     filelist = []
     quadrant = []
     
-    if perform:
-        header = fits.getheader(filename)
-        # Get pixel scale in degrees
-        try:
-            pixScale = abs(header['CDELT1'])
-        except Exception:
+    if doAstrometry:
+        # Use scamp for astrometric calibration
+        if soft == 'scamp':
+
+            if Nb_cuts[0] > 1 or Nb_cuts[1] > 1:
+                index = 0
+                for i in range(Nb_cuts[0]):
+                    for j in range(Nb_cuts[1]):
+                        index+=1
+                        filein = resultDir + filename2 + "_Q%d" % (index) + extension
+                        filelist.append(filein)
+                        ii=0
+                        doffset = 10
+                        while (doffset >= accuracy) and (ii <= itermax):
+                            ii+=1
+                            doffset = scamp(filein, config, verbose=verbose)
+                            print ('Astrometric precision run %d: %.2f arcseconds' % (ii, doffset))
+
+                        quadrant.append('Q%d_%d_%d' % (index,i,j))
+            else:
+                filelist.append(resultDir + filename2 + extension)
+                ii=0
+                doffset = 10
+                while (doffset >= accuracy) and (ii <= itermax):
+                    ii+=1
+                    doffset = scamp(resultDir + filename2 + extension, config, verbose=verbose)
+                    print ('Astrometric precision run %d: %.2f arcseconds' % (ii, doffset))
+
+                quadrant.append('None')
+
+        # Use astrometry.net for astrometric calibration
+        elif soft == 'astrometrynet':
+
+            # Get pixel scale in degrees
+            header = fits.getheader(filename)
             try:
-                pixScale = abs(header['_DELT1'])
+                pixScale = abs(header['CDELT1'])
             except Exception:
                 try:
-                    pixScale = abs(header['CD1_1'])
+                     pixScale = abs(header['_DELT1'])
                 except Exception:
-                    print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
-
-        scaleLow = 0.7 * pixScale * 3600
-        scaleHigh = 1.3 * pixScale * 3600
-        radius = max(header['NAXIS1']*pixScale, header['NAXIS2']*pixScale)
-        if Nb_cuts[0] > 1 or Nb_cuts[1] > 1:
-            index = 0
-            for i in range(Nb_cuts[0]):
-                for j in range(Nb_cuts[1]):
-                    index+=1
-                    filein = folder + "D%d_" % (index) + filename2
-                    filelist.append(filein)
-                    perform_astrometry(filein,radius=radius,scaleLow=scaleLow,scaleHigh=scaleHigh)
-                    quadrant.append('Q%d_%d_%d' % (index,i,j))
-        else:
-            filelist.append(folder + "D1_" + filename2)
-            perform_astrometry(folder + "D1_" + filename2,radius=radius,scaleLow=scaleLow,scaleHigh=scaleHigh)
-            quadrant.append('Q1_0_0')
+                    try:
+                        pixScale = abs(header['CD1_1'])
+                    except Exception:
+                        print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
+            # Set up boundaries for plate scale for astrometry.net
+            scaleLow = 0.7 * pixScale * 3600
+            scaleHigh = 1.3 * pixScale * 3600
+            radius = max(header['NAXIS1']*pixScale, header['NAXIS2']*pixScale)
+            if Nb_cuts[0] > 1 or Nb_cuts[1] > 1:
+                index = 0
+                for i in range(Nb_cuts[0]):
+                    for j in range(Nb_cuts[1]):
+                        index+=1
+                        filein = resultDir + filename2 + "_Q%d" % (index) + extension
+                        filelist.append(filein)
+                        asrometrynet(filein,radius=radius,scaleLow=scaleLow,scaleHigh=scaleHigh)
+                        quadrant.append('Q%d_%d_%d' % (index,i,j))
+            else:
+                filelist.append(resultDir + filename2 + extension)
+                astrometrynet(resultDir + filename2 + extension,radius=radius,scaleLow=scaleLow,scaleHigh=scaleHigh)
+                quadrant.append('None')
     else:
-        filelist.append(folder + "D1_" + filename2)
-        quadrant.append('Q1_0_0')
+        filelist.append(resultDir + filename2 + extension)
+        quadrant.append('None')
 
     image_table = Table([filelist, quadrant], names=['filenames', 'quadrant']) 
     return image_table
 
-def psfex(filename, telescope):
-    """Run psfex to estimate PSF FWHM"""
 
-    subprocess.call(['sex', '-c', 'config/%s/sourcesdet.sex' % telescope, filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(thresh), '-PARAMETERS_NAME', 'config/%s/sourcesdet.param' % telescope])
-
-
-def sextractor(filelist, fwhmpsf, thresh, telescope):
+def sextractor(filelist, fwhmpsf, thresh, telescope, config, verbose='NORMAL'):
     """Run sextractor """
 
     for filename in filelist:
-        path, filename2 = os.path.split(filename)
+        print ('sex',filename)
+        path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
         else:
             folder = ''
-        #print (filename2)
-        #print (filename2.split('.fits')[0])
-        subprocess.call(['sex', '-c', 'config/%s/sourcesdet.sex' % telescope, filename, '-SEEING_FWHM', str(fwhmpsf), '-DETECT_THRESH', str(thresh), '-PARAMETERS_NAME', 'config/%s/sourcesdet.param' % telescope, '-CATALOG_NAME', folder + 'sourcesdet_%s.cat' % (filename2.split('.fits')[0])])
+
+        # Get rid of the extension to keep only the name
+        filename2 = filename_ext.split('.')[0]
+
+        subprocess.call(['sex', '-c', config['sextractor']['conf'], \
+                filename, \
+                '-SEEING_FWHM', str(fwhmpsf), \
+                '-DETECT_THRESH', str(thresh), \
+                '-PARAMETERS_NAME', config['sextractor']['param'], \
+                '-FILTER_NAME', config['sextractor']['default_conv'], \
+                '-CHECKIMAGE_TYPE', 'SEGMENTATION', \
+                '-CHECKIMAGE_NAME', folder + filename2 + '_segmentation.fits', \
+                '-VERBOSE_TYPE', verbose, \
+                '-CATALOG_NAME', folder + filename2 + '_SourcesDet.cat' ])
 
 
 
@@ -146,7 +183,7 @@ def get_photometry(filelist,fwhmpsf,thresh, mkiraf=True):
     magnitude_error_threshold = 0.5
 
     iraf.noao
-    iraf.digiphot
+    iraf.dNb_cuts = Nb_cutsigiphot
     iraf.daophot
 
     iraf.unlearn('phot')
@@ -174,12 +211,6 @@ def get_photometry(filelist,fwhmpsf,thresh, mkiraf=True):
         print("--- performing daophot photometry ---")
         iraf.daophot.phot(image=filename,coords="default", output="default", interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="no")
     
-
-
-def run_psfex(filename):
-    psfex(filename) 
-    psffilename = filename.split('.')[0] + '.psf.fits'
-
 
 def select_good_stars(filelist,limiting_mag_err):
 # Performs selection of stars without INDEF in magnitude or magnitude error and with the flag "NoError" inside *.mag.1 file
@@ -239,25 +270,28 @@ def convert_xy_radec(filelist, soft='sextractor'):
     Output is the *.magwcs file
     """
     for filename in filelist:
-        path, filename2 = os.path.split(filename)
+        path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
         else:
             folder = ''
 
-        magfilewcs = filename + ".magwcs"
+        # Get rid of the extension to keep only the name
+        filename2 = filename_ext.split('.')[0]
+
+        magfilewcs = folder+filename2 + ".magwcs"
 
         if soft == 'iraf':
             from pyraf import iraf
 
-            magfile = filename2 + ".magfiltered"
+            magfile = folder+filename2 + ".magfiltered"
             iraf.wcsctran(input=magfile, output=magfilewcs, image=filename, inwcs="physical", outwcs="world")
             data1 = ascii.read(magfile, names=['Xpos', 'Ypos', 'Mag_aper', 'Mag_err_aper' ])
             data2 = ascii.read(magfilewcs, names=['RA', 'DEC', 'Mag_aper', 'Mag_err_aper' ])
             data = Table([data1['Xpos'],data1['Ypos'], data2['RA'], data2['DEC'], data2['Mag_aper'], data2['Mag_err_aper'], [filename]*len(data1)], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'filenames'])
  
         elif soft == 'sextractor':
-            sources = ascii.read(folder + 'sourcesdet_%s.cat' % (filename2.split('.fits')[0]), format='sextractor')
+            sources = ascii.read(folder + filename2 + '_SourcesDet.cat', format='sextractor')
             header = fits.getheader(filename)
             w = wcs.WCS(header)
             ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 1)
@@ -265,8 +299,8 @@ def convert_xy_radec(filelist, soft='sextractor'):
             data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_isnt', 'Magerr_inst', 'filenames'])
 
         data.write(magfilewcs, format='ascii.commented_header', overwrite=True)
-        data4=data['RA', 'DEC']
-        data4.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
+        #data4=data['RA', 'DEC']
+        #data4.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
 
 
 def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
@@ -289,20 +323,31 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/34
     counter = 0
     transients_out_list = []
     for i, filename in enumerate(image_table['filenames']):
-        path, filename2 = os.path.split(filename)
+        path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
         else:
             folder = ''
 
-        magfilewcs = filename+".magwcs"
+        # Get rid of the extension to keep only the name
+        filename2 = filename_ext.split('.')[0]
+        extension = ''
+        for ext in filename_ext.split('.')[1:]:
+            extension = extension + '.' + ext
 
-        split_file = filename2.split('_')
-        if len(split_file[0]) == 2:
-            idx = 3
-        elif len(split_file[0]) == 3:
-            idx = 4
-        transients_out_list.append(folder + filename2[idx:] + ".oc")
+        magfilewcs = folder + filename2 + ".magwcs"
+
+        if Nb_cuts == (1,1):
+            original_name = folder + filename2
+        else:
+            split_file = filename2.split('_')
+            if len(split_file[-1]) == 2:
+                idx = 3
+            elif len(split_file[-1]) == 3:
+                idx = 4
+            original_name = folder + filename2[:-idx]
+
+        transients_out_list.append(original_name + ".oc")
 
         header = fits.getheader(filename)
 
@@ -319,18 +364,22 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/34
                     print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
 
         # Load detected sources in astropy table
-        #detected_sources = ascii.read(magfilewcs, names=['_RAJ2000','_DEJ2000', 'mag_int', 'mag_inst_err'])
         detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
         detected_sources['quadrant'] = [image_table['quadrant'][i]]*len(detected_sources)
 
         # Transform X_pos and Y_pos to original image in case it was split
-        header2 = fits.getheader(folder + filename2[idx:])
+        header2 = fits.getheader(original_name + extension)
         Naxis1 = float(header2['NAXIS1'])
         Naxis2 = float(header2['NAXIS2'])
         Naxis11 = int(Naxis1/Nb_cuts[0])
         Naxis22 = int(Naxis2/Nb_cuts[1])
-        quad, index_i, index_j = image_table['quadrant'][i].split('_')
-        quad = quad[1:]
+        if Nb_cuts == (1,1):
+            quad = None
+            index_i = 0
+            index_j = 0
+        else:
+            quad, index_i, index_j = image_table['quadrant'][i].split('_')
+            quad = quad[1:]
         detected_sources['Xpos'] = detected_sources['Xpos'] + Naxis22 * int(index_j)
         detected_sources['Xpos_quad'] = detected_sources['Xpos'] 
         detected_sources['Ypos'] = detected_sources['Ypos'] + Naxis11 * int(index_i)
@@ -352,9 +401,9 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/34
     print ('\nCrossmatching sources with catalogs.')
     print ('Radius used for crossmatching with catalogs: %.2f arcseconds\n' % (radius*pixScale*3600))
     for catalog in catalogs:
-        #print (catalog)
+        print (catalog, len(candidates))
         # Use Xmatch to crossmatch with catalog
-        crossmatch = xmatch(candidates, catalog, radius*pixScale*3600)
+        crossmatch = run_xmatch(candidates[:10], catalog, radius*pixScale*3600)
 
         crossmatch.write('test.dat', format='ascii.commented_header', overwrite=True)
         # Initialise flag array. 0: unknown sources / 1: known sources
@@ -382,21 +431,6 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/34
     transients = np.unique(transients_out_list)[0]
     # Write candidates file
     candidates.write(transients, format='ascii.commented_header', overwrite=True)
-    """
-        # If some candidates found in one quadrant, add them to the total 
-        if len(candidates) > 0:
-            counter += 1
-            candidates2 = candidates
-            quadrantcol = Column(np.array([image_table['quadrant'][i]]*len(candidates)), name='quadrant')
-            candidates2.add_column(quadrantcol)
-            if counter == 1:
-                total_candidates = deepcopy(candidates2)
-            elif counter > 1:
-                total_candidates = vstack([total_candidates, candidates2])
-
-    # Write all the candidates found in each subimage
-    total_candidates.write('total_candidates.dat', format='ascii.commented_header', overwrite=True)
-    """
     return candidates
 
 def check_moving_objects(filelist):
@@ -465,7 +499,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--soft',
                         dest='soft',
-                        required=True,
+                        required=False,
+                        choices=['sextractor', 'iraf'],
+                        default='sextractor',
                         type=str,
                         help='Soft to use for detecting sources')
 
@@ -487,37 +523,49 @@ if __name__ == "__main__":
                         dest='VOE_path',
                         required=False,
                         type=str,
-                        help='Path + filename of the VoEvent containing the observation plan')
+                        help='Path + filename of the VoEvent containing the observation plan.')
 
     parser.add_argument('--quadrants',
                         dest='quadrants',
-                        required=True,
+                        required=False,
+                        default=1,
                         type=int,
-                        help='Number of quadrants the image is divided')
+                        help='Number of quadrants the image is divided.')
 
     parser.add_argument('--doAstrometry',
                         dest='doAstrometry',
-                        required=True,
-                        choices=['True', 'False'],
+                        required=False,
+                        default='scamp',
+                        choices=['No', 'scamp', 'astrometrynet'],
                         type=str,
-                        help='Whether to perform astrometric calibration')
+                        help='Whether to perform astrometric calibration, with scamp or astrometry.net.')
+
+    parser.add_argument('--verbose',
+                        dest='verbose',
+                        required=False,
+                        default='NORMAL',
+                        choices=['QUIET', 'NORMAL', 'FULL', 'LOG'],
+                        type=str,
+                        help='Level of verbose, according to astromatic software')
+
+
+
+
     args = parser.parse_args()
- 
+
     Nb_cuts = (args.quadrants,args.quadrants)
     
-    if args.doAstrometry == 'True':
-        doAstrometry = True
-    elif args.doAstrometry:
-        doAstrometry = False
+    # Load config files for a given telescope
+    config = load_config(args.telescope)
 
-    image_table = astrometric_calib(args.filename, Nb_cuts=Nb_cuts,perform=doAstrometry)
-    #psfex(args.filename)
+    image_table = astrometric_calib(args.filename, config, Nb_cuts=Nb_cuts,soft=args.doAstrometry, verbose=args.verbose)
+
     if args.soft == 'iraf':
         clean_folder(image_table['filenames'])
         get_photometry(image_table['filenames'], args.FWHM, args.threshold)
         select_good_stars(image_table['filenames'], args.mag_err_cut)
     elif args.soft == 'sextractor':
-        sextractor(image_table['filenames'], args.FWHM, args.threshold, args.telescope)
+        sextractor(image_table['filenames'], args.FWHM, args.threshold, args.telescope,config,verbose=args.verbose)
 
     convert_xy_radec(image_table['filenames'],soft=args.soft)
     total_candidates = crosscheck_with_catalogues(image_table,args.radius_crossmatch, Nb_cuts=Nb_cuts)
@@ -526,7 +574,11 @@ if __name__ == "__main__":
     #total_candidates = ascii.read('total_candidates.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant'])
     #total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
     #total_candidates_calib = ascii.read('tot_cand2.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant', 'mag_calib', 'mag_calib_err', 'magsys', 'filter_cat', 'filter_DB'])
-    #send_data2DB(args.filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
+
+    # If both arguments VOE_path and owncloud_path are provided
+    # Send candidates to database
+    if args.VOE_path and args.owncloud_path:
+        send_data2DB(args.filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
 
 
 

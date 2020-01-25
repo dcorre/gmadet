@@ -16,12 +16,13 @@ from astroquery.vizier import Vizier
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
-from astroquery.xmatch import XMatch
+from astroquery import xmatch
 from astroquery.imcce import Skybot
 from astroML.crossmatch import crossmatch_angular
 
 
-def xmatch(coordinates, catalog, radius):
+
+def run_xmatch(coordinates, catalog, radius):
     """
     Perform cross-match with a catalog using the CDS XMatch 
     parameters: coordinates, catalog, radius:
@@ -39,8 +40,8 @@ def xmatch(coordinates, catalog, radius):
     GLADE 2: VII/281/glade2
     Panstarrs DR1: II/349/ps1
     """
-    
-    matched_stars = XMatch.query(coordinates,
+    xmatch.XMatch.TIMEOUT=3600    
+    matched_stars = xmatch.XMatch.query(coordinates,
                      cat2='vizier:%s' % catalog,
                      max_distance=radius * u.arcsec, colRA1='_RAJ2000',
                      colDec1='_DEJ2000')
