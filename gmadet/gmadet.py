@@ -535,8 +535,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--telescope',
                         dest='telescope',
-                        choices=['TRE','TCA','TCH','OAJ-T80','Lisniky-AZT8', \
-                                'UBAI-T60S','UBAI-T60N', 'FRAM-CTA-N', 'FRAM-Auger'],
+                        choices=['TRE','TCA','TCH','OAJ-T80','Lisniky-AZT8','UBAI-T60S','UBAI-T60N', 'FRAM-CTA-N', 'FRAM-Auger'],
                         required=True,
                         type=str,
                         help='Alias for the telescopes')

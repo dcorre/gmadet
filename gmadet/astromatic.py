@@ -6,7 +6,7 @@
 import errno, glob, os, shutil, subprocess, sys
 import numpy as np
 from astropy.io import fits
-from .utils import mv_p, mkdir_p
+from utils import mv_p, mkdir_p
 
 
 def psfex(filename, useweight=False):
