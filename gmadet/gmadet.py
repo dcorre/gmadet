@@ -325,7 +325,7 @@ def convert_xy_radec(filelist, soft='sextractor'):
 
 
 def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
-#def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out'], Nb_cuts=(1,1)):
+#def crosscheck_with_catalogues(image_table, radius, catalogs=['II/349/ps1'], Nb_cuts=(1,1)):
     """
     Performs crosscheck with USNO B1.0 catalogue with *.magwcs
     filename is WITHOUT suffix .fits and maximal allowed difference radius is in arcseconds
@@ -584,7 +584,7 @@ if __name__ == "__main__":
     
     # Load config files for a given telescope
     config = load_config(args.telescope)
-
+        
     image_table = astrometric_calib(args.filename, config, Nb_cuts=Nb_cuts,soft=args.doAstrometry, verbose=args.verbose)
 
     if args.soft == 'iraf':
@@ -598,9 +598,10 @@ if __name__ == "__main__":
     total_candidates = crosscheck_with_catalogues(image_table,args.radius_crossmatch, Nb_cuts=Nb_cuts)
     #check_moving_objects(args.filename, total_candidates)
    
-    #total_candidates = ascii.read('total_candidates.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant'])
-    #total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
-    #total_candidates_calib = ascii.read('tot_cand2.dat', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'idx' ,'quadrant', 'mag_calib', 'mag_calib_err', 'magsys', 'filter_cat', 'filter_DB'])
+    #total_candidates = ascii.read('total_candidates.dat')
+    total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
+    
+    #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
 
     # If both arguments VOE_path and owncloud_path are provided
     # Send candidates to database

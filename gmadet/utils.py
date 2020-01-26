@@ -243,6 +243,7 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
 
     # Load data and header
     data, header = fits.getdata(filename, header = True)
+
     dateObs = header['DATE-OBS']
     Tstart = Time(dateObs, format='fits', scale='utc')
     Tend = Tstart + TimeDelta(float(header['EXPOSURE']), format='sec')
@@ -255,23 +256,28 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
     
     # Do not consider candidates found in the image edge
     imsize = data.shape
-    print (imsize, header['NAXIS1'], header['NAXIS2'])
+    #print (imsize, header['NAXIS1'], header['NAXIS2'])
     # Get the physical pixels of the original size if image were split into different quadrants.
     for i, candidate in enumerate(candidates):
         quadrant_idx = candidate['quadrant']
-        quadrant, index_i, index_j = quadrant_idx.split('_')
-        quadrant = quadrant[1:]
+        if quadrant_idx == 'None':
+            quadrant = None
+            index_i = 0
+            index_j = 0
+        else:
+            quadrant, index_i, index_j = quadrant_idx.split('_')
+            quadrant = quadrant[1:]
         
         candidates['Xpos'][i] = candidate['Xpos'] + int(imsize[0]/Nb_cuts[0]) * int(index_j)
         candidates['Ypos'][i] = candidate['Ypos'] + int(imsize[1]/Nb_cuts[1]) * int(index_i)
-    print (candidates)
+    #print (candidates)
     candidates.write('test_all.oc', format='ascii.commented_header', overwrite=True)
     mask = (candidates['Xpos'] > corner_cut) & \
             (candidates['Ypos'] > corner_cut) & \
             (candidates['Xpos'] < imsize[1] - corner_cut) & \
             (candidates['Ypos'] < imsize[0] - corner_cut)
     candidates_cut = candidates[mask]
-    print (candidates_cut)
+    #print (candidates_cut)
     # Get information about the current alert from the xml file containing observation plan
     with open(VOE_path,'rb') as f:
         obsplan = vp.load(f)
@@ -286,7 +292,6 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
     # Get user email adress and password to login in https://grandma-fa-interface.lal.in2p3.fr
     with open(usrpwd_path) as f:
         usrpwd = json.load(f)
-
 
     # Set up the output repository path to store sub-images
     outputDir = owncloud_path + '/' + dict_event['event_type'] + '/' + \
@@ -305,7 +310,7 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
                 str(round(float(row['_RAJ2000']),5)) + '_' + \
                 str(round(float(row['_DEJ2000']),5)) + '_' + \
                 dateObs + '.' + fmt
-        name = 'test' + str(i) + '.' + fmt
+        #name = 'test' + str(i) + '.' + fmt
         Fits_path.append(name)
         if coords_type == 'world':
             OT_coords = [row['_RAJ2000'], row['_DEJ2000']]
@@ -332,7 +337,7 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
     
     # Set url to report tile or galaxy observations
     url = "https://grandma-fa-interface.lal.in2p3.fr/obs_report_OT.php"
-    #url = "http://localhost/test2/obs_report_OT.php"
+    #url = "http://localhost/grandma/obs_report_OT.php"
 
     # Loop over the observations
     for i in range(len(candidates_2DB)):
@@ -354,7 +359,14 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
 
         response = requests.post(url, data=data2DB)
 
-        if debug:
+        if response.status_code == 200:
+            print ('Data sent succesfully to database.')
+            forced_debug = False
+        else:
+            print ('Data not sent to database. See information below.')
+            forced_debug = True
+
+        if debug or forced_debug:
             print ('\nDEBUG:\n')
             print ('Data sent to DB:')
             print (data2DB)
@@ -368,6 +380,7 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
             print ('Request response history:')
             print (response.history)
 
+            forced_debug = False
 
 
 
@@ -395,6 +408,18 @@ def get_filter(filename, telescope):
     elif telescope == 'UBAI-T60N':
         if band in ['R']:
             band_DB = 'R/Johnson'
+            band_cat = 'r'
+    elif telescope == 'FRAM-CTA-N':
+        if band in ['Clear', 'C']:
+            band_DB = 'Clear'
+            band_cat = 'g+r'
+    elif telescope == 'FRAM-Auger':
+        if band in ['Clear', 'C']:
+            band_DB = 'Clear'
+            band_cat = 'g+r'
+    elif telescope == 'OAJ-T80':
+        if band in ['r']:
+            band_DB = 'r/AB'
             band_cat = 'r'
     # Need to add all the filters from telescopes
 

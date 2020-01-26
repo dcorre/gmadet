@@ -5,11 +5,12 @@
 # David Corre, corre@lal.in2p3.fr
 #
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings 
 
-from catalogues import xmatch
+from catalogues import run_xmatch
 from utils import get_filter
 
 from astropy.io import ascii, fits
@@ -49,14 +50,27 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
         band_DB = 'Clear'
         band_cat = 'g+r'
 
-        detected_sources = ascii.read(key[0]+'.magwcs', names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
+        path, fname_ext = os.path.split(key[0])
+        if path:
+            folder = path + '/'
+        else:
+            folder = ''
+
+        # Get rid of the extension to keep only the name
+        fname2 = fname_ext.split('.')[0]
+        extension = ''
+        for ext in fname_ext.split('.')[1:]:
+            extension = extension + '.' + ext
+        fname = folder + fname2 + '.magwcs'
+
+        detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
         # Add units
         detected_sources['_RAJ2000'] *= u.deg
         detected_sources['_DEJ2000'] *= u.deg
         # Add index for each source
         detected_sources['idx'] = np.arange(len(detected_sources))
 
-        crossmatch = xmatch(detected_sources, catalog, radius*pixScale*3600)
+        crossmatch = run_xmatch(detected_sources, catalog, radius*pixScale*3600)
         # Initialise flag array. 0: unknown sources / 1: known sources
         flag = np.zeros(len(crossmatch))
         # Do not consider duplicates
@@ -113,13 +127,13 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
             counter += 1
 
         #delta_mag_std = np.std(delta_mag)
-        ref_sources.write('ZP_%d.dat' % i, format='ascii.commented_header', overwrite=True)
+        ref_sources.write(folder+fname2+'_ZP_%d.dat' % i, format='ascii.commented_header', overwrite=True)
         if doPlot:
             ref_sources.show_in_browser(jsviewer=True)
             plt.scatter(ref_sources['mag_inst'], ref_sources['rmag'], color ='blue')
             plt.scatter(ref_sources['mag_inst'], newmag, color='red')
             plt.plot(ref_sources['mag_inst'], ref_sources['mag_inst']-delta_mag_median, color='green')
-            plt.savefig('ZP_%d.png' % i)
+            plt.savefig(folder+fname2+'_ZP_%d.png' % i)
             plt.show()
 
         delta_mag_median_list.append(delta_mag_median)
@@ -151,7 +165,7 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
         candidates_list['filter_DB'][mask] = band_DB
 
 
-    candidates_list.write('tot_cand2.dat', format='ascii.commented_header', overwrite=True)
+    candidates_list.write(folder+fname2+'_tot_cand2.dat', format='ascii.commented_header', overwrite=True)
 
 
     return  candidates_list
