@@ -271,7 +271,6 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
         candidates['Xpos'][i] = candidate['Xpos'] + int(imsize[0]/Nb_cuts[0]) * int(index_j)
         candidates['Ypos'][i] = candidate['Ypos'] + int(imsize[1]/Nb_cuts[1]) * int(index_i)
     #print (candidates)
-    candidates.write('test_all.oc', format='ascii.commented_header', overwrite=True)
     mask = (candidates['Xpos'] > corner_cut) & \
             (candidates['Ypos'] > corner_cut) & \
             (candidates['Xpos'] < imsize[1] - corner_cut) & \
