@@ -28,7 +28,6 @@ def clean_tmp_files(filename, soft='scamp'):
         os.remove('prepscamp.head')
         os.remove('scamp.xml')
 
-
 def update_headers_scamp(filename,scamphead):
     """Modify the header after running scamp"""
 
@@ -36,11 +35,11 @@ def update_headers_scamp(filename,scamphead):
     hdr = hdulist[0].header
 
     # First remove old keywords related to astrometric calibration
-    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","PIXSCALX","PIXSCALY","CUNIT1","CUNIT2","WCSAXES","WCSNAME","RADESYS","WCSVERS","CTYPE1","CTYPE2", "EQUINOX", "COORDSYS"]
+    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","PIXSCALX","PIXSCALY","CUNIT1","CUNIT2","WCSAXES","WCSNAME","RADESYS","WCSVERS","CTYPE1","CTYPE2", "EQUINOX", "COORDSYS", "A_ORDER", "B_ORDER", "AP_ORDER", "BP_ORDER", "IMAGEW", "IMAGEH", "LONPOLE", "LATPOLE"]
 
     # List of the first letters for standard astrometric coefficients.
     # Such as TR, PV, SIA
-    coeff_astro = ['TR', 'SIA']
+    coeff_astro = ['TR', 'SIA', 'A_', 'B_', 'AP_', 'BP_']
 
     for  key, value in hdr.items():
         for coeff in coeff_astro:
@@ -69,6 +68,13 @@ def update_headers_scamp(filename,scamphead):
                 hdr.set(key.upper(), str(value))
             except:
                 pass
+    if (hdr['CTYPE1'] != 'RA---TPV') and (hdr['CTYPE2'] != 'DEC--TPV'):
+        print ('\nWARNING: scamp did not set CTYPE1, CTYPE2 to RA---TPV and DEC--TPV.')
+        print ('Set them to to these values by hand, otherwise it can not be read by astropy.wcs')
+        print ('Likely due to some SIP distortions parameters already present in headers.')
+        print ('One might check the astrometry to be safe.\n')
+        hdr['CTYPE1'] = 'RA---TPV'
+        hdr['CTYPE2'] = 'DEC--TPV'
 
     hdulist.writeto(filename,overwrite=True)
 
@@ -105,6 +111,7 @@ def scamp(filename, config, useweight=False, CheckPlot=False, verbose='NORMAL'):
     path = os.path.dirname(filename)
     imagelist = np.atleast_1d(filename)
     for ima in imagelist:
+         
          root = os.path.splitext(ima)[0]
          _name = root.split('/')[-1]
 

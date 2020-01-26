@@ -138,7 +138,6 @@ def sextractor(filelist, fwhmpsf, thresh, telescope, config, verbose='NORMAL'):
     """Run sextractor """
 
     for filename in filelist:
-        print ('sex',filename)
         path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
@@ -183,7 +182,7 @@ def get_photometry(filelist,fwhmpsf,thresh, mkiraf=True):
     magnitude_error_threshold = 0.5
 
     iraf.noao
-    iraf.dNb_cuts = Nb_cutsigiphot
+    iraf.digiphot
     iraf.daophot
 
     iraf.unlearn('phot')
@@ -200,16 +199,27 @@ def get_photometry(filelist,fwhmpsf,thresh, mkiraf=True):
     iraf.datapars.fwhm = fwhmpsf
 
     for filename in filelist:
+        path, filename_ext = os.path.split(filename)
+        if path:
+            folder = path + '/'
+        else:
+            folder = ''
+
+        # Get rid of the extension to keep only the name
+        filename2 = filename_ext.split('.')[0]
+        daofind_output = folder + filename2 + '.coo.1'
+        daophot_output = folder + filename2 + '.mag.1'
 
         IMstatres = iraf.imstat(filename,Stdout=1)
         IMmean = IMstatres[1].split()[2]
         iraf.datapars.sigma = math.sqrt(float(IMmean) * float(iraf.datapars.epadu) + float(iraf.datapars.readnoi)**2) / float(iraf.datapars.epadu)
 
         print("--- performing daophot sextracting ---")
-        iraf.daofind(filename,output="default",verify="no", verbose="no", threshold=thresh)
+
+        iraf.daofind(filename,output=daofind_output,verify="no", verbose="no", threshold=thresh)
         iraf.datapars.datamax = "INDEF"
         print("--- performing daophot photometry ---")
-        iraf.daophot.phot(image=filename,coords="default", output="default", interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="no")
+        iraf.daophot.phot(image=filename,coords=daofind_output, output=daophot_output, interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="no")
     
 
 def select_good_stars(filelist,limiting_mag_err):
@@ -218,14 +228,17 @@ def select_good_stars(filelist,limiting_mag_err):
 # filename is WITHOUT suffix .fits
 
     for filename in filelist:
-        path, filename2 = os.path.split(filename)
+        path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
         else:
             folder = ''
-        
-        magfile = filename2 + '.mag.1'
-        resmaggile = filename2 + ".magfiltered"
+
+        # Get rid of the extension to keep only the name
+        filename2 = filename_ext.split('.')[0]
+
+        magfile = folder + filename2 + '.mag.1'
+        resmaggile = folder + filename2 + ".magfiltered"
         f1 = open(magfile, "r")
         f2 = open(resmaggile,"w")
 
@@ -247,14 +260,16 @@ def select_good_stars(filelist,limiting_mag_err):
                 errmessage = lajna.split()[7]
         
             if (errmessage != "NoError") or (mag == "INDEF") or (merr == "INDEF"):
-                print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
+                #print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
+                pass
             else:
                 #print(merr)
                 if (float(merr) < limiting_mag_err):
                     #print(xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
                     f2.write(xpos+" "+ypos+" "+mag+" "+merr+"\n")                
                 else:
-                    print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
+                    #print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
+                    pass
 
             lajna = f1.readline()
 
@@ -279,16 +294,22 @@ def convert_xy_radec(filelist, soft='sextractor'):
         # Get rid of the extension to keep only the name
         filename2 = filename_ext.split('.')[0]
 
-        magfilewcs = folder+filename2 + ".magwcs"
+        magfilewcs = folder + filename2 + ".magwcs"
 
         if soft == 'iraf':
             from pyraf import iraf
 
-            magfile = folder+filename2 + ".magfiltered"
+            magfile = folder + filename2 + ".magfiltered"
             iraf.wcsctran(input=magfile, output=magfilewcs, image=filename, inwcs="physical", outwcs="world")
+
             data1 = ascii.read(magfile, names=['Xpos', 'Ypos', 'Mag_aper', 'Mag_err_aper' ])
+            #header = fits.getheader(filename)
+            #w = wcs.WCS(header)
+            #ra, dec = w.wcs_pix2world(data1['Xpos'], data1['Ypos'], 1)
+
             data2 = ascii.read(magfilewcs, names=['RA', 'DEC', 'Mag_aper', 'Mag_err_aper' ])
             data = Table([data1['Xpos'],data1['Ypos'], data2['RA'], data2['DEC'], data2['Mag_aper'], data2['Mag_err_aper'], [filename]*len(data1)], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'filenames'])
+            #data = Table([data1['Xpos'],data1['Ypos'], ra, dec, data1['Mag_aper'], data1['Mag_err_aper'], [filename]*len(data1)], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'filenames'])
  
         elif soft == 'sextractor':
             sources = ascii.read(folder + filename2 + '_SourcesDet.cat', format='sextractor')
@@ -299,8 +320,8 @@ def convert_xy_radec(filelist, soft='sextractor'):
             data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_isnt', 'Magerr_inst', 'filenames'])
 
         data.write(magfilewcs, format='ascii.commented_header', overwrite=True)
-        #data4=data['RA', 'DEC']
-        #data4.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
+        check_RADEC=data['RA', 'DEC']
+        check_RADEC.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
 
 
 def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
@@ -397,15 +418,15 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/34
     
     # Initialise candidates with all detected sources
     candidates = deepcopy(detected_sources_tot)
-    candidates.write('test0.dat', format='ascii.commented_header', overwrite=True)
+    #candidates.write('test0.dat', format='ascii.commented_header', overwrite=True)
     print ('\nCrossmatching sources with catalogs.')
     print ('Radius used for crossmatching with catalogs: %.2f arcseconds\n' % (radius*pixScale*3600))
     for catalog in catalogs:
         print (catalog, len(candidates))
         # Use Xmatch to crossmatch with catalog
-        crossmatch = run_xmatch(candidates[:10], catalog, radius*pixScale*3600)
+        crossmatch = run_xmatch(candidates, catalog, radius*pixScale*3600)
 
-        crossmatch.write('test.dat', format='ascii.commented_header', overwrite=True)
+        #crossmatch.write('test.dat', format='ascii.commented_header', overwrite=True)
         # Initialise flag array. 0: unknown sources / 1: known sources
         flag = np.zeros(len(candidates))
         # Do not consider duplicates
@@ -427,10 +448,16 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/34
         print ('%d/%d candidates left after crossmatching with %s' % (len(candidates),len(detected_sources), cat_dict[catalog]))
         if (len(candidates) == 0):
             break
-        
+
+    # Get filename    
     transients = np.unique(transients_out_list)[0]
     # Write candidates file
     candidates.write(transients, format='ascii.commented_header', overwrite=True)
+    oc=candidates['_RAJ2000', '_DEJ2000']
+    oc.write(folder + filename2 + '_oc_RADEC',format='ascii.commented_header', overwrite=True)
+    #oc=candidates['Xpos', 'Ypos']
+    #oc.write(magfilewcs+'4',format='ascii.commented_header', overwrite=True)
+
     return candidates
 
 def check_moving_objects(filelist):
@@ -508,7 +535,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--telescope',
                         dest='telescope',
-                        choices=['TRE','TCA','TCH','OAJ','Lisniky-AZT8','UBAI-T60S','UBAI-T60N'],
+                        choices=['TRE','TCA','TCH','OAJ-T80','Lisniky-AZT8', \
+                                'UBAI-T60S','UBAI-T60N', 'FRAM-CTA-N', 'FRAM-Auger'],
                         required=True,
                         type=str,
                         help='Alias for the telescopes')
