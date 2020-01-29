@@ -1,14 +1,18 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Python-Pyraf module for GRANDMA detection of Optical candidates
-# Authors: David Corre, Orsay, France, corre@lal.in2p3.fr
-#          Martin Blazek, Granada, Spain, alf@iaa.es
-#
-# Input arguments are filename, typical fwhm, sextracting threshold and maximal distance for catalogue crosschecking in degrees
-# 
-# Example:
-#   python gmadet.py --filename /folder/image.fits --FWHM 3.5 --threshold 4 --radius_crossmatch 3 --soft iraf --telescope TRE 
+"""
+Python-Pyraf module for GRANDMA detection of Optical candidates
+Authors: David Corre, Orsay, France, corre@lal.in2p3.fr
+          Martin Blazek, Granada, Spain, alf@iaa.es
+
+Input arguments are filename, typical fwhm (or estimated by psfex), sextracting threshold and maximal distance for catalogue crosschecking in pixels
+ 
+Example :
+   python gmadet.py --filename /folder/image.fits --FWHM psfex --threshold 4 --radius_crossmatch 2.5 --telescope TRE 
+
+"""
+
 
 import sys, subprocess, glob, math, shutil, os
 import argparse
@@ -18,6 +22,7 @@ from catalogues import *
 from phot_calibration import phot_calib
 from utils import load_config, clean_folder, send_data2DB, mv_p, mkdir_p
 from astrometry import astrometrynet, scamp
+from psfex import psfex
 
 from astropy.io import ascii, fits
 from astropy.table import vstack, Table, Column
@@ -134,10 +139,10 @@ def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='
     return image_table
 
 
-def sextractor(filelist, fwhmpsf, thresh, telescope, config, verbose='NORMAL'):
+def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL'):
     """Run sextractor """
 
-    for filename in filelist:
+    for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
@@ -149,7 +154,7 @@ def sextractor(filelist, fwhmpsf, thresh, telescope, config, verbose='NORMAL'):
 
         subprocess.call(['sex', '-c', config['sextractor']['conf'], \
                 filename, \
-                '-SEEING_FWHM', str(fwhmpsf), \
+                '-SEEING_FWHM', str(FWHM_list[i]), \
                 '-DETECT_THRESH', str(thresh), \
                 '-PARAMETERS_NAME', config['sextractor']['param'], \
                 '-FILTER_NAME', config['sextractor']['default_conv'], \
@@ -160,11 +165,11 @@ def sextractor(filelist, fwhmpsf, thresh, telescope, config, verbose='NORMAL'):
 
 
 
-def get_photometry(filelist,fwhmpsf,thresh, mkiraf=True):
+def get_photometry(filelist,FWHM_list,thresh, mkiraf=True):
     """
     Performs sextracting by daofind and photometry by daophot 
     filename is WITHOUT suffix .fits
-    fwhmpsf is rough estimation of typical frame FWHM
+    FWHM_list is the estimation of FWHM for each image / quadrants
     THRESH is signal-to-noise ratio, typically 4 or so
     Outputs are two files *.coo.1 and *.mag.1 with x-y coordinates
     """
@@ -195,15 +200,16 @@ def get_photometry(filelist,fwhmpsf,thresh, mkiraf=True):
     iraf.datapars.datamin = "INDEF"
     iraf.datapars.datamax = "50000"
 
-    # fwhm tarot 1.5   oaj 3.5
-    iraf.datapars.fwhm = fwhmpsf
 
-    for filename in filelist:
+    for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
         else:
             folder = ''
+
+        # fwhm tarot 1.5   oaj 3.5
+        iraf.datapars.fwhm = FWHM_list[i]
 
         # Get rid of the extension to keep only the name
         filename2 = filename_ext.split('.')[0]
@@ -324,8 +330,8 @@ def convert_xy_radec(filelist, soft='sextractor'):
         check_RADEC.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
 
 
-def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
-#def crosscheck_with_catalogues(image_table, radius, catalogs=['II/349/ps1'], Nb_cuts=(1,1)):
+#def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
+def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2','II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
     """
     Performs crosscheck with USNO B1.0 catalogue with *.magwcs
     filename is WITHOUT suffix .fits and maximal allowed difference radius is in arcseconds
@@ -501,7 +507,6 @@ if __name__ == "__main__":
     parser.add_argument('--FWHM',
                         dest='FWHM',
                         required=True,
-                        type=float,
                         help='Typical telescope FWHM')
 
     parser.add_argument('--mag_err_cut',
@@ -587,12 +592,18 @@ if __name__ == "__main__":
         
     image_table = astrometric_calib(args.filename, config, Nb_cuts=Nb_cuts,soft=args.doAstrometry, verbose=args.verbose)
 
+    if args.FWHM == 'psfex':
+        # Estimate the PSF FWHM for each image/quadrants using psfex
+        FWHM_list = psfex(image_table['filenames'], config)
+    else:
+        FWHM_list = [args.FWHM] * len(image_table)
+
     if args.soft == 'iraf':
         clean_folder(image_table['filenames'])
-        get_photometry(image_table['filenames'], args.FWHM, args.threshold)
+        get_photometry(image_table['filenames'], FWHM_list, args.threshold)
         select_good_stars(image_table['filenames'], args.mag_err_cut)
     elif args.soft == 'sextractor':
-        sextractor(image_table['filenames'], args.FWHM, args.threshold, args.telescope,config,verbose=args.verbose)
+        sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope,config,verbose=args.verbose)
 
     convert_xy_radec(image_table['filenames'],soft=args.soft)
     total_candidates = crosscheck_with_catalogues(image_table,args.radius_crossmatch, Nb_cuts=Nb_cuts)

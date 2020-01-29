@@ -46,9 +46,9 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
 
 
         # Get filter
-        #band_DB, band_cat = get_filter(key[0], telescope)
-        band_DB = 'Clear'
-        band_cat = 'g+r'
+        band_DB, band_cat = get_filter(key[0], telescope)
+        #band_DB = 'Clear'
+        #band_cat = 'r'
 
         path, fname_ext = os.path.split(key[0])
         if path:
@@ -114,6 +114,7 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
         delta_mag_median = np.median(delta_mag)
         delta_mag_std = np.std(delta_mag)
         counter = 1
+        
         while (np.max(abs(delta_mag)) > abs(delta_mag_median) + delta_mag_std) and (counter <= 5):
             
             #print (len(delta_mag), delta_mag_median, delta_mag_std)
@@ -125,7 +126,7 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
             delta_mag_median = np.median(delta_mag)
             delta_mag_std = np.std(delta_mag)
             counter += 1
-
+        
         #delta_mag_std = np.std(delta_mag)
         ref_sources.write(folder+fname2+'_ZP_%d.dat' % i, format='ascii.commented_header', overwrite=True)
         if doPlot:

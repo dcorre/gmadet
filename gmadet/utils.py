@@ -34,6 +34,12 @@ def mv_p(src, dest):
   except:
     pass
 
+def rm_p(src):
+  try:
+    os.remove(src)
+  except:
+    pass
+
 def mkdir_p(path):
   try:
     os.makedirs(path)
@@ -53,7 +59,7 @@ def load_config(telescope):
             'sextractor': {
                 'conf': path2tel+'sourcesdet.sex',
                 'param': path2tel+'sourcesdet.param',
-                'default_conv': path2tel+'default.conv'
+                'default_conv': path2tel+'gauss_2.5_5x5.conv'
                 },
             'scamp': {
                 'sextractor': path2tel+'prepscamp.sex',
@@ -64,7 +70,9 @@ def load_config(telescope):
 
                 },
             'psfex': {
-
+                'sextractor': path2tel+'preppsfex.sex',
+                'param': path2tel+'preppsfex.param',
+                'conf': path2tel+'psfex.conf',
                 }
             }
 
@@ -392,7 +400,7 @@ def get_filter(filename, telescope):
 
     band = header['FILTER']
 
-    if telescope == 'TRE':
+    if telescope in ['TRE', 'TCH', 'TCA']:
         if band in  ['C', 'Clear', 'NoFilter']:
             band_DB = 'Clear'
             band_cat = 'g+r'
