@@ -16,7 +16,7 @@ DETECT_THRESH    5              # a fairly conservative threshold
 ANALYSIS_THRESH  5              # idem
  
 FILTER           Y              # apply filter for detection ("Y" or "N")?
-FILTER_NAME      default.conv   # name of the file containing the filter
+FILTER_NAME      config/conv_kernels/default.conv   # name of the file containing the filter
  
 #-------------------------------- WEIGHTing ----------------------------------
 

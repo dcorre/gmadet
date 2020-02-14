@@ -6,7 +6,7 @@
 import errno, glob, os, shutil, subprocess, sys
 import numpy as np
 from astropy.io import fits
-from utils import mv_p, mkdir_p
+from utils import rm_p, mv_p, mkdir_p
 import xmltodict
 
 def psfex(filename, config, useweight=False):
@@ -21,19 +21,19 @@ def psfex(filename, config, useweight=False):
         root = os.path.splitext(ima)[0]
         if useweight:
             weight = root + '.weight.fits'
-            subprocess.call(['sex', '-c', config['psfex']['sextractor'], \
-                    ima, \
+            subprocess.call(['sex', ima, \
+                    '-c', config['psfex']['sextractor'], \
                     '-WEIGHT_IMAGE', weight, \
                     '-PARAMETERS_NAME', config['psfex']['param']])
         else:
-            subprocess.call(['sex', '-c', config['psfex']['sextractor'], \
-                    ima, \
+            subprocess.call(['sex', ima, \
+                    '-c', config['psfex']['sextractor'], \
                     '-PARAMETERS_NAME', config['psfex']['param']])
-
-        cat = 'prepsfex.cat'
+        cat = 'preppsfex.cat'
         subprocess.call(['psfex', cat, '-c', config['psfex']['conf'] ])
-        mv_p('snap_prepsfex.fits', root + '.psf.fits')
-
+        mv_p('snap_preppsfex.fits', root + '_psf.fits')
+        rm_p(cat)
+   
     # Get the mean PSF FWHM in pixels
     with open('psfex.xml') as fd:
         doc = xmltodict.parse(fd.read())
@@ -46,7 +46,7 @@ def psfex(filename, config, useweight=False):
         print ('FWHM mean: %.2f pixels' % FHWM_mean) 
         print ('FWHM max: %.2f pixels\n' % FHWM_max)
     
-        os.remove('psfex.xml')
+        rm_p('psfex.xml')
         FWHM_list.append(FHWM_mean)
 
     return FWHM_list

@@ -23,6 +23,7 @@ from phot_calibration import phot_calib
 from utils import load_config, clean_folder, send_data2DB, mv_p, mkdir_p
 from astrometry import astrometrynet, scamp
 from psfex import psfex
+from substraction import substraction
 
 from astropy.io import ascii, fits
 from astropy.table import vstack, Table, Column
@@ -59,7 +60,7 @@ def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='
     else:
         folder = ''
 
-    resultDir = folder+outputDir
+    resultDir = folder + outputDir
     # Create results folder
     mkdir_p(resultDir)
 
@@ -85,7 +86,8 @@ def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='
                         while (doffset >= accuracy) and (ii <= itermax):
                             ii+=1
                             doffset = scamp(filein, config, verbose=verbose)
-                            print ('Astrometric precision run %d: %.2f arcseconds' % (ii, doffset))
+                            print ('Astrometric precision after run %d: %.2f arcseconds' % (ii, doffset))
+                            print ('Required astrometric precision: %.2f arcseconds' % (accuracy))
 
                         quadrant.append('Q%d_%d_%d' % (index,i,j))
             else:
@@ -95,7 +97,8 @@ def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='
                 while (doffset >= accuracy) and (ii <= itermax):
                     ii+=1
                     doffset = scamp(resultDir + filename2 + extension, config, verbose=verbose)
-                    print ('Astrometric precision run %d: %.2f arcseconds' % (ii, doffset))
+                    print ('Astrometric precision after run %d: %.2f arcseconds' % (ii, doffset))
+                    print ('Required astrometric precision: %.2f arcseconds' % (accuracy))
 
                 quadrant.append('None')
 
@@ -157,7 +160,7 @@ def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL')
                 '-SEEING_FWHM', str(FWHM_list[i]), \
                 '-DETECT_THRESH', str(thresh), \
                 '-PARAMETERS_NAME', config['sextractor']['param'], \
-                '-FILTER_NAME', config['sextractor']['default_conv'], \
+                #'-FILTER_NAME', config['sextractor']['default_conv'], \
                 '-CHECKIMAGE_TYPE', 'SEGMENTATION', \
                 '-CHECKIMAGE_NAME', folder + filename2 + '_segmentation.fits', \
                 '-VERBOSE_TYPE', verbose, \
@@ -330,8 +333,8 @@ def convert_xy_radec(filelist, soft='sextractor'):
         check_RADEC.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
 
 
-#def crosscheck_with_catalogues(image_table, radius, catalogs=['I/284/out', 'I/345/gaia2', 'II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
-def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2','II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
+def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II/349/ps1', 'I/271/out', 'I/284/out'], Nb_cuts=(1,1)):
+#def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2','II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
     """
     Performs crosscheck with USNO B1.0 catalogue with *.magwcs
     filename is WITHOUT suffix .fits and maximal allowed difference radius is in arcseconds
@@ -490,10 +493,7 @@ def check_moving_objects(filelist):
 
     #return candidates_out
 
-
-
 if __name__ == "__main__":
-
 
     parser = argparse.ArgumentParser(
             description='Finding unknown objects in astronomical images.')
@@ -540,7 +540,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--telescope',
                         dest='telescope',
-                        choices=['TRE','TCA','TCH','OAJ-T80','Lisniky-AZT8','UBAI-T60S','UBAI-T60N', 'FRAM-CTA-N', 'FRAM-Auger'],
+                        choices=['TRE','TCA','TCH','OAJ-T80','Lisniky-AZT8','UBAI-T60S','UBAI-T60N', 'FRAM-CTA-N', 'FRAM-Auger', 'KAIT'],
                         required=True,
                         type=str,
                         help='Alias for the telescopes')
@@ -580,6 +580,11 @@ if __name__ == "__main__":
                         type=str,
                         help='Level of verbose, according to astromatic software')
 
+    parser.add_argument('--doSub',
+                        dest='doSub',
+                        required=False,
+                        type=str,
+                        help='Whether to perform astrometric calibration, with ps1 images or user provided reference image. Type "ps1" for PS1 reference image or provide the path to your reference image.')
 
 
 
@@ -590,13 +595,16 @@ if __name__ == "__main__":
     # Load config files for a given telescope
     config = load_config(args.telescope)
         
-    image_table = astrometric_calib(args.filename, config, Nb_cuts=Nb_cuts,soft=args.doAstrometry, verbose=args.verbose)
+    image_table = astrometric_calib(args.filename, config, Nb_cuts=Nb_cuts,soft=args.doAstrometry, verbose=args.verbose, accuracy=0.65)
 
     if args.FWHM == 'psfex':
         # Estimate the PSF FWHM for each image/quadrants using psfex
         FWHM_list = psfex(image_table['filenames'], config)
     else:
         FWHM_list = [args.FWHM] * len(image_table)
+    
+    if args.doSub:
+        substraction(image_table['filenames'], args.doSub, config, method='hotpants')
 
     if args.soft == 'iraf':
         clean_folder(image_table['filenames'])
@@ -610,14 +618,12 @@ if __name__ == "__main__":
     #check_moving_objects(args.filename, total_candidates)
    
     #total_candidates = ascii.read('total_candidates.dat')
-    total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
+    #total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
     
     #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
 
     # If both arguments VOE_path and owncloud_path are provided
     # Send candidates to database
+    # Set the tile_id corresponding to your tile by hand at the moment
     if args.VOE_path and args.owncloud_path:
         send_data2DB(args.filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
-
-
-

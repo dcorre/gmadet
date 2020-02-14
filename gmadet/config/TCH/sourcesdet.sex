@@ -17,7 +17,7 @@ DETECT_THRESH    2            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
 ANALYSIS_THRESH  2            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
  
 FILTER           Y              # apply filter for detection (Y or N)?
-FILTER_NAME      gauss_2.5_5x5.conv   # name of the file containing the filter
+FILTER_NAME      config/conv_kernels/gauss_2.5_5x5.conv   # name of the file containing the filter
  
 DEBLEND_NTHRESH  32             # Number of deblending sub-thresholds
 DEBLEND_MINCONT  0.005          # Minimum contrast parameter for deblending
@@ -76,3 +76,4 @@ VERBOSE_TYPE     NORMAL         # can be QUIET, NORMAL or FULL
 HEADER_SUFFIX    .head          # Filename extension for additional headers
 WRITE_XML        N              # Write XML file (Y/N)?
 XML_NAME         sex.xml        # Filename for XML output
+NTHREADS         0              # 1 single thread, 0 auto?

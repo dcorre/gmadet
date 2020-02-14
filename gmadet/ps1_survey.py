@@ -7,7 +7,7 @@ from astropy import wcs
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, vstack
 from shapely.geometry import Polygon
 
 from utils import rm_p, mkdir_p
@@ -30,7 +30,7 @@ def get_RADEC_coord(proj_crpix1, proj_crpix2, Xcell, Ycell, x, y, RA, Dec):
     # from the start
     w = wcs.WCS(naxis=2)
 
-    # Set up an "Airy's zenithal" projection
+    # Set up projection
     # Vector properties may be set with Python lists, or Numpy arrays
     w.wcs.crpix = [float(crpix1), float(crpix2)]
     w.wcs.cdelt = np.array([-pixscale, pixscale])
@@ -62,6 +62,12 @@ def ps1_cell_coord(im_corner_coords, projcell_id, Xcell, Ycell, projcell_ra_cent
     ny = 10   # bottom to top of projell (ascending dec)
     nx = 10   # left to right of projcell (ascending ra)
 
+    # Need to append a 0 when < 1000 otherwise download crashes
+    if projcell_id < 1000:
+        projcell_id = '0' + str(projcell_id)
+    else:
+        projcell_id = str(projcell_id)
+
     id_list = []
     RA_min = []
     RA_max = []
@@ -70,19 +76,18 @@ def ps1_cell_coord(im_corner_coords, projcell_id, Xcell, Ycell, projcell_ra_cent
     projcell_id_list = []
     for y in range(ny):
         for x in range(nx):
-
+            # Estimate corner coordinates for each cell
             corner_coords, w = get_RADEC_coord(proj_crpix1, proj_crpix2, Xcell, Ycell, x, y, projcell_ra_center, projcell_dec_center)
             #print (projcell_id,y,x, corner_coords)
-            # Check whether at least one cell corner is contained in the input image
-            # using its coordinates
+            # Check whether one cell is contained in the input image
             pix_im_coord = np.array([im_corner_coords[0], im_corner_coords[1]]).T
             pix_cell_coord = np.array([corner_coords[0], corner_coords[1]]).T
 
-            shapely_poly = Polygon([tuple(co) for co in pix_im_coord])
-            shapely_poly2 = Polygon([tuple(co) for co in pix_cell_coord])
+            im_poly = Polygon([tuple(co) for co in pix_im_coord])
+            cell_poly = Polygon([tuple(co) for co in pix_cell_coord])
 
             #print (polygon_im.contains(cell_corner_coords, w))
-            if shapely_poly.intersects(shapely_poly2):
+            if im_poly.intersects(cell_poly):
                 projcell_id_list.append(projcell_id)
                 id_list.append('0%d%d' % (y,x))
                 RA_min.append(np.min(corner_coords[0], axis=0))
@@ -143,16 +148,18 @@ def ps1_grid(im_corner_coords):
         for cell_id in total_proj_cell_idx:
             diff_projcell_idx = cell_id - float(ps1grid[mask]['PROJCELL'])
             ra_center_projcell = diff_projcell_idx * 360 / float(ps1grid[mask]['NBAND'])
-            all_cells.append(ps1_cell_coord(im_corner_coords,
-                                                cell_id,
-                                                ps1grid[mask]['XCELL'],
-                                                ps1grid[mask]['YCELL'],
-                                                ra_center_projcell,
-                                                ps1grid[mask]['DEC'],
-                                                ps1grid[mask]['CRPIX1'],
-                                                ps1grid[mask]['CRPIX2']
-                                                ))
-    
+            cell_query = ps1_cell_coord(im_corner_coords,
+                                        cell_id,
+                                        ps1grid[mask]['XCELL'],
+                                        ps1grid[mask]['YCELL'],
+                                        ra_center_projcell,
+                                        ps1grid[mask]['DEC'],
+                                        ps1grid[mask]['CRPIX1'],
+                                        ps1grid[mask]['CRPIX2']
+                                        )
+            if len(cell_query) > 0:
+                all_cells.append(cell_query)
+
     if len(all_cells) == 1:
         all_cells = all_cells[0]
     else:
@@ -160,14 +167,20 @@ def ps1_grid(im_corner_coords):
         
     return all_cells
 
-def download_ps1_cells(cell_table, band):
+def download_ps1_cells(cell_table, band, inputimage):
     """Download the required cell from PS1 DR1"""
-    
-    ps1Dir = '/home/corre/codes/Test_hotpants/ps1Dir/'
+   
+    path, filenameInput = os.path.split(inputimage)
+    if path:
+       folder = path + '/'
+    else:
+       folder = ''
+
+    ps1Dir = 'ps1Dir/'
     if not os.path.isdir(ps1Dir):
         os.makedirs(ps1Dir)
 
-    ps1ResampleDir = '/home/corre/codes/Test_hotpants/ps1_resample/'
+    ps1ResampleDir = 'ps1_resample/'
     if not os.path.isdir(ps1ResampleDir):
         os.makedirs(ps1ResampleDir)
 
@@ -178,7 +191,7 @@ def download_ps1_cells(cell_table, band):
     
     BaseURL = "http://ps1images.stsci.edu/"
     for cell in cell_table:
-        cell_url_path = '/rings.v3.skycell/%s/%s/' % (cell['projcell_id'],
+        cell_url_path = 'rings.v3.skycell/%s/%s/' % (cell['projcell_id'],
                                                       cell['cell_id'])
         cell_file = 'rings.v3.skycell.%s.%s.stk.%s.unconv.fits' % (cell['projcell_id'],
                                                                    cell['cell_id'],
@@ -191,68 +204,202 @@ def download_ps1_cells(cell_table, band):
         else:
             wget_command = "wget %s -O %s"%(Link,FileNameFitsPath)
             os.system(wget_command)
+            if os.path.isfile(FileNameFitsPath):
+                # do not really understand what this is doing
+                funpack_command = "fpack %s; rm %s; funpack %s.fz"%(FileNameFitsPath,FileNameFitsPath,FileNameFitsPath)
+                os.system(funpack_command)
 
-            # do not why, size reduction?
-            funpack_command = "fpack %s; rm %s; funpack %s.fz"%(FileNameFitsPath,FileNameFitsPath,FileNameFitsPath)
-            os.system(funpack_command)
+                rm_command = "rm funpack %s.fz"%(FileNameFitsPath)
+                os.system(rm_command)
+            else:
+                print ("File %s was not downloaded or found on the server." % Link)
 
-            rm_command = "rm funpack %s.fz"%(FileNameFitsPath)
-            os.system(rm_command)
+        # Check if targeted file was downloaded to continue
+        if os.path.isfile(FileNameFitsPath):
+            if os.path.isfile(ps1ResampleDir + local_cell_file):
+                pass
+            else:
+                linear_rescale_ps1(local_cell_file, ps1Dir, ps1ResampleDir)
 
-            linear_rescale_ps1(local_cell_file, ps1Dir, ps1ResampleDir)
+            file_list.append(ps1ResampleDir+local_cell_file)
 
-        file_list.append(ps1ResampleDir+local_cell_file)
-            
-        
-    create_ps1_mosaic(file_list, ps1ResampleDir)
+    # Create mosaic file if it does not exist
+    mosaicfile = folder + filenameInput.split('.')[0] + '_ps1_mosaic.fits'
+    if os.path.isfile(mosaicfile):
+        print ('PS1 mosaic image already exists in this location: %s. If you want to recompute it, delete it.' % mosaicfile)
+    else:
+        create_ps1_mosaic(file_list, inputimage, folder)
 
     return True
 
-def linear_rescale_ps1(file, inputDir, outputDir):
+def linear_rescale_ps1(filename, inputDir, outputDir, normalise=True):
     """resample the PS1 DR1 fits file"""
     
     # Transform into linear flux scale
-    hdulist=fits.open(inputDir+file)
+    hdulist=fits.open(inputDir+filename)
     
     boffset = hdulist[0].header['BOFFSET']
     bsoften = hdulist[0].header['BSOFTEN']
     a = 2.5/np.log(10)
     hdulist[0].data = boffset + 2 *bsoften* np.sinh(hdulist[0].data/a)
-    
-    hdulist.writeto(outputDir+file,overwrite=True)
+
+    if normalise:
+        print (hdulist[0].header['EXPTIME'])
+        hdulist[0].data /= hdulist[0].header['EXPTIME']
+        try:
+            hdulist[0].header['SATURATE'] /= hdulist[0].header['EXPTIME']
+        except:
+            pass
+        hdulist[0].header['EXPTIME'] = 1 
+    hdulist.writeto(outputDir+filename,overwrite=True)
     hdulist.close()
+
+    # replace pixels == 0 with NaNs. Mostly the border, saturated pixels
+    hdulist=fits.open(outputDir+filename)
+    hdulist[0].data[hdulist[0].data==0]=np.nan
+    hdulist.writeto(outputDir+filename,overwrite=True)
+
+    # Create a mask to propagate the nan pixels 
+    hdulist=fits.open(outputDir+filename)
+    hdulist[0].data[np.isfinite(hdulist[0].data)]=0
+    hdulist[0].data[np.isnan(hdulist[0].data)]=1
+    hdulist.writeto(outputDir+filename.split('.')[0] + '_mask.fits',overwrite=True)
 
     return True
 
-def create_ps1_mosaic(file_list, inputDIR):
+def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
     """Create a single mosaic of PS1 image using swarp"""
-    useweight=False
-    gain = 0
+
+    # Create list of mask fits
+    mask_list = [ima.split('.')[0] + '_mask.fits' for ima in file_list]
+
+    np.savetxt('mosaic.list', file_list, fmt='%s')
+    np.savetxt('mask.list', mask_list, fmt='%s')
     
-    np.savetxt('register.list', file_list, fmt='%s')
-    
-    imalists=['@' + 'register.list']
-    if useweight:
-        subprocess.call(['swarp',
-                             '-IMAGEOUT_NAME', epoch + '.fits', \
-                             '-WEIGHTOUT_NAME', epoch + '.weight.fits', \
-                             '-GAIN_DEFAULT', str(gain)] + [imalist])
-    else:
-        subprocess.call(['swarp',
-                             '-IMAGEOUT_NAME', inputDIR+'ps1_mosaic.fits',\
-                             '-GAIN_DEFAULT', str(gain),\
-                             '-SUBTRACT_BACK', 'N', \
+    imagefiles = [outputDir + 'ps1_mosaic', outputDir + 'ps1_mosaic_mask']
+
+    # Get pixel scale from input image header
+    header = fits.getheader(inputimage)
+
+    try:
+        pixScale = abs(header['CDELT1'])
+    except Exception:
+        try:
+            pixScale = abs(header['_DELT1'])
+        except Exception:
+            try:
+                pixScale = abs(header['CD1_1'])
+            except Exception:
+                print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
+    pixScale = pixScale * 3600 
+    #print (inputimage, pixScale)
+    crval1 = header['CRVAL1']
+    crval2 = header['CRVAL2']
+    #print (crval1, crval2)
+    #print (header['CRPIX1'], header['CRPIX2'])
+    imagesize = [header['NAXIS1'], header['NAXIS2']] 
+
+    # Force reference pixel to be in the center
+
+    # File name to store the common header that will be shared by all
+    # images in filelist
+    point = 'registration'
+    # Delete if already exists
+    rm_p(point + '.head')
+    # First run swarp to create a .head file containing the shared header
+    subprocess.call(['swarp', '-HEADER_ONLY', 'Y', '-IMAGEOUT_NAME', \
+                        point + '.head' ] + [inputimage])
+    # Some keywords manipulation using sed
+    subprocess.call(['sed', '-i', \
+                             's/MJD-OBS/COMMENT/; s/EXPTIME/COMMENT/; s/GAIN   /COMMENT/; s/SATURATE/COMMENT /', \
+                     point + '.head'])
+
+
+
+    imalists=[['@' + 'mosaic.list'], ['@' + 'mask.list']]
+    for i, imagefile in enumerate(imagefiles):
+        # Remove mosaic if already exists
+        rm_p(imagefile + '.fits')
+        if 'mask' in imagefile:
+            subBackground = 'N'
+        else:
+            subBackground = 'Y'
+
+        # Copy the common header in the .head file
+        # So that it is read by sawrp for each image
+        shutil.copy(point + '.head', imagefile + '.head')
+
+        if useweight:
+            subprocess.call(['swarp',
+                             '-IMAGEOUT_NAME', imagefile + '.fits', \
+                             '-WEIGHTOUT_NAME', imagefile + '.weight.fits'] + imalists[i])
+        else:
+            subprocess.call(['swarp',
+                             '-IMAGEOUT_NAME', imagefile + '.fits',\
+                             '-SUBTRACT_BACK', subBackground, \
                              '-COMBINE', 'Y', \
                              '-BACK_SIZE', '128', \
                              '-BACK_FILTERSIZE', '3',\
-                             #'-CENTER', '%s, %s' % (ra,dec), \
+                             #'-CENTER_TYPE', 'MANUAL', \
+                             #'-CENTER', '%s, %s' % (crval1,crval2), \
+                             '-RESAMPLE', 'Y',\
                              '-RESAMPLING_TYPE', 'LANCZOS3',\
-                             #'-RESAMPLING_TYPE', 'NEAREST', \
+                             #'-RESAMPLING_TYPE', 'BILINEAR',\
+                             '-PIXELSCALE_TYPE', 'MANUAL', \
+                             '-PIXEL_SCALE', str(pixScale), \
+                             #'-IMAGE_SIZE', '%s, %s' % (imagesize[0], imagesize[1]), \
                              '-OVERSAMPLING', '0',\
-                             '-COMBINE_TYPE', 'MEDIAN'] + imalists)
+                             '-COMBINE_TYPE', 'MEDIAN', \
+                             '-COPY_KEYWORDS', ' PIXEL_SCALE'] + imalists[i])
 
-        # replace borders with NaNs in ref image if there are any that are == 0,
-        #hdulist=fits.open(epoch + '.fits')
-        #hdulist[0].data[hdulist[0].data==0]=np.nan
-        #hdulist.writeto(epoch + '.fits',overwrite=True)
+    # replace pixels == 0 with NaNs. Mostly the border, saturated pixels
+    hdulist=fits.open(imagefiles[0] + '.fits')
+    hdulist[0].data[hdulist[0].data==0]=np.nan
+    hdulist.writeto(imagefiles[0] + '.fits',overwrite=True)
 
+    # Create a mask to propagate the nan pixels 
+    hdulist=fits.open(imagefiles[1] + '.fits')
+    hdulist[0].data[hdulist[0].data > 0] = 1
+    hdulist[0].data[np.isnan(hdulist[0].data)]=1
+    hdulist.writeto(imagefiles[1] + '.fits',overwrite=True)
+
+    #for ima in file_list:
+    #    rm_p(ima)
+    #for ima in mask_list:
+    #    rm_p(ima)
+    rm_p('mosaic.list')
+    rm_p('mask.list')
+    rm_p('swarp.xml')
+    #rm_p('coadd.weight.fits')
+
+if __name__ == "__main__":
+
+    im_coords = [[121.18, 121.18, 121.05, 121.05],
+                 [ 38.3,  38.46,  38.46,  38.3]]
+
+
+    inputimage = 'Test_Atlascow/gmadet_results/ATLAS18qqn-S001-R001-C001-SDSS_g.fits'
+    
+    header = fits.getheader(inputimage)
+    Naxis1 = header['NAXIS1']
+    Naxis2 = header['NAXIS2']
+    print (fits.getdata(inputimage).data.shape)
+    print (Naxis1, Naxis2)
+
+    pix_coords = [[0,0,Naxis1,Naxis1], [0,Naxis2,Naxis2,0]]
+
+    from astropy import wcs
+    from astropy.wcs import WCS
+
+    from astropy.coordinates import SkyCoord
+    from astropy import units as u
+ 
+    # Get physical coordinates of OT
+    w = WCS(header)
+    ra, dec = w.all_pix2world(pix_coords[0],pix_coords[1], 1) 
+    print (ra, dec)
+    #stop
+    im_coords = [ra, dec]
+    cell_table = ps1_grid(im_coords)
+    print (cell_table)
+    download_ps1_cells(cell_table, 'g', inputimage)

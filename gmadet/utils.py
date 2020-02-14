@@ -21,6 +21,7 @@ import voeventparse as vp
 import json
 import requests
 from copy import deepcopy
+from shapely.geometry import Point, Polygon
 
 def cp_p(src, dest):
   try:
@@ -57,22 +58,24 @@ def load_config(telescope):
     path2tel = 'config/' + telescope + '/'
     config = {
             'sextractor': {
-                'conf': path2tel+'sourcesdet.sex',
-                'param': path2tel+'sourcesdet.param',
-                'default_conv': path2tel+'gauss_2.5_5x5.conv'
+                'conf': path2tel + 'sourcesdet.sex',
+                'param': path2tel + 'sourcesdet.param',
                 },
             'scamp': {
-                'sextractor': path2tel+'prepscamp.sex',
-                'param': path2tel+'prepscamp.param',
-                'conf': path2tel+'scamp.conf',
+                'sextractor': path2tel + 'prepscamp.sex',
+                'param': path2tel + 'prepscamp.param',
+                'conf': path2tel + 'scamp.conf',
                 },
             'swarp': {
 
                 },
             'psfex': {
-                'sextractor': path2tel+'preppsfex.sex',
-                'param': path2tel+'preppsfex.param',
-                'conf': path2tel+'psfex.conf',
+                'sextractor': path2tel + 'preppsfex.sex',
+                'param': path2tel + 'preppsfex.param',
+                'conf': path2tel + 'psfex.conf',
+                },
+            'hotpants': {
+                'conf': path2tel + 'hotpants.hjson'
                 }
             }
 
@@ -245,6 +248,21 @@ def make_sub_image(filename, OT_coords, coords_type='world',
        plt.imshow(subimage, cmap='gray',origin='upper',norm=norm)
        plt.savefig(output_name)
 
+def get_corner_coords(filename):
+    """Get the image coordinates of an image"""
+
+    header = fits.getheader(filename)
+    # Get physical coordinates
+    Naxis1 = header['NAXIS1']
+    Naxis2 = header['NAXIS2']
+
+    pix_coords = [[0,0,Naxis1,Naxis1], [0,Naxis2,Naxis2,0]]
+
+    # Get physical coordinates
+    w = WCS(header)
+    ra, dec = w.all_pix2world(pix_coords[0],pix_coords[1], 1)
+
+    return ra, dec
 
 def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_path, FoV=60, coords_type='pix', corner_cut=32,debug=False,fmt='png'):
     """Send candidates information to database"""
@@ -254,13 +272,23 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
 
     dateObs = header['DATE-OBS']
     Tstart = Time(dateObs, format='fits', scale='utc')
-    Tend = Tstart + TimeDelta(float(header['EXPOSURE']), format='sec')
+    try:
+        exposure = float(header['EXPOSURE'])
+        Tend = Tstart + TimeDelta(exposure, format='sec')
+    except:
+        exposure = -1
+        Tend = Time(dateObs, format='fits', scale='utc')
     
     # Try to get airmass rom header, else set it to -1
     try:
         Airmass = header['AIRMASS']
     except:
         Airmass = -1
+    
+    # Compute the image corner RA, Dec coordinates
+    ra, dec = get_corner_coords(filename)
+    pix_im_coord = np.array([ra, dec]).T
+    im_poly = Polygon([tuple(co) for co in pix_im_coord])
     
     # Do not consider candidates found in the image edge
     imsize = data.shape
@@ -295,6 +323,7 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
     dict_event['event_status'] = obsplan.find(".//Param[@name='Event_status']").attrib['value']
     dict_event['revision'] = obsplan.find(".//Param[@name='Revision']").attrib['value']
     dict_event['telescope'] = obsplan.find(".//Param[@name='Name_tel']").attrib['value']
+    tiles_info = get_obsplan(obsplan)
 
     # Get user email adress and password to login in https://grandma-fa-interface.lal.in2p3.fr
     with open(usrpwd_path) as f:
@@ -312,6 +341,7 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
     #Tend_list = [Tend.fits] * len(candidates_cut)
     #Airmass_list = [Airmass] * len(candidates_cut)
     Fits_path = []
+    tile_id_list = []
     for i, row in enumerate(candidates_cut):
         name = dict_event['telescope'] + '_' + \
                 str(round(float(row['_RAJ2000']),5)) + '_' + \
@@ -326,9 +356,19 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
         make_sub_image(filename, OT_coords, coords_type=coords_type,
                        output_name=outputDir+name, size=[128,128], FoV=FoV, fmt=fmt)
 
+        # Check in which tile the OT is located
+        # Check that the RA, Dec lies within the FoV rectangle
+        # Stop when finding one. Assuming that tiles are not overlapping.
+        tile_id = 0 # by default
+        for tile in tiles_info:
+            tile_center = Point(tiles_info['RA'], tiles_info['Dec'])
+            if tile_center.intersects(im_poly):
+                tile_id = tiles_info['Id']
+                break
+        tile_id_list.append(tile_id)
+
     alias = ['new'] * len(candidates_cut)
     new = [1] * len(candidates_cut)
-    tile_id_list = [3] * len(candidates_cut)
     RA_list = candidates_cut['_RAJ2000']
     Dec_list = candidates_cut['_DEJ2000']
     filter_list = candidates_cut['filter_DB']
@@ -389,50 +429,214 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
 
             forced_debug = False
 
+def get_obsplan(v):
+    """Extract the tiles id and RA, Dec from voevent"""
+    ID=[]
+    Ra=[]
+    Dec=[]
+    Grade=[]
+    Header=[]
+    for element in v.What.iterchildren():
+        tag_type=str(element.tag)
+        if tag_type=="Table":
+            for subelement in element.iterchildren():
+                tag_type=str(subelement.tag)
+                if tag_type=="Field":
+                    Header.append(str(subelement.attrib['name']))
+                    if tag_type=="Data":
+                        for lines in subelement.iterchildren():
+                            ID.append(int(lines.TD[0]))
+                            Ra.append(float(lines.TD[1]))
+                            Dec.append(float(lines.TD[2]))
+                            Grade.append(float(lines.TD[3]))
 
+    tiles_info = Table([ID,Ra,Dec,Grade], names=['Id', 'RA', 'Dec', 'Grade'])
 
-def get_filter(filename, telescope):
+    return tiles_info
+
+def get_phot_cat(filename, telescope):
     """ Get the name of the filter band from header and telescope name
         And associate the correct name from DB
     """
-    
     header = fits.getheader(filename)
 
-    band = header['FILTER']
+    # FILTER keyword required
+    try: 
+        band = header['FILTER']
+    except Exception:
+        print('No FILTER keyword found in header.')
 
-    if telescope in ['TRE', 'TCH', 'TCA']:
-        if band in  ['C', 'Clear', 'NoFilter']:
-            band_DB = 'Clear'
-            band_cat = 'g+r'
-    elif telescope == 'Lisniky-AZT8':
-        if band in ['R']:
-            band_DB = 'R/Johnson'
-            band_cat = 'r'
-    elif telescope == 'UBAI-T60S':
-        if band in ['R']:
-            band_DB = 'R/Johnson'
-            band_cat = 'r'
-    elif telescope == 'UBAI-T60N':
-        if band in ['R']:
-            band_DB = 'R/Johnson'
-            band_cat = 'r'
-    elif telescope == 'FRAM-CTA-N':
-        if band in ['Clear', 'C']:
-            band_DB = 'Clear'
-            band_cat = 'g+r'
-    elif telescope == 'FRAM-Auger':
-        if band in ['Clear', 'C']:
-            band_DB = 'Clear'
-            band_cat = 'g+r'
-    elif telescope == 'OAJ-T80':
-        if band in ['r']:
-            band_DB = 'r/AB'
-            band_cat = 'r'
-    # Need to add all the filters from telescopes
+    if band in  ['C', 'Clear', 'NoFilter']:
+        band_DB = 'Clear'
+        band_cat = 'g+r'
+    elif band in ['g', 'gSDSS']:
+        band_DB = 'g/AB'
+        band_cat = 'g'
+    elif band in ['r', 'rSDSS']:
+        band_DB = 'r/AB'
+        band_cat = 'r'
+    elif band in ['i', 'iSDSS']:
+        band_DB = 'i/AB'
+        band_cat = 'i'
+    elif band in ['z', 'zSDSS']:
+        band_DB = 'z/AB'
+        band_cat = 'z'
+    elif band in ['B']:
+        band_DB = 'B/Johnson'
+        band_cat = 'B'
+    elif band in ['V']:
+        band_DB = 'V/Johnson'
+        band_cat = 'V'
+    elif band in ['R']:
+        band_DB = 'R/Johnson'
+        band_cat = 'R'
+    elif band in ['I']:
+        band_DB = 'I/Johnson'
+        band_cat = 'I'
+
+    # Chose photometric catalog
+    try:
+        RA = header['CRVAL1']
+    except Exception:
+        print('No CRVAL1 keyword found header. Astrometric calibration required.')
+    try:
+        DEC = header['CRVAL2']
+    except Exception:
+        print('No CRVAL2 keyword found header. Astrometric calibration required.')
+
+    # Use Pan-Starrs if Dec > -30 degrees
+    if float(DEC) > -30.:
+        catalog = 'II/349/ps1' 
+    # Else use SDSS if available.
+    elif Vizier.query_region(field, width=rad_deg, height=rad_deg,
+                             catalog="V/147/sdss12")[0]:
+        catalog = "V/147/sdss12" 
+    # Else use Gaia, but no calibration available for z band.
+    elif filter not in z_band:
+        catalog = "I/345/gaia2"
+    # Last choice: USNO-B1. All-sky but bad photometric calibration.
+    else:
+        catalog = "I/284/out"
+
+    return band_DB, band_cat, catalog
 
 
-    return band_DB, band_cat
-    
-       
+def unpackbits(x,num_bits):
+    """ Unpack bits with any dimension ndarray.
+        Can unpack however many bits"""
+    xshape = list(x.shape)
+    x = x.reshape([-1,1])
+    to_and = 2**np.arange(num_bits).reshape([1,num_bits])
+    return (x & to_and).astype(bool).astype(int).reshape(xshape + [num_bits])
 
+def filter_catalog_data(data, catalogName):
+    """Remove extended sources and bad measurements from reference catalogs
+       before performing photometric calibration"""
 
+    # Keep only point source objects and good measurements
+
+    # Panstarrs flags
+    if catalogName == 'II/349/ps1':
+        # First remove data using the general 'Qual' flag.
+        # ------------------------------------------------
+        # There are 8 bits
+        # Bit 1: extended object in PS1
+        # Bit 2: Extended in external data (e.g. 2MASS)
+        # Bit 3: Good-quality measurement in PS1
+        # Bit 4: Good-quality measurement in external data (eg, 2MASS)
+        # Bit 5: Good-quality object in the stack (>1 good stack measurement)
+        # Bit 6: The primary stack measurements are the best measurements
+        # Bit 7: Suspect object in the stack (no more than 1 good measurement, 2 or more suspect or good stack measurement)
+        # Bit 8:  Poor-quality stack object (no more than 1 good or suspect measurement)
+
+        Quality_flags = np.array(data['Qual'])
+        Qual_flag = unpackbits(Quality_flags, 8)
+
+        qual_bits = [1, 2, 3, 7, 8]
+        qual_values = [0, 0, 1, 0, 0]
+        counter=0
+        for i, j in zip(qual_bits, qual_values):
+            condition = Qual_flag[:,i-1] == j
+            if counter == 0:
+                quality_mask = condition
+            else:
+                quality_mask = np.bitwise_and(quality_mask, condition)
+            counter+=1
+        # flag for individual bands
+        # -------------------------
+        # There 25 bits. Use only the bit stating whether it is an extended
+        # object in this band
+        # Bit 1: Used within relphot (SECF_STAR_FEW): skip star
+        # Bit 2: Used within relphot (SECF_STAR_POOR): skip star
+        # Bit 3: Synthetic photometry used in average measurement
+        # Bit 4: Ubercal photometry used in average measurement
+        # Bit 5: PS1 photometry used in average measurement
+        # Bit 6: PS1 stack photometry exists
+        # Bit 7: Tycho photometry used for synthetic magnitudes
+        # Bit 8: Synthetic magnitudes repaired with zeropoint map
+        # Bit 9: Average magnitude calculated in 0th pass
+        # Bit 10: Average magnitude calculated in 1th pass
+        # Bit 11: Average magnitude calculated in 2th pass
+        # Bit 12: Average magnitude calculated in 3th pass
+        # Bit 13: Average magnitude calculated in 4th pass
+        # Bit 14: Extended in this band (PSPS only)
+        # Bit 15: PS1 stack photometry comes from primary skycell
+        # Bit 16: PS1 stack best measurement is a detection (not forced)
+        # Bit 17: PS1 stack primary measurement is a detection (not forced)
+        # Bit 18: 
+        # Bit 19: 
+        # Bit 20:
+        # Bit 21: This photcode has SDSS photometry
+        # Bit 22: This photcode has HSC photometry
+        # Bit 23: This photcode has CFH photometry (mostly megacam)
+        # Bit 24: This photcode has DES photometry
+        # Bit 25: Extended in this band
+
+        band_bits_and = [1, 2, 14, 25]
+        band_values_and = [0, 0, 0, 0]
+        band_bits_or = [9, 10, 11, 12]
+        band_values_or = [1, 1, 1, 1]
+
+        # bands = ['g', 'r', 'i', 'z', 'y']
+        # No need to consider y band, and fainter sensitivity, so
+        # might remove good reference stars
+        bands = ['g', 'r', 'i', 'z']
+        band_flags = []
+        # Unpack bits from individual band flags
+        for band in bands:
+            _temp = np.array(data['%sFlags' % band])
+            band_flags.append(unpackbits(_temp, 25))
+        band_flags = np.array(band_flags)
+
+        # Apply mask conditions
+        for i in range(len(bands)):
+            counter=0
+            for j1, k1 in zip(band_bits_and, band_values_and):
+                condition = band_flags[i][:,j1-1] == k1
+                quality_mask = np.bitwise_and(quality_mask, condition)
+                counter+=1
+            counter2=0
+            # At least one Average magnitude calculated
+            for j2, k2 in zip(band_bits_or, band_values_or):
+                condition_or = band_flags[i][:,j2-1] == k2
+                if counter2 == 0: 
+                    quality_mask_or = condition_or
+                else:
+                    quality_mask_or = np.bitwise_or(quality_mask_or, condition_or)
+                counter2+=1
+            # Combine both masks
+            quality_mask = np.bitwise_and(quality_mask, quality_mask_or)
+
+    elif catalogName == 'V/147/sdss12':
+        # No mask yet
+        quality_mask = np.ones(len(data), dtype=bool)
+
+    elif catalogName == 'I/345/gaia2':
+        # No mask yet
+        quality_mask = np.ones(len(data), dtype=bool)
+
+    elif catalogName == 'I/284/out':
+        # No mask yet
+        quality_mask = np.ones(len(data), dtype=bool)
+
+    return data[quality_mask]

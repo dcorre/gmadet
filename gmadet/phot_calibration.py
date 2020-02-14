@@ -11,17 +11,164 @@ import matplotlib.pyplot as plt
 import warnings 
 
 from catalogues import run_xmatch
-from utils import get_filter
+from utils import get_phot_cat, filter_catalog_data
+from phot_conversion import *
 
 from astropy.io import ascii, fits
 from astropy import units as u
 from astropy.table import vstack, Table, Column
+from astropy.stats import sigma_clip
 
 from copy import deepcopy
 
 warnings.simplefilter(action='ignore')
 
-def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doPlot=True):
+def crossmatch(fname, radius, pixScale, catalog):
+    """
+    Load the output file of Sextractor / pyRAF
+    Remove duplicate source during crossmatch
+    Keep only the closest match
+    """
+
+    # Import Sextractor or pyRAF results
+    detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
+    # Add units
+    detected_sources['_RAJ2000'] *= u.deg
+    detected_sources['_DEJ2000'] *= u.deg
+    # Add index for each source
+    detected_sources['idx'] = np.arange(len(detected_sources))
+
+    # Run xmatch to crossmatch detected sources with available catalog
+    crossmatch = run_xmatch(detected_sources, catalog, radius*pixScale*3600)
+    # Initialise flag array. 0: unknown sources / 1: known sources
+    flag = np.zeros(len(crossmatch))
+    # Do not consider duplicates
+    referenced_star_idx = np.unique(crossmatch['idx'])
+    # Consider only closest crossmatch if multiple association.
+    crossmatch['id'] = np.arange(len(crossmatch))
+    closest_id = []
+    for idx in referenced_star_idx:
+        mask = crossmatch['idx'] == idx
+        closest_id.append(crossmatch[mask]['id'][0])
+    # Set flag indexes to 1 for detected sources associated to a star
+    flag[closest_id] = 1
+    # ref_sources is an astropy table containing a single crossmatch
+    # for detected sources. Sources not crossmatched are not included.
+    # It is used for photometric calibration purpose.
+    ref_sources = crossmatch[flag == 1]
+
+    return ref_sources
+
+def conv_mag_sys(data, band, catalog):
+    """
+    For a gieven telescope magnitude and refence star catalog, perform
+    conversion from catalog bands to telescope bands
+    """
+    if band in ['g', 'r', 'i', 'z', 'y', 'g+r']:
+        if catalog == 'II/349/ps1':
+            # No transformation
+            bands = band.split('+')
+            if len (bands) > 1:
+                #jansky = []
+                jansky = np.zeros(len(data))
+                mag_err = np.zeros(len(data))
+                for filt in bands:
+                    jansky = jansky + 3631 * 10**(-0.4*(data['%smag' % filt]))
+                    # Add error in quadrature. Might be too simple
+                    mag_err = mag_err + data['e_%smag' % filt]**2
+                newmag = -2.5*np.log10(jansky/(3631))
+                newmag_err = np.sqrt(mag_err)
+            else:
+                newmag = data['%smag' % bands[0]]
+                newmag_err = data['e_%smag' % bands[0]]
+
+            data['mag_cat'] = newmag
+            data['magerr_cat'] = newmag_err
+            data['magsys'] = 'AB'
+
+        elif catalog == 'V/147/sdss12':
+            # No transformation
+            pass
+        elif catalog == 'I/345/gaia2':
+            bands = band.split('+')
+            if len (bands) > 1:
+                #jansky = []
+                jansky = np.zeros(len(data))
+                mag_err = np.zeros(len(data))
+                for filt in bands:
+                    data2 = data = gaia2SDSS(filt, data)
+                    jansky = jansky + 3631 * 10**(-0.4*(data2['%s_SDSSMag' % filt]))
+                    # Add error in quadrature. Might be too simple
+                    mag_err = mag_err + data2['calib_err']**2
+                newmag = -2.5*np.log10(jansky/(3631))
+                newmag_err = np.sqrt(mag_err)
+                data['mag_cat'] = newmag
+                data['magerr_cat'] = newmag_err
+                data['magsys'] = 'AB'
+            else:
+                data = gaia2SDSS(band, data)
+                data.rename_column('%s_SDSSMag' % band, 'mag_cat')
+                data.rename_column('calib_err', 'magerr_cat')
+                data['magsys'] = 'AB'
+
+    elif band in ['B', 'V', 'R', 'I']:
+        if catalog == 'II/349/ps1':
+            data = PS2Johnson(band, data)
+            data.rename_column('%sMag' % band, 'mag_cat')
+            data.rename_column('calib_err', 'magerr_cat')
+            data['magsys'] = 'AB'
+        elif catalog == 'V/147/sdss12':
+            data = SDSS2Johnson(band, data)
+            data.rename_column('%sMag' % band, 'mag_cat')
+            data.rename_column('calib_err', 'magerr_cat')
+            data['magsys'] = 'AB'
+        elif catalog == 'I/345/gaia2':
+            data = gaia2Johnson(band, data)
+            data.rename_column('%sMag' % band, 'mag_cat')
+            data.rename_column('calib_err', 'magerr_cat')
+            data['magsys'] = 'Vega'
+        elif catalog == 'I/284/out':
+            # Need to add
+            pass
+
+    return data
+
+def zeropoint(data, sigma, quadrant, folder, fname, doPlot=False):
+    """"Compute zeropoints"""
+    data.show_in_browser()
+    # Sigma clipping for zeropoints
+    #clip = sigma_clip(a['Delta_Mag'], sigma = 1.5, masked=True)
+    #clip_mask = np.invert(clip.recordmask)
+    #a = a[clip_mask]
+    # Remove objects to get all objects with delte_mag < 1 sigma
+    delta_mag = data['mag_inst'] - data['mag_cat']
+
+    clip = sigma_clip(delta_mag, sigma = sigma, masked=True)
+    clip_mask = np.invert(clip.recordmask)
+
+    plt.figure()
+    plt.scatter(data['mag_inst'],data['mag_cat'])
+    plt.scatter(data[clip_mask]['mag_inst'],data[clip_mask]['mag_cat'], label='clipped')
+    plt.legend()
+    plt.show()
+
+    newdata = data[clip_mask]
+    delta_mag = newdata['mag_inst'] - newdata['mag_cat']
+    delta_mag_median = np.median(delta_mag)
+    delta_mag_std = np.std(delta_mag)
+    
+    newdata.write(folder+fname+'_ZP_%d.dat' % quadrant, format='ascii.commented_header', overwrite=True)
+    
+    if doPlot:
+        newdata.show_in_browser(jsviewer=True)
+        plt.scatter(newdata['mag_inst'], newdata['mag_cat'], color ='blue')
+        plt.plot(newdata['mag_inst'], newdata['mag_inst']-delta_mag_median, color='green')
+        plt.savefig(folder+fname+'_ZP_%d.png' % quadrant)
+        plt.show()
+
+    return newdata, delta_mag_median, delta_mag_std 
+
+def phot_calib(candidates_list, telescope, radius = 3, doPlot=True):
     """Perform photometric calibration using catalogs"""
 
     delta_mag_median_list = []
@@ -31,25 +178,7 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
     for i, key in enumerate(candidates_list.group_by('filenames').groups.keys) :
         print ('Processing photometric calibration for ', key[0])
 
-        # Get pixel scale in degrees
-        header = fits.getheader(key[0])
-        try:
-            pixScale = abs(header['CDELT1'])
-        except Exception:
-            try:
-                pixScale = abs(header['_DELT1'])
-            except Exception:
-                try:
-                    pixScale = abs(header['CD1_1'])
-                except Exception:
-                    print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
-
-
-        # Get filter
-        band_DB, band_cat = get_filter(key[0], telescope)
-        #band_DB = 'Clear'
-        #band_cat = 'r'
-
+        # Get path and filename to images
         path, fname_ext = os.path.split(key[0])
         if path:
             folder = path + '/'
@@ -61,83 +190,36 @@ def phot_calib(candidates_list, telescope, catalog='II/349/ps1', radius = 3, doP
         extension = ''
         for ext in fname_ext.split('.')[1:]:
             extension = extension + '.' + ext
+
+        # Get pixel scale in degrees
+        header = fits.getheader(key[0])
+        try:
+            pixScale = abs(header['CDELT1'])
+        except Exception:
+            try:
+                pixScale = abs(header['CD1_1'])
+            except Exception:
+                print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1 or CD1_1')
+
+        # Get filter and catalog to perform photometric calibration
+        band_DB, band_cat, catalog = get_phot_cat(key[0], telescope)
+
+        # Import Sextractor or pyRAF results
         fname = folder + fname2 + '.magwcs'
+        ref_sources = crossmatch(fname, radius, pixScale, catalog)
 
-        detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
-        # Add units
-        detected_sources['_RAJ2000'] *= u.deg
-        detected_sources['_DEJ2000'] *= u.deg
-        # Add index for each source
-        detected_sources['idx'] = np.arange(len(detected_sources))
+        # Remove extended sources and bad measurements from reference
+        # stars catalog
+        # ref_sources.show_in_browser(jsviewer=True)
+        good_ref_sources = filter_catalog_data(ref_sources, catalog)
+        good_ref_sources.show_in_browser(jsviewer=True)
 
-        crossmatch = run_xmatch(detected_sources, catalog, radius*pixScale*3600)
-        # Initialise flag array. 0: unknown sources / 1: known sources
-        flag = np.zeros(len(crossmatch))
-        # Do not consider duplicates
-        referenced_star_idx = np.unique(crossmatch['idx'])
+        # Transform filter bands in catalog to telescope ones
+        ref_cat = conv_mag_sys(good_ref_sources, band_cat, catalog)
 
-        crossmatch['id'] = np.arange(len(crossmatch))
-        closest_id = []
-        for idx in referenced_star_idx:
-            mask = crossmatch['idx'] == idx
-            closest_id.append(crossmatch[mask]['id'][0])
-        
-        # Set flag indexes to 1 for detected sources associated to a star
-        flag[closest_id] = 1
+        ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(ref_cat, 1.5, i, folder, fname2, doPlot=True)
 
-
-        ref_sources = crossmatch[flag == 1]
-
-        bands = band_cat.split('+')
-        # Bunch of conditions to filter the catalog data
-        mask = ref_sources['Nd'] > 15
-        ref_sources=ref_sources[mask]
-        for band in bands:
-            mask = ref_sources['%sFlags' % band] == 115000
-            ref_sources=ref_sources[mask]
-
-        #mask = ((ref_sources['Nd'] > 15) & (ref_sources['rFlags'] == 115000) & (ref_sources['gFlags'] == 115000))
-
-        # Combine filter bands if needed 
-        if len (bands) > 1:
-            #jansky = []
-            jansky = np.zeros(len(ref_sources))
-            for band in bands:
-                jansky = jansky + 3631 * 10**(-0.4*(ref_sources['%smag' % band]))
-            newmag = -2.5*np.log10(jansky/(3631))
-        else:
-            newmag = ref_sources['%smag' % band]
-
-
-        # Remove objects to get all objects with delte_mag < 1 sigma
-        delta_mag = ref_sources['mag_inst'] - newmag
-        delta_mag_median = np.median(delta_mag)
-        delta_mag_std = np.std(delta_mag)
-        counter = 1
-        
-        while (np.max(abs(delta_mag)) > abs(delta_mag_median) + delta_mag_std) and (counter <= 5):
-            
-            #print (len(delta_mag), delta_mag_median, delta_mag_std)
-            mask = abs(delta_mag) < abs(delta_mag_median) + delta_mag_std
-            ref_sources = ref_sources[mask]
-            newmag = newmag[mask]
-             
-            delta_mag = ref_sources['mag_inst'] - newmag
-            delta_mag_median = np.median(delta_mag)
-            delta_mag_std = np.std(delta_mag)
-            counter += 1
-        
-        #delta_mag_std = np.std(delta_mag)
-        ref_sources.write(folder+fname2+'_ZP_%d.dat' % i, format='ascii.commented_header', overwrite=True)
-        if doPlot:
-            ref_sources.show_in_browser(jsviewer=True)
-            plt.scatter(ref_sources['mag_inst'], ref_sources['rmag'], color ='blue')
-            plt.scatter(ref_sources['mag_inst'], newmag, color='red')
-            plt.plot(ref_sources['mag_inst'], ref_sources['mag_inst']-delta_mag_median, color='green')
-            plt.savefig(folder+fname2+'_ZP_%d.png' % i)
-            plt.show()
-
-        delta_mag_median_list.append(delta_mag_median)
+        delta_mag_median_list.append(deltaMagMedian)
         filename_list.append(key[0])
 
     

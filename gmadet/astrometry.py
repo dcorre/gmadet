@@ -28,18 +28,19 @@ def clean_tmp_files(filename, soft='scamp'):
         os.remove('prepscamp.head')
         os.remove('scamp.xml')
 
-def update_headers_scamp(filename,scamphead):
+def update_headers_scamp(filename, scamphead, pixelscale):
     """Modify the header after running scamp"""
 
-    hdulist=fits.open(filename)
+    hdulist = fits.open(filename)
+    # Verify and try to fix issue with fits standard
+    hdulist.verify('fix')
     hdr = hdulist[0].header
-
     # First remove old keywords related to astrometric calibration
-    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","PIXSCALX","PIXSCALY","CUNIT1","CUNIT2","WCSAXES","WCSNAME","RADESYS","WCSVERS","CTYPE1","CTYPE2", "EQUINOX", "COORDSYS", "A_ORDER", "B_ORDER", "AP_ORDER", "BP_ORDER", "IMAGEW", "IMAGEH", "LONPOLE", "LATPOLE"]
+    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","PIXSCALX","PIXSCALY","CUNIT1","CUNIT2","WCSAXES","WCSNAME","RADESYS","WCSVERS","CTYPE1","CTYPE2", "EQUINOX", "COORDSYS", "A_ORDER", "B_ORDER", "AP_ORDER", "BP_ORDER", "IMAGEW", "IMAGEH", "LONPOLE", "LATPOLE", "CTYPE1T","CTYPE2T", "CRPIX1T","CRPIX2T","CRVAL1T","CRVAL2T", "CDELT1T", "CDELT2T", "CROTA1", "CROTA2", "CROTA1T", "CROTA2T"]
 
     # List of the first letters for standard astrometric coefficients.
     # Such as TR, PV, SIA
-    coeff_astro = ['TR', 'SIA', 'A_', 'B_', 'AP_', 'BP_']
+    coeff_astro = ['TR', 'SIA', 'A_', 'B_', 'AP_', 'BP_', 'LT']
 
     for  key, value in hdr.items():
         for coeff in coeff_astro:
@@ -68,6 +69,9 @@ def update_headers_scamp(filename,scamphead):
                 hdr.set(key.upper(), str(value))
             except:
                 pass
+    hdr.set('CDELT1', pixelscale[0])
+    hdr.set('CDELT2', pixelscale[1])
+
     if (hdr['CTYPE1'] != 'RA---TPV') and (hdr['CTYPE2'] != 'DEC--TPV'):
         print ('\nWARNING: scamp did not set CTYPE1, CTYPE2 to RA---TPV and DEC--TPV.')
         print ('Set them to to these values by hand, otherwise it can not be read by astropy.wcs')
@@ -75,7 +79,6 @@ def update_headers_scamp(filename,scamphead):
         print ('One might check the astrometry to be safe.\n')
         hdr['CTYPE1'] = 'RA---TPV'
         hdr['CTYPE2'] = 'DEC--TPV'
-
     hdulist.writeto(filename,overwrite=True)
 
 
@@ -118,7 +121,7 @@ def scamp(filename, config, useweight=False, CheckPlot=False, verbose='NORMAL'):
          #print ('Create FITS-LDAC file from SExtractor')
          subprocess.call(['sex', '-c', config['scamp']['sextractor'], \
                  '-PARAMETERS_NAME', config['scamp']['param'], \
-                 '-FILTER_NAME', config['sextractor']['default_conv'], \
+                 #'-FILTER_NAME', config['sextractor']['default_conv'], \
                  ima])
 
          if CheckPlot:
@@ -132,9 +135,6 @@ def scamp(filename, config, useweight=False, CheckPlot=False, verbose='NORMAL'):
                  '-CHECKPLOT_DEV', 'NULL', \
                  '-VERBOSE_TYPE', verbose])
 
-         # Update header of input fits file
-         update_headers_scamp(ima,'prepscamp.head')
-
          # Check astrometry offset
          with open('scamp.xml') as fd:
              doc = xmltodict.parse(fd.read())
@@ -144,7 +144,13 @@ def scamp(filename, config, useweight=False, CheckPlot=False, verbose='NORMAL'):
          daxis2 = float(daxis[1])
          daxis_mean = np.mean([daxis1,daxis2])
 
+         pixelscale = doc['VOTABLE']['RESOURCE']['RESOURCE']['TABLE'][0]['DATA']['TABLEDATA']['TR']['TD'][18].split('  ')
+         
+         pixelscale = [float(pixelscale[0])/3600, float(pixelscale[1])/3600]
+         # Update header of input fits file
+         update_headers_scamp(ima,'prepscamp.head', pixelscale)
+
          # Delete temporary files
-         clean_tmp_files(ima, soft='scamp')
+         #clean_tmp_files(ima, soft='scamp')
 
          return daxis_mean

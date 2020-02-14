@@ -12,12 +12,12 @@ PARAMETERS_NAME  sourcesdet.param  # name of the file containing catalog content
 #------------------------------- Extraction ----------------------------------
  
 DETECT_TYPE      CCD            # CCD (linear) or PHOTO (with gamma correction)
-DETECT_MINAREA   3              # min. # of pixels above threshold
+DETECT_MINAREA   4              # min. # of pixels above threshold
 DETECT_THRESH    2            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
 ANALYSIS_THRESH  2            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
  
-FILTER           N              # apply filter for detection (Y or N)?
-FILTER_NAME      default.conv   # name of the file containing the filter
+FILTER           Y              # apply filter for detection (Y or N)?
+FILTER_NAME      config/conv_kernels/gauss_2.5_5x5.conv   # name of the file containing the filter
  
 DEBLEND_NTHRESH  32             # Number of deblending sub-thresholds
 DEBLEND_MINCONT  0.005          # Minimum contrast parameter for deblending
@@ -35,18 +35,18 @@ PHOT_AUTOPARAMS  2.5, 3.5       # MAG_AUTO parameters: <Kron_fact>,<min_radius>
 PHOT_PETROPARAMS 2.0, 3.5       # MAG_PETRO parameters: <Petrosian_fact>,
                                 # <min_radius>
  
-SATUR_LEVEL      50000.0        # level (in ADUs) at which arises saturation
+SATUR_LEVEL      55930.0        # level (in ADUs) at which arises saturation
 SATUR_KEY        SATURATE       # keyword for saturation level (in ADUs)
  
 MAG_ZEROPOINT    0.0            # magnitude zero-point
 MAG_GAMMA        4.0            # gamma of emulsion (for photographic scans)
-GAIN             0.0            # detector gain in e-/ADU
+GAIN             2.0            # detector gain in e-/ADU
 GAIN_KEY         GAIN           # keyword for detector gain in e-/ADU
-PIXEL_SCALE      1.0            # size of pixel in arcsec (0=use FITS WCS info)
+PIXEL_SCALE      3.27            # size of pixel in arcsec (0=use FITS WCS info)
  
 #------------------------- Star/Galaxy Separation ----------------------------
  
-SEEING_FWHM      4.0            # stellar FWHM in arcsec
+SEEING_FWHM      2.0            # stellar FWHM in arcsec
 STARNNW_NAME     default.nnw    # Neural-Network_Weight table filename
  
 #------------------------------ Background -----------------------------------
@@ -58,7 +58,7 @@ BACKPHOTO_TYPE   GLOBAL         # can be GLOBAL or LOCAL
  
 #------------------------------ Check Image ----------------------------------
  
-CHECKIMAGE_TYPE  OBJECTS           # can be NONE, BACKGROUND, BACKGROUND_RMS,
+CHECKIMAGE_TYPE  APERTURES           # can be NONE, BACKGROUND, BACKGROUND_RMS,
                                 # MINIBACKGROUND, MINIBACK_RMS, -BACKGROUND,
                                 # FILTERED, OBJECTS, -OBJECTS, SEGMENTATION,
                                 # or APERTURES
@@ -66,9 +66,9 @@ CHECKIMAGE_NAME  check.fits     # Filename for the check-image
  
 #--------------------- Memory (change with caution!) -------------------------
  
-MEMORY_OBJSTACK  3000           # number of objects in stack
+MEMORY_OBJSTACK  6000           # number of objects in stack
 MEMORY_PIXSTACK  300000         # number of pixels in stack
-MEMORY_BUFSIZE   1024           # number of lines in buffer
+MEMORY_BUFSIZE   2048           # number of lines in buffer
  
 #----------------------------- Miscellaneous ---------------------------------
  
@@ -76,3 +76,4 @@ VERBOSE_TYPE     NORMAL         # can be QUIET, NORMAL or FULL
 HEADER_SUFFIX    .head          # Filename extension for additional headers
 WRITE_XML        N              # Write XML file (Y/N)?
 XML_NAME         sex.xml        # Filename for XML output
+NTHREADS         0              # 1 single thread, 0 auto?
