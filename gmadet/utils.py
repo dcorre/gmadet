@@ -472,7 +472,7 @@ def get_phot_cat(filename, telescope):
     elif band in ['g', 'gSDSS']:
         band_DB = 'g/AB'
         band_cat = 'g'
-    elif band in ['r', 'rSDSS']:
+    elif band in ['r', 'rSDSS', 'rPATH']:
         band_DB = 'r/AB'
         band_cat = 'r'
     elif band in ['i', 'iSDSS']:
