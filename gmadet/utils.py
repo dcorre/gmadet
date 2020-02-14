@@ -124,6 +124,16 @@ def cut_image(filename, resultDir, Nb_cuts=(2,2)):
         cp_p(filename,filename_out)
 
         data, header = fits.getdata(filename, header=True)
+        # if keyword with scamp PV keywords
+        # perform a quick and dirty fix
+        try:
+            pvlist = header['PV*']
+            for pv in pvlist:
+                tpv = 'T'+pv
+                header.rename_keyword(pv, tpv, force=False)
+        except:
+            pass
+        w = wcs.WCS(header)
         Naxis1 = header['NAXIS1']
         Naxis2 = header['NAXIS2']
         Naxis11 = int(Naxis1/Nb_cuts[0])
@@ -151,14 +161,13 @@ def cut_image(filename, resultDir, Nb_cuts=(2,2)):
                 #datacut = data[x1-1:x2-1,y1-1:y2-1]
                 datacut = data[y1-1:y2-1,x1-1:x2-1]
                 newheader = deepcopy(header)
-                crpix1 = int((y2-y1)/2)
-                crpix2 = int((x2-x1)/2)
+                crpix2 = int((y2-y1)/2)
+                crpix1 = int((x2-x1)/2)
+                ra, dec = w.wcs_pix2world(crpix1+Naxis11*i, crpix2+Naxis22*j, 1)
                 newheader['CRPIX1'] = crpix1
                 newheader['CRPIX2'] = crpix2
-                w = wcs.WCS(header)
-                ra, dec = w.wcs_pix2world(crpix1+Naxis11*i, crpix2+Naxis22*j, 1)
-                newheader['CRVAL1'] = str(ra)
-                newheader['CRVAL2'] = str(dec)
+                newheader['CRVAL1'] = float(ra)
+                newheader['CRVAL2'] = float(dec)
                 fits.writeto(filename_out, datacut, newheader,overwrite=True)
 
 

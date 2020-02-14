@@ -199,9 +199,12 @@ def get_photometry(filelist,FWHM_list,thresh, mkiraf=True):
     iraf.unlearn('daopars')
 
     iraf.datapars.epadu = 1
+    #iraf.datapars.gain = 'GAIN'
+    #iraf.datapars.ccdread = 'RON'
     iraf.datapars.readnoi = 6
     iraf.datapars.datamin = "INDEF"
     iraf.datapars.datamax = "50000"
+    #iraf.datapars.datamax = "INDEF"
 
 
     for i, filename in enumerate(filelist):
@@ -212,6 +215,7 @@ def get_photometry(filelist,FWHM_list,thresh, mkiraf=True):
             folder = ''
 
         # fwhm tarot 1.5   oaj 3.5
+        #iraf.datapars.fwhmpsf = FWHM_list[i]
         iraf.datapars.fwhm = FWHM_list[i]
 
         # Get rid of the extension to keep only the name
