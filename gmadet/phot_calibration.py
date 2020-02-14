@@ -171,7 +171,8 @@ def zeropoint(data, sigma, quadrant, folder, fname, doPlot=False):
 def phot_calib(candidates_list, telescope, radius = 3, doPlot=True):
     """Perform photometric calibration using catalogs"""
 
-    delta_mag_median_list = []
+    deltaMagMedianlist = []
+    deltaMagStdlist = []
     filename_list = []
 
     # Get sources 
@@ -219,7 +220,8 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True):
 
         ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(ref_cat, 1.5, i, folder, fname2, doPlot=True)
 
-        delta_mag_median_list.append(deltaMagMedian)
+        deltaMagMedianlist.append(deltaMagMedian)
+        deltaMagStdlist.append(deltaMagStd)
         filename_list.append(key[0])
 
     
@@ -234,9 +236,9 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True):
 
     for j, filename in enumerate(filename_list):
         mask = candidates_list['filenames'] == filename
-        candidates_list['mag_calib'][mask] = candidates_list['mag_inst'][mask] - delta_mag_median
+        candidates_list['mag_calib'][mask] = candidates_list['mag_inst'][mask] - deltaMagMedianlist[j]
         # Quadratic sum of statistics and calibration errors. 
-        candidates_list['mag_calib_err'][mask] = np.sqrt(candidates_list['mag_inst_err'][mask]**2 + delta_mag_std**2)
+        candidates_list['mag_calib_err'][mask] = np.sqrt(candidates_list['mag_inst_err'][mask]**2 + deltaMagStdlist[j]**2)
 
         # Define magnitude system
         if catalog == 'II/349/ps1':

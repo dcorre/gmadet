@@ -618,7 +618,7 @@ if __name__ == "__main__":
     #check_moving_objects(args.filename, total_candidates)
    
     #total_candidates = ascii.read('total_candidates.dat')
-    #total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
+    total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
     
     #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
 

@@ -40,7 +40,7 @@ def update_headers_scamp(filename, scamphead, pixelscale):
 
     # List of the first letters for standard astrometric coefficients.
     # Such as TR, PV, SIA
-    coeff_astro = ['TR', 'SIA', 'A_', 'B_', 'AP_', 'BP_', 'LT']
+    coeff_astro = ['TR', 'SIA', 'A_', 'B_', 'AP_', 'BP_', 'LT', 'PV']
 
     for  key, value in hdr.items():
         for coeff in coeff_astro:
@@ -114,7 +114,16 @@ def scamp(filename, config, useweight=False, CheckPlot=False, verbose='NORMAL'):
     path = os.path.dirname(filename)
     imagelist = np.atleast_1d(filename)
     for ima in imagelist:
-         
+         # Make sure to use only the Primary hdu.
+         # sextractor, scamp seems to crash otherwise.
+         hdul = fits.open(filename)
+         newhdu = fits.PrimaryHDU()
+         newhdu.data = hdul[0].data
+         newhdu.header = hdul[0].header
+         newhdulist = fits.HDUList([newhdu])
+         newhdulist.writeto(filename,overwrite=True)
+         hdul.close()
+
          root = os.path.splitext(ima)[0]
          _name = root.split('/')[-1]
 
