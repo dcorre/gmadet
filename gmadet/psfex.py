@@ -34,20 +34,20 @@ def psfex(filename, config, useweight=False):
         mv_p('snap_preppsfex.fits', root + '_psf.fits')
         rm_p(cat)
    
-    # Get the mean PSF FWHM in pixels
-    with open('psfex.xml') as fd:
-        doc = xmltodict.parse(fd.read())
-        FWHM_stats = doc['VOTABLE']['RESOURCE']['RESOURCE']['TABLE'][0]['DATA']['TABLEDATA']['TR']['TD'][20:23]
-        FHWM_min = float(FWHM_stats[0])
-        FHWM_mean = float(FWHM_stats[1])
-        FHWM_max = float(FWHM_stats[2])
+        # Get the mean PSF FWHM in pixels
+        with open('psfex.xml') as fd:
+            doc = xmltodict.parse(fd.read())
+            FWHM_stats = doc['VOTABLE']['RESOURCE']['RESOURCE']['TABLE'][0]['DATA']['TABLEDATA']['TR']['TD'][20:23]
+            FHWM_min = float(FWHM_stats[0])
+            FHWM_mean = float(FWHM_stats[1])
+            FHWM_max = float(FWHM_stats[2])
    
-        print ('\nFWHM min: %.2f pixels' % FHWM_min)
-        print ('FWHM mean: %.2f pixels' % FHWM_mean) 
-        print ('FWHM max: %.2f pixels\n' % FHWM_max)
+            print ('\nFWHM min: %.2f pixels' % FHWM_min)
+            print ('FWHM mean: %.2f pixels' % FHWM_mean) 
+            print ('FWHM max: %.2f pixels\n' % FHWM_max)
     
-        rm_p('psfex.xml')
-        FWHM_list.append(FHWM_mean)
+            rm_p('psfex.xml')
+            FWHM_list.append(FHWM_mean)
 
     return FWHM_list
 

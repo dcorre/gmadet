@@ -620,7 +620,7 @@ if __name__ == "__main__":
             FWHM_list = psfex(image_table['filenames'], config)
         else:
             FWHM_list = [args.FWHM] * len(image_table)
-    
+
         if args.doSub:
             substraction(image_table['filenames'], args.doSub, config, method='hotpants')
 

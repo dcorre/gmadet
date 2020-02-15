@@ -10,6 +10,7 @@ from astropy import units as u
 import numpy as np
 from registration import registration
 from ps1_survey import ps1_grid, download_ps1_cells
+from utils import get_phot_cat
 import hjson
 
 def get_corner_coords(filename):
@@ -44,8 +45,18 @@ def substraction(filename, reference, config, method='hotpants'):
 
         # Define the reference image
         if reference == 'ps1':
-            #band = get_band(config, )
-            band = 'g'
+            _, band, _ = get_phot_cat(filename, None)
+            if band == 'B':
+                band = 'g'
+            elif band == 'V':
+                band = 'g'
+            elif band == 'R':
+                band = 'r'
+            elif band == 'I':
+                band = 'i'
+            elif band == 'g+r':
+                band = 'r'
+            #band = 'g'
             cell_table = ps1_grid(im_coords)
             download_ps1_cells(cell_table, band, ima)
             refim = folder + 'ps1_mosaic.fits' 
