@@ -85,9 +85,11 @@ def conv_mag_sys(data, band, catalog):
             data['mag_cat'] = newmag
             data['magerr_cat'] = newmag_err
             data['magsys'] = 'AB'
+            catalogName = 'Pan-STARRS DR1'
 
         elif catalog == 'V/147/sdss12':
             # No transformation
+            catalogName = 'SDSS DR12'
             pass
         elif catalog == 'I/345/gaia2':
             bands = band.split('+')
@@ -110,6 +112,7 @@ def conv_mag_sys(data, band, catalog):
                 data.rename_column('%s_SDSSMag' % band, 'mag_cat')
                 data.rename_column('calib_err', 'magerr_cat')
                 data['magsys'] = 'AB'
+            catalogName = 'Gaia DR2'
 
     elif band in ['B', 'V', 'R', 'I']:
         if catalog == 'II/349/ps1':
@@ -117,25 +120,29 @@ def conv_mag_sys(data, band, catalog):
             data.rename_column('%sMag' % band, 'mag_cat')
             data.rename_column('calib_err', 'magerr_cat')
             data['magsys'] = 'AB'
+            catalogName = 'Pan-STARRS DR1'
         elif catalog == 'V/147/sdss12':
             data = SDSS2Johnson(band, data)
             data.rename_column('%sMag' % band, 'mag_cat')
             data.rename_column('calib_err', 'magerr_cat')
             data['magsys'] = 'AB'
+            catalogName = 'SDSS DR12'
         elif catalog == 'I/345/gaia2':
             data = gaia2Johnson(band, data)
             data.rename_column('%sMag' % band, 'mag_cat')
             data.rename_column('calib_err', 'magerr_cat')
             data['magsys'] = 'Vega'
+            catalogName = 'Gaia DR2'
         elif catalog == 'I/284/out':
             # Need to add
+            catalogName = 'USNO-B1'
             pass
 
-    return data
+    return data, catalogName
 
-def zeropoint(data, sigma, quadrant, folder, fname, doPlot=False):
+def zeropoint(data, sigma, quadrant, folder, fname, band, catalog, doPlot=False):
     """"Compute zeropoints"""
-    data.show_in_browser()
+    #data.show_in_browser()
     # Sigma clipping for zeropoints
     #clip = sigma_clip(a['Delta_Mag'], sigma = 1.5, masked=True)
     #clip_mask = np.invert(clip.recordmask)
@@ -143,14 +150,8 @@ def zeropoint(data, sigma, quadrant, folder, fname, doPlot=False):
     # Remove objects to get all objects with delte_mag < 1 sigma
     delta_mag = data['mag_inst'] - data['mag_cat']
 
-    clip = sigma_clip(delta_mag, sigma = sigma, masked=True)
+    clip = sigma_clip(delta_mag, sigma = sigma)
     clip_mask = np.invert(clip.recordmask)
-
-    plt.figure()
-    plt.scatter(data['mag_inst'],data['mag_cat'])
-    plt.scatter(data[clip_mask]['mag_inst'],data[clip_mask]['mag_cat'], label='clipped')
-    plt.legend()
-    plt.show()
 
     newdata = data[clip_mask]
     delta_mag = newdata['mag_inst'] - newdata['mag_cat']
@@ -160,11 +161,25 @@ def zeropoint(data, sigma, quadrant, folder, fname, doPlot=False):
     newdata.write(folder+fname+'_ZP_%d.dat' % quadrant, format='ascii.commented_header', overwrite=True)
     
     if doPlot:
-        newdata.show_in_browser(jsviewer=True)
+        #newdata.show_in_browser(jsviewer=True)
+        plt.figure()
+        plt.scatter(data['mag_inst'], data['mag_cat'], color ='blue')
+        median_nosigmaclip = np.median(data['mag_inst'] - data['mag_cat'])
+        std_nosigmaclip = np.std(data['mag_inst'] - data['mag_cat'])
+        plt.plot(data['mag_inst'], data['mag_inst']-median_nosigmaclip, color='green')
+        plt.xlabel('Instrumental magnitude')
+        plt.ylabel('%s band %s' % (band,catalog))
+        plt.title('zeropoints without sigma clipping.\nMedian: %.2f, std: %.2f' % (median_nosigmaclip, std_nosigmaclip))
+        plt.savefig(folder+fname+'_ZP_%d_nosigmaClipping.png' % quadrant)
+
+        plt.figure()
         plt.scatter(newdata['mag_inst'], newdata['mag_cat'], color ='blue')
         plt.plot(newdata['mag_inst'], newdata['mag_inst']-delta_mag_median, color='green')
+        plt.xlabel('Instrumental magnitude')
+        plt.ylabel('%s band %s' % (band,catalog))
+        plt.title('zeropoints after sigma clipping (sigma=1.5).\nMedian: %.2f, std: %.2f' % (-delta_mag_median,delta_mag_std))
         plt.savefig(folder+fname+'_ZP_%d.png' % quadrant)
-        plt.show()
+        #plt.show()
 
     return newdata, delta_mag_median, delta_mag_std 
 
@@ -207,24 +222,28 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True):
 
         # Import Sextractor or pyRAF results
         fname = folder + fname2 + '.magwcs'
+        print ('Crossmatching with catalog.')
         ref_sources = crossmatch(fname, radius, pixScale, catalog)
 
         # Remove extended sources and bad measurements from reference
         # stars catalog
         # ref_sources.show_in_browser(jsviewer=True)
+        print ('Removed extended objects or with band quality flags.')
         good_ref_sources = filter_catalog_data(ref_sources, catalog)
-        good_ref_sources.show_in_browser(jsviewer=True)
+        #good_ref_sources.show_in_browser(jsviewer=True)
 
         # Transform filter bands in catalog to telescope ones
-        ref_cat = conv_mag_sys(good_ref_sources, band_cat, catalog)
+        print ('Convert magnitude system.')
+        ref_cat, catalogName = conv_mag_sys(good_ref_sources, band_cat, catalog)
 
-        ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(ref_cat, 1.5, i, folder, fname2, doPlot=True)
+        print ('Compute zeropoint.')
+        ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(ref_cat, 1.5, i, folder, fname2, band_cat, catalogName, doPlot=True)
 
         deltaMagMedianlist.append(deltaMagMedian)
         deltaMagStdlist.append(deltaMagStd)
         filename_list.append(key[0])
 
-    
+    print ('Add magnitude to candidates.') 
     # Apply photmetric calibration to candidates
     mag_calib_col = Column(np.zeros(len(candidates_list)), name='mag_calib')
     mag_calib_err_col = Column(np.zeros(len(candidates_list)), name='mag_calib_err')

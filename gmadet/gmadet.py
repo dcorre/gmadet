@@ -73,7 +73,8 @@ def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='
     if doAstrometry:
         # Use scamp for astrometric calibration
         if soft == 'scamp':
-
+            print ('Performing astrometric calibration on %s using SCAMP.' % filename)
+            print ('You required astrometric precision of %.3f arcsec.\n' % accuracy)
             if Nb_cuts[0] > 1 or Nb_cuts[1] > 1:
                 index = 0
                 for i in range(Nb_cuts[0]):
@@ -239,7 +240,7 @@ def select_good_stars(filelist,limiting_mag_err):
 # Performs selection of stars without INDEF in magnitude or magnitude error and with the flag "NoError" inside *.mag.1 file
 # Saves into *.magfiltered file in x-y coordinates
 # filename is WITHOUT suffix .fits
-
+    print ('Selecting only good stars from daophot output.\n')
     for filename in filelist:
         path, filename_ext = os.path.split(filename)
         if path:
@@ -252,6 +253,9 @@ def select_good_stars(filelist,limiting_mag_err):
 
         magfile = folder + filename2 + '.mag.1'
         resmaggile = folder + filename2 + ".magfiltered"
+        #data = ascii.read(magfile)
+        #data.show_in_browser()
+
         f1 = open(magfile, "r")
         f2 = open(resmaggile,"w")
 
@@ -598,36 +602,46 @@ if __name__ == "__main__":
     
     # Load config files for a given telescope
     config = load_config(args.telescope)
-        
-    image_table = astrometric_calib(args.filename, config, Nb_cuts=Nb_cuts,soft=args.doAstrometry, verbose=args.verbose, accuracy=0.65)
 
-    if args.FWHM == 'psfex':
-        # Estimate the PSF FWHM for each image/quadrants using psfex
-        FWHM_list = psfex(image_table['filenames'], config)
+    # List all the files in the given path
+    if os.path.isdir(args.filename):
+        # expected extensions: .fits and .fit
+        # Get all the prefixes corresponding to one field
+        filenames = glob.glob(args.filename + '*.fit*')
     else:
-        FWHM_list = [args.FWHM] * len(image_table)
+        filenames = [args.filename]
+
+    for filename in filenames:
+        print ('Analysing image: %s\n' % filename)
+        image_table = astrometric_calib(filename, config, Nb_cuts=Nb_cuts,soft=args.doAstrometry, verbose=args.verbose, accuracy=0.65)
+
+        if args.FWHM == 'psfex':
+            # Estimate the PSF FWHM for each image/quadrants using psfex
+            FWHM_list = psfex(image_table['filenames'], config)
+        else:
+            FWHM_list = [args.FWHM] * len(image_table)
     
-    if args.doSub:
-        substraction(image_table['filenames'], args.doSub, config, method='hotpants')
+        if args.doSub:
+            substraction(image_table['filenames'], args.doSub, config, method='hotpants')
 
-    if args.soft == 'iraf':
-        clean_folder(image_table['filenames'])
-        get_photometry(image_table['filenames'], FWHM_list, args.threshold)
-        select_good_stars(image_table['filenames'], args.mag_err_cut)
-    elif args.soft == 'sextractor':
-        sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope,config,verbose=args.verbose)
+        if args.soft == 'iraf':
+            clean_folder(image_table['filenames'])
+            get_photometry(image_table['filenames'], FWHM_list, args.threshold)
+            select_good_stars(image_table['filenames'], args.mag_err_cut)
+        elif args.soft == 'sextractor':
+            sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope,config,verbose=args.verbose)
 
-    convert_xy_radec(image_table['filenames'],soft=args.soft)
-    total_candidates = crosscheck_with_catalogues(image_table,args.radius_crossmatch, Nb_cuts=Nb_cuts)
-    #check_moving_objects(args.filename, total_candidates)
+        convert_xy_radec(image_table['filenames'],soft=args.soft)
+        total_candidates = crosscheck_with_catalogues(image_table,args.radius_crossmatch, Nb_cuts=Nb_cuts)
+        #check_moving_objects(args.filename, total_candidates)
    
-    #total_candidates = ascii.read('total_candidates.dat')
-    total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
+        #total_candidates = ascii.read('total_candidates.dat')
+        total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
     
-    #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
+        #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
 
-    # If both arguments VOE_path and owncloud_path are provided
-    # Send candidates to database
-    # Set the tile_id corresponding to your tile by hand at the moment
-    if args.VOE_path and args.owncloud_path:
-        send_data2DB(args.filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
+        # If both arguments VOE_path and owncloud_path are provided
+        # Send candidates to database
+        # Set the tile_id corresponding to your tile by hand at the moment
+        if args.VOE_path and args.owncloud_path:
+            send_data2DB(filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
