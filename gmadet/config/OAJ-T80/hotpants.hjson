@@ -21,10 +21,10 @@ nrx: 1
 nry: 1
 
 # xstamp: number of each region's stamps in x dimension, default: 10
-nsx: 10
+nsx: 20
 
 # ystamp: number of each region's stamps in y dimension, default: 10
-nsy: 10
+nsy: 20
 
 # kernelorder: spatial order of kernel variation within region, default: 2
 ko: 2
@@ -36,10 +36,10 @@ bgo: 1
 r: 10
 
 # radius: half width substamp to extract around each centroid, default: 15
-rss: 20
+rss: 15
 
 # fitthresh: RMS threshold for good centroid in kernel fit, default: 20.0
-ft: 10.0
+ft: 20.0
 
 # statsig: threshold for sigma clipping statistics, default: 3
 ssig: 3

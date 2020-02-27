@@ -188,40 +188,48 @@ def download_ps1_cells(cell_table, band, inputimage):
     #    return
     
     file_list = []
-    
+    # extension to get auxiliary images
+    # See https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images
+    auxiliaryFiles = ['.mask', '.wt', '.num', '.exp', '.expwt', '']
+
     BaseURL = "http://ps1images.stsci.edu/"
     for cell in cell_table:
         cell_url_path = 'rings.v3.skycell/%s/%s/' % (cell['projcell_id'],
                                                       cell['cell_id'])
-        cell_file = 'rings.v3.skycell.%s.%s.stk.%s.unconv.fits' % (cell['projcell_id'],
-                                                                   cell['cell_id'],
-                                                                   band)
-        Link = BaseURL + cell_url_path + cell_file
-        local_cell_file = cell_file.replace(".","_").replace("_fits",".fits")
-        FileNameFitsPath = ps1Dir + local_cell_file
-        if os.path.isfile(FileNameFitsPath):
-            print ('File %s already downloaded' % FileNameFitsPath)
-        else:
-            wget_command = "wget %s -O %s"%(Link,FileNameFitsPath)
-            os.system(wget_command)
+
+
+        for aux in auxiliaryFiles:
+            cell_file = 'rings.v3.skycell.%s.%s.stk.%s.unconv%s.fits' % (cell['projcell_id'],
+                                                                         cell['cell_id'],
+                                                                         band,
+                                                                         aux)
+            Link = BaseURL + cell_url_path + cell_file
+            local_cell_file = cell_file.replace(".","_").replace("_fits",".fits")
+            FileNameFitsPath = ps1Dir + local_cell_file
             if os.path.isfile(FileNameFitsPath):
-                # do not really understand what this is doing
-                funpack_command = "fpack %s; rm %s; funpack %s.fz"%(FileNameFitsPath,FileNameFitsPath,FileNameFitsPath)
-                os.system(funpack_command)
-
-                rm_command = "rm funpack %s.fz"%(FileNameFitsPath)
-                os.system(rm_command)
+                print ('File %s already downloaded' % FileNameFitsPath)
             else:
-                print ("File %s was not downloaded or found on the server." % Link)
+                wget_command = "wget %s -O %s"%(Link,FileNameFitsPath)
+                os.system(wget_command)
+                if os.path.isfile(FileNameFitsPath):
+                    # do not really understand what this is doing
+                    funpack_command = "fpack %s; rm %s; funpack %s.fz"%(FileNameFitsPath,FileNameFitsPath,FileNameFitsPath)
+                    os.system(funpack_command)
 
-        # Check if targeted file was downloaded to continue
-        if os.path.isfile(FileNameFitsPath):
-            if os.path.isfile(ps1ResampleDir + local_cell_file):
-                pass
-            else:
-                linear_rescale_ps1(local_cell_file, ps1Dir, ps1ResampleDir)
+                    rm_command = "rm funpack %s.fz"%(FileNameFitsPath)
+                    os.system(rm_command)
+                else:
+                    print ("File %s was not downloaded or found on the server." % Link)
 
-            file_list.append(ps1ResampleDir+local_cell_file)
+            if aux == '':
+                # Check if targeted file was downloaded to continue
+                if os.path.isfile(FileNameFitsPath):
+                    if os.path.isfile(ps1ResampleDir + local_cell_file):
+                        pass
+                    else:
+                        linear_rescale_ps1(local_cell_file, ps1Dir, ps1ResampleDir)
+                
+                    file_list.append(ps1ResampleDir+local_cell_file)
 
     # Create mosaic file if it does not exist
     mosaicfile = folder + filenameInput.split('.')[0] + '_ps1_mosaic.fits'
@@ -237,6 +245,8 @@ def linear_rescale_ps1(filename, inputDir, outputDir, normalise=True):
     
     # Transform into linear flux scale
     hdulist=fits.open(inputDir+filename)
+    hdulist_exp=fits.open(inputDir+filename.split('.')[0]+'_exp.fits')
+    #hdulist_expwt=fits.open(inputDir+filename.split('.')[0]+'_expwt.fits')
     
     boffset = hdulist[0].header['BOFFSET']
     bsoften = hdulist[0].header['BSOFTEN']
@@ -244,12 +254,30 @@ def linear_rescale_ps1(filename, inputDir, outputDir, normalise=True):
     hdulist[0].data = boffset + 2 *bsoften* np.sinh(hdulist[0].data/a)
 
     if normalise:
-        print (hdulist[0].header['EXPTIME'])
-        hdulist[0].data /= hdulist[0].header['EXPTIME']
+        
+        hdr = hdulist[0].header
+        SCLlist = hdr['SCL_*']
+        scale_flux = []
+        for SCL in SCLlist:
+            if float(hdr[SCL]) > 0:
+                scale_flux.append(1)
+            else:
+                scale_flux.append(0)
+        explist = hdr['EXP_*']
+        exposure = 0
+        for i, exp in enumerate(explist):
+            exposure += float(scale_flux[i]) * float(hdr[exp])
+        #hdulist[0].data /= hdulist[0].header['EXPTIME']
+        hdulist[0].data /= exposure
+
         try:
-            hdulist[0].header['SATURATE'] /= hdulist[0].header['EXPTIME']
+            #hdulist[0].header['SATURATE'] /= hdulist[0].header['EXPTIME']
+            hdulist[0].header['SATURATE'] /= exposure
         except:
-            pass
+            pass 
+        
+        # Normalise by exacte exposure time in each pixels
+        #hdulist[0].data = hdulist[0].data / hdulist_exp[0].data
         hdulist[0].header['EXPTIME'] = 1 
     hdulist.writeto(outputDir+filename,overwrite=True)
     hdulist.close()
@@ -269,6 +297,7 @@ def linear_rescale_ps1(filename, inputDir, outputDir, normalise=True):
 
 def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
     """Create a single mosaic of PS1 image using swarp"""
+    _, filenameInput = os.path.split(inputimage)
 
     # Create list of mask fits
     mask_list = [ima.split('.')[0] + '_mask.fits' for ima in file_list]
@@ -276,7 +305,8 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
     np.savetxt('mosaic.list', file_list, fmt='%s')
     np.savetxt('mask.list', mask_list, fmt='%s')
     
-    imagefiles = [outputDir + 'ps1_mosaic', outputDir + 'ps1_mosaic_mask']
+    imagefiles = [outputDir + filenameInput.split('.')[0] + '_ps1_mosaic',
+                  outputDir + filenameInput.split('.')[0] + '_ps1_mosaic_mask']
 
     # Get pixel scale from input image header
     header = fits.getheader(inputimage)

@@ -16,7 +16,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time, TimeDelta
 from astropy.visualization import (MinMaxInterval, SqrtStretch, LogStretch,SinhStretch,
-                                       ImageNormalize, ZScaleInterval)
+                                       LinearStretch, ImageNormalize, ZScaleInterval)
 import voeventparse as vp
 import json
 import requests
@@ -82,7 +82,7 @@ def load_config(telescope):
     return config
 
 
-def clean_folder(filelist):
+def clean_folder(filelist,subFiles=None):
     """ Remove output files from previous iraf run. No need for sextractor  """
 
     types = ('*coo.*', '*mag.*', '*.magwcs', '*.magfiltered*')
@@ -216,7 +216,8 @@ def make_sub_image(filename, OT_coords, coords_type='world',
         c = coord.SkyCoord(OT_coords[0], OT_coords[1], unit=(u.deg, u.deg),frame='icrs')
         world = np.array([[c.ra.deg, c.dec.deg]])
         #print (world)
-        pix = w.all_world2pix(world,1)[0]
+        pix1,pix2 = w.all_world2pix(world,1)[0]
+        pix = [pix2,pix1]
         pix_ref = OT_coords
     elif coords_type == 'pix':
         pix = OT_coords
@@ -235,8 +236,15 @@ def make_sub_image(filename, OT_coords, coords_type='world',
         size = [int(FoV/(pixSize*3600)), int(FoV/(pixSize*3600))]
     
     # Extract subimage from image starting from reference pixel
-    subimage = data[int(pix[0]) - int(size[0]/2) : int(pix[0]) + int(size[0]/2),
-                    int(pix[1]) - int(size[1]/2) : int(pix[1]) + int(size[1]/2)]
+    x1 = int(pix[0]) - int(size[0]/2)
+    if x1 < 0:
+        x1 = 0
+    x2 = int(pix[0]) + int(size[0]/2)
+    y1 = int(pix[1]) - int(size[1]/2)
+    if y1 < 0:
+        y1 = 0
+    y2 = int(pix[1]) + int(size[1]/2)
+    subimage = data[x1 : x2, y1 : y2]
 
     if fmt == 'fits':
         # write new sub-image
@@ -252,9 +260,18 @@ def make_sub_image(filename, OT_coords, coords_type='world',
         hdu.writeto(output_name,overwrite=True)
 
     elif fmt == 'png':
-       norm = ImageNormalize(subimage, interval=ZScaleInterval(),
-                      stretch=SinhStretch())
-       plt.imshow(subimage, cmap='gray',origin='upper',norm=norm)
+       # Highest declination on top
+       ra1, dec1 = w.all_pix2world(pix[0],y1, 0)
+       ra2, dec2 = w.all_pix2world(pix[0],y2, 0)
+       if dec1 > dec2:
+           origin = 'upper'
+       else:
+           origin = 'lower'
+       norm = ImageNormalize(subimage-np.median(subimage), interval=ZScaleInterval(),
+                      stretch=LinearStretch())
+       #stretch=SinhStretch())
+       plt.figure()
+       plt.imshow(subimage-np.median(subimage), cmap='gray',origin=origin,norm=norm)
        plt.savefig(output_name)
 
 def get_corner_coords(filename):
@@ -273,21 +290,20 @@ def get_corner_coords(filename):
 
     return ra, dec
 
-def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_path, FoV=60, coords_type='pix', corner_cut=32,debug=False,fmt='png'):
+def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_path, FoV=60, coords_type='wolrd', corner_cut=32,debug=False,fmt='png', subFiles=None):
     """Send candidates information to database"""
 
-    # Load data and header
-    data, header = fits.getdata(filename, header = True)
-
+    # Load original image header to retrieve date of observation and airmass
+    # These information might have been lost in the analyis images
+    header = fits.getheader(filename)
     dateObs = header['DATE-OBS']
     Tstart = Time(dateObs, format='fits', scale='utc')
     try:
         exposure = float(header['EXPOSURE'])
         Tend = Tstart + TimeDelta(exposure, format='sec')
     except:
-        exposure = -1
         Tend = Time(dateObs, format='fits', scale='utc')
-    
+        exposure = Tend-Tstart
     # Try to get airmass rom header, else set it to -1
     try:
         Airmass = header['AIRMASS']
@@ -300,9 +316,10 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
     im_poly = Polygon([tuple(co) for co in pix_im_coord])
     
     # Do not consider candidates found in the image edge
-    imsize = data.shape
+    #imsize = data.shape
     #print (imsize, header['NAXIS1'], header['NAXIS2'])
     # Get the physical pixels of the original size if image were split into different quadrants.
+    """
     for i, candidate in enumerate(candidates):
         quadrant_idx = candidate['quadrant']
         if quadrant_idx == 'None':
@@ -320,8 +337,9 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
             (candidates['Ypos'] > corner_cut) & \
             (candidates['Xpos'] < imsize[1] - corner_cut) & \
             (candidates['Ypos'] < imsize[0] - corner_cut)
+
     candidates_cut = candidates[mask]
-    #print (candidates_cut)
+    """
     # Get information about the current alert from the xml file containing observation plan
     with open(VOE_path,'rb') as f:
         obsplan = vp.load(f)
@@ -344,27 +362,56 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
             '_' + dict_event['revision'] + '/OTs/'
 
     # Create a sub image centered on each candidate found, and gather information
-    #tile_id_list = [1] * len(candidates_cut)
-    #filter_list = candidates_cut['filter_DB']
-    #Tstart_list = [Tstart.fits] * len(candidates_cut)
-    #Tend_list = [Tend.fits] * len(candidates_cut)
-    #Airmass_list = [Airmass] * len(candidates_cut)
-    Fits_path = []
+    #tile_id_list = [1] * len(candidates)
+    #filter_list = candidates['filter_DB']
+    #Tstart_list = [Tstart.fits] * len(candidates)
+    #Tend_list = [Tend.fits] * len(candidates)
+    #Airmass_list = [Airmass] * len(candidates)
+    ImFits_path = []
+    RefFits_path = []
+    SubFits_path = []
     tile_id_list = []
-    for i, row in enumerate(candidates_cut):
+    if subFiles:
+        mask = candidates['FlagSub'] == 'Y'
+        candidates = candidates[mask]
+    masktest = (candidates['_RAJ2000'] < 244.01) & (candidates['_RAJ2000'] > 244.0) & (candidates['_DEJ2000'] < 22.27) & (candidates['_DEJ2000'] > 22.26)
+    candidates = candidates[masktest]
+    for i, row in enumerate(candidates):
         name = dict_event['telescope'] + '_' + \
                 str(round(float(row['_RAJ2000']),5)) + '_' + \
                 str(round(float(row['_DEJ2000']),5)) + '_' + \
                 dateObs + '.' + fmt
-        #name = 'test' + str(i) + '.' + fmt
-        Fits_path.append(name)
-        if coords_type == 'world':
-            OT_coords = [row['_RAJ2000'], row['_DEJ2000']]
-        elif coords_type == 'pix':
-            OT_coords = [row['Ypos'], row['Xpos']]
-        make_sub_image(filename, OT_coords, coords_type=coords_type,
-                       output_name=outputDir+name, size=[128,128], FoV=FoV, fmt=fmt)
 
+        OT_coords_wcs = [row['_RAJ2000'], row['_DEJ2000']]
+        OT_coords_pix = [row['Ypos'], row['Xpos']]
+        # Extract the region given wcs coordinates.
+        # If substraction was performed, images are realigned and some cut on the edges might 
+        # performed, so the physical pixels position do not match exactly the original image.
+        # Astrometry is performed for the original image and sustracted image, so no problem.
+        make_sub_image(row['OriginalIma'], OT_coords_wcs, coords_type='world',
+                       output_name=outputDir+name, size=[128,128], FoV=FoV, fmt=fmt)
+        ImFits_path.append(name)
+        if subFiles:
+            name_ref = dict_event['telescope'] + '_' + \
+                        str(round(float(row['_RAJ2000']),5)) + '_' + \
+                        str(round(float(row['_DEJ2000']),5)) + '_' + \
+                        dateObs + '_ref.' + fmt
+            name_sub = dict_event['telescope'] + '_' + \
+                        str(round(float(row['_RAJ2000']),5)) + '_' + \
+                        str(round(float(row['_DEJ2000']),5)) + '_' + \
+                        dateObs + '_sub.' + fmt
+            RefFits_path.append(name_ref)
+            SubFits_path.append(name_sub)
+            # Here use physical pixels coordinates.
+            # Should work as well with wcs coordinates
+            make_sub_image(row['RefIma'], OT_coords_wcs, coords_type='world',
+                           output_name=outputDir+name_ref, size=[128,128], FoV=FoV, fmt=fmt)
+            make_sub_image(row['filenames'], OT_coords_wcs, coords_type='world',
+                           output_name=outputDir+name_sub, size=[128,128], FoV=FoV, fmt=fmt)
+
+        else:
+            RefFits_path.append('')
+            SubFits_path.append('')
         # Check in which tile the OT is located
         # Check that the RA, Dec lies within the FoV rectangle
         # Stop when finding one. Assuming that tiles are not overlapping.
@@ -376,23 +423,24 @@ def send_data2DB(filename, candidates, Nb_cuts, owncloud_path, VOE_path, usrpwd_
                 break
         tile_id_list.append(tile_id)
 
-    alias = ['new'] * len(candidates_cut)
-    new = [1] * len(candidates_cut)
-    RA_list = candidates_cut['_RAJ2000']
-    Dec_list = candidates_cut['_DEJ2000']
-    filter_list = candidates_cut['filter_DB']
-    Tstart_list = [Tstart.fits] * len(candidates_cut)
-    Tend_list = [Tend.fits] * len(candidates_cut)
-    Mag_list = candidates_cut['mag_calib']
-    Mag_err_list = candidates_cut['mag_calib_err']
-    Magsys_list = candidates_cut['magsys']
-    Airmass_list = [Airmass] * len(candidates_cut)
+    alias = ['new'] * len(candidates)
+    new = [1] * len(candidates)
+    RA_list = candidates['_RAJ2000']
+    Dec_list = candidates['_DEJ2000']
+    filter_list = candidates['filter_DB']
+    Tstart_list = [Tstart.fits] * len(candidates)
+    Tend_list = [Tend.fits] * len(candidates)
+    exp_list = [exposure] * len(candidates)
+    Mag_list = candidates['mag_calib']
+    Mag_err_list = candidates['mag_calib_err']
+    Magsys_list = candidates['magsys']
+    Airmass_list = [Airmass] * len(candidates)
 
-    candidates_2DB = Table([alias,new,tile_id_list,RA_list,Dec_list,filter_list,Tstart_list,Tend_list,Mag_list,Mag_err_list,Magsys_list,Airmass_list,Fits_path], names=['alias','new','tile_id','RA','DEC','filter','Tstart','Tend','Magnitude','Magnitude_error','Magsys','Airmass','fits_name'])
+    candidates_2DB = Table([alias,new,tile_id_list,RA_list,Dec_list,filter_list,Tstart_list,Tend_list,exp_list,Mag_list,Mag_err_list,Magsys_list,Airmass_list,ImFits_path, RefFits_path, SubFits_path], names=['alias','new','tile_id','RA','DEC','filter','Tstart','Tend','Exposure','Magnitude','Magnitude_error','Magsys','Airmass','im_fits_name', 'ref_fits_name', 'sub_fits_name'])
 
     
     # Set url to report tile or galaxy observations
-    url = "https://grandma-fa-interface.lal.in2p3.fr/obs_report_OT.php"
+    #url = "https://grandma-fa-interface.lal.in2p3.fr/obs_report_OT.php"
     #url = "http://localhost/grandma/obs_report_OT.php"
 
     # Loop over the observations
@@ -475,19 +523,19 @@ def get_phot_cat(filename, telescope):
     except Exception:
         print('No FILTER keyword found in header.')
 
-    if band in  ['C', 'Clear', 'NoFilter']:
+    if band in  ['C', 'Clear', 'NoFilter', 'L']:
         band_DB = 'Clear'
         band_cat = 'g+r'
-    elif band in ['g', 'gSDSS']:
+    elif band in ['g', 'gSDSS', 'SDSS g']:
         band_DB = 'g/AB'
         band_cat = 'g'
-    elif band in ['r', 'rSDSS', 'rPATH']:
+    elif band in ['r', 'rSDSS', 'rPATH', 'SDSS r']:
         band_DB = 'r/AB'
         band_cat = 'r'
-    elif band in ['i', 'iSDSS']:
+    elif band in ['i', 'iSDSS', 'SDSS i']:
         band_DB = 'i/AB'
         band_cat = 'i'
-    elif band in ['z', 'zSDSS']:
+    elif band in ['z', 'zSDSS', 'SDSS z']:
         band_DB = 'z/AB'
         band_cat = 'z'
     elif band in ['B']:

@@ -1,32 +1,56 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# You need to install locally astrometry.net and to download following indeces files: index-4204-*.fits
 
 import subprocess, sys, os
 import numpy as np
 from astropy.io import fits
-from utils import mv_p, mkdir_p
-import xmltodict
+from lacosmic import lacosmic
+from utils import cp_p
 
-def clean_tmp_files(filename, soft='scamp'):
-    """Clean tempory files created by either astrometry.net or scamp"""
+def run_lacosmic(filename, FWHM, flim=2, sigma=5):
+    """Run lacosmic to remove cosmic rays from the input image"""
 
-    fileroot = filename.split('.fits')
-    if soft == 'astrometrynet':
-        os.remove(fileroot[0] + "-indx.xyls")
-        os.remove(fileroot[0] + ".axy")
-        os.remove(fileroot[0] + ".corr")
-        os.remove(fileroot[0] + ".match")
-        os.remove(fileroot[0] + ".rdls")
-        os.remove(fileroot[0] + ".solved")
-        os.remove(fileroot[0] + ".wcs")
-        os.remove(fileroot[0] + ".fits")
-        os.rename(fileroot[0] + ".new",fileroot[0] + ".fits") 
-    elif soft == 'scamp':
-        os.remove('prepscamp.cat')
-        os.remove('prepscamp.head')
-        os.remove('scamp.xml')
+    imagelist = np.atleast_1d(filename)
+
+    for i, ima in enumerate(imagelist):
+        path, filename_ext = os.path.split(ima)
+        if path:
+            folder = path + '/'
+        else:
+            folder = ''
+
+        filename2 = filename_ext.split('.')[0]
+
+        # Make copy of original image
+        cp_p(ima, folder+filename2+'_CR_notcleaned.fits')
+
+        hdulist = fits.open(ima)
+        hdr = hdulist[0].header
+        try:
+            gain = hdr['GAIN']
+        except:
+            gain = 1
+        try:
+            RN = hdr['RN']
+        except:
+            RN = 10
+
+        if FWHM[i] > 2:
+            flim = 2
+        else:
+            flim = 5
+        data = np.asarray(hdulist[0].data, dtype=float)
+        lacosmic_res = lacosmic(data,flim,sigma,sigma,effective_gain=gain,readnoise=RN)
+
+        # Create image cleaned from cosmic rays
+        hdulist[0].data = lacosmic_res[0]
+        hdulist.writeto(ima, overwrite=True)
+
+        # Create mask of cosmic rays
+        hdulist[0].data = np.asarray(lacosmic_res[1],dtype=int)
+        hdulist.writeto(folder+filename2+'_CRmask.fits', overwrite=True)
+
 
 def update_headers_scamp(filename, scamphead, pixelscale):
     """Modify the header after running scamp"""
@@ -36,7 +60,7 @@ def update_headers_scamp(filename, scamphead, pixelscale):
     hdulist.verify('fix')
     hdr = hdulist[0].header
     # First remove old keywords related to astrometric calibration
-    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","PIXSCALX","PIXSCALY","CUNIT1","CUNIT2","WCSAXES","WCSNAME","RADESYS","WCSVERS","CTYPE1","CTYPE2", "EQUINOX", "COORDSYS", "A_ORDER", "B_ORDER", "AP_ORDER", "BP_ORDER", "IMAGEW", "IMAGEH", "LONPOLE", "LATPOLE", "CTYPE1T","CTYPE2T", "CRPIX1T","CRPIX2T","CRVAL1T","CRVAL2T", "CDELT1T", "CDELT2T", "CROTA1", "CROTA2", "CROTA1T", "CROTA2T"]
+    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","PIXSCALX","PIXSCALY","CUNIT1","CUNIT2","WCSAXES","WCSNAME","RADESYS","WCSVERS","CTYPE1","CTYPE2", "EQUINOX", "COORDSYS", "A_ORDER", "B_ORDER", "AP_ORDER", "BP_ORDER", "IMAGEW", "IMAGEH", "LONPOLE", "LATPOLE", "CTYPE1T","CTYPE2T", "CRPIX1T","CRPIX2T","CRVAL1T","CRVAL2T", "CDELT1T", "CDELT2T", "CROTA1", "CROTA2", "CROTA1T", "CROTA2T", "AIRMASS"]
 
     # List of the first letters for standard astrometric coefficients.
     # Such as TR, PV, SIA
@@ -117,14 +141,11 @@ def scamp(filename, config, useweight=False, CheckPlot=False, verbose='NORMAL'):
          # Make sure to use only the Primary hdu.
          # sextractor, scamp seems to crash otherwise.
          hdul = fits.open(filename)
-         #hdul.verify('fix')
          #print (hdul.info())
          # Delete empty keywords
          for key, val in hdul[0].header.items():
              if key == '':
                   del hdul[0].header[key]
-                  # Should delete all empty field, so break the loop otherwise it will crash if more than one empty keywords is found.
-                  break
          newhdu = fits.PrimaryHDU()
          newhdu.data = hdul[0].data
          newhdu.header = hdul[0].header

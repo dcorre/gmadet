@@ -21,6 +21,7 @@ import warnings
 from catalogues import *
 from phot_calibration import phot_calib
 from utils import load_config, clean_folder, send_data2DB, mv_p, mkdir_p
+from remove_cosmics import run_lacosmic
 from astrometry import astrometrynet, scamp
 from psfex import psfex
 from substraction import substraction
@@ -143,8 +144,28 @@ def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='
     return image_table
 
 
-def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL'):
+def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL', subFiles=None):
     """Run sextractor """
+
+    # if substraction have been performed
+    # Run sextractor on input image to get photometry calibrated and 
+    # on substracted image to get interesting sources
+    if subFiles:
+        subFiles = np.array(subFiles)
+        #filelist = [im for im in subFiles[:, 0]]
+        # Rather take the original before registration as it introduces artefact
+        filelist = [im for im in filelist]
+        filelist.extend([im for im in subFiles[:, 2]])
+        # Duplicate FWHM list
+        FWHM_list.extend(FWHM_list)
+        # No mask on iput data
+        mask = ['None'] * len(subFiles[:, 0])
+        mask.extend([im for im in subFiles[:, 3]])
+        weight_type = ['NONE'] * len(subFiles[:, 0])
+        weight_type.extend(['MAP_WEIGHT'] * len(mask))
+    else:
+        mask = ['None'] * len(filelist)
+        weight_type = ['NONE'] * len(filelist)
 
     for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
@@ -158,18 +179,21 @@ def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL')
 
         subprocess.call(['sex', '-c', config['sextractor']['conf'], \
                 filename, \
+                '-WEIGHT_TYPE', str(weight_type[i]), \
+                '-WEIGHT_IMAGE', str(mask[i]), \
                 '-SEEING_FWHM', str(FWHM_list[i]), \
                 '-DETECT_THRESH', str(thresh), \
                 '-PARAMETERS_NAME', config['sextractor']['param'], \
                 #'-FILTER_NAME', config['sextractor']['default_conv'], \
-                '-CHECKIMAGE_TYPE', 'SEGMENTATION', \
-                '-CHECKIMAGE_NAME', folder + filename2 + '_segmentation.fits', \
+                #'-CHECKIMAGE_TYPE', 'SEGMENTATION', \
+                '-CHECKIMAGE_TYPE', 'BACKGROUND, SEGMENTATION', \
+                #'-CHECKIMAGE_NAME', folder + filename2 + '_segmentation.fits', \
+                '-CHECKIMAGE_NAME', folder + filename2 + '_background.fits' + ', ' + folder + filename2 + '_segmentation.fits' , \
                 '-VERBOSE_TYPE', verbose, \
                 '-CATALOG_NAME', folder + filename2 + '_SourcesDet.cat' ])
 
 
-
-def get_photometry(filelist,FWHM_list,thresh, mkiraf=True):
+def get_photometry(filelist,FWHM_list,thresh,mkiraf=True,subFiles=None):
     """
     Performs sextracting by daofind and photometry by daophot 
     filename is WITHOUT suffix .fits
@@ -236,11 +260,24 @@ def get_photometry(filelist,FWHM_list,thresh, mkiraf=True):
         iraf.daophot.phot(image=filename,coords=daofind_output, output=daophot_output, interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="no")
     
 
-def select_good_stars(filelist,limiting_mag_err):
+def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFiles=None):
 # Performs selection of stars without INDEF in magnitude or magnitude error and with the flag "NoError" inside *.mag.1 file
 # Saves into *.magfiltered file in x-y coordinates
 # filename is WITHOUT suffix .fits
-    print ('Selecting only good stars from daophot output.\n')
+
+    # if substraction have been performed
+    # Run sextractor on input image to get photometry calibrated and 
+    # on substracted image to get interesting sources
+    if subFiles:
+        subFiles = np.array(subFiles)
+        #filelist = [im for im in subFiles[:, 0]]
+        # Rather take the original before registration as it introduces artefact
+        originallist = [im for im in filelist]
+        filelist = []
+        for im, sub in zip(originallist, subFiles[:,2]):
+            filelist.append(im)
+            filelist.append(sub)
+
     for filename in filelist:
         path, filename_ext = os.path.split(filename)
         if path:
@@ -250,58 +287,110 @@ def select_good_stars(filelist,limiting_mag_err):
 
         # Get rid of the extension to keep only the name
         filename2 = filename_ext.split('.')[0]
+        fileext = '.' + filename_ext.split('.')[1]
 
-        magfile = folder + filename2 + '.mag.1'
-        resmaggile = folder + filename2 + ".magfiltered"
-        #data = ascii.read(magfile)
-        #data.show_in_browser()
+        if soft == 'iraf':
+            print ('Selecting only good stars from daophot output.\n')
+            magfile = folder + filename2 + '.mag.1'
+            resmaggile = folder + filename2 + ".magfiltered"
+            #data = ascii.read(magfile)
+            #data.show_in_browser()
 
-        f1 = open(magfile, "r")
-        f2 = open(resmaggile,"w")
+            f1 = open(magfile, "r")
+            f2 = open(resmaggile,"w")
 
-        for kk in range(1,77):
-            lajna = f1.readline()
+            for kk in range(1,77):
+                lajna = f1.readline()
 
-        while lajna:
-            lajna = f1.readline()
-            xpos = lajna.split()[0]
-            ypos = lajna.split()[1]
-            lajna = f1.readline()
-            lajna = f1.readline()
-            lajna = f1.readline()
-            mag = lajna.split()[4]
-            merr = lajna.split()[5]
-            if len(lajna.split()) < 8:
-                errmessage = lajna.split()[6]
-            else:
-                errmessage = lajna.split()[7]
-        
-            if (errmessage != "NoError") or (mag == "INDEF") or (merr == "INDEF"):
-                #print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
-                pass
-            else:
-                #print(merr)
-                if (float(merr) < limiting_mag_err):
-                    #print(xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
-                    f2.write(xpos+" "+ypos+" "+mag+" "+merr+"\n")                
+            while lajna:
+                lajna = f1.readline()
+                xpos = lajna.split()[0]
+                ypos = lajna.split()[1]
+                lajna = f1.readline()
+                lajna = f1.readline()
+                lajna = f1.readline()
+                mag = lajna.split()[4]
+                merr = lajna.split()[5]
+                if len(lajna.split()) < 8:
+                    errmessage = lajna.split()[6]
                 else:
+                    errmessage = lajna.split()[7]
+        
+                if (errmessage != "NoError") or (mag == "INDEF") or (merr == "INDEF"):
                     #print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
                     pass
+                else:
+                    #print(merr)
+                    if (float(merr) < limiting_mag_err):
+                        #print(xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
+                        f2.write(xpos+" "+ypos+" "+mag+" "+merr+"\n")                
+                    else:
+                        #print("XXXXXX "+xpos+" "+ypos+" "+mag+" "+merr+" "+errmessage)
+                        pass
 
-            lajna = f1.readline()
+                lajna = f1.readline()
 
-        f1.close()
-        f2.close()
+            f1.close()
+            f2.close()
+
+        elif soft == 'sextractor':
+            sources = ascii.read(folder + filename2 + '_SourcesDet.cat', format='sextractor')
+            mv_p(folder + filename2 + '_SourcesDet.cat',folder + filename2 + '_SourcesDetnoFilter.cat')
+            # Remove sources too close to the imge edges
+            header = fits.getheader(folder + filename2 + fileext)
+            imsize = [int(header['NAXIS1']), int(header['NAXIS2'])]
+            mask_edge = (sources['X_IMAGE'] > corner_cut) & \
+                        (sources['Y_IMAGE'] > corner_cut) & \
+                        (sources['X_IMAGE'] < imsize[1] - corner_cut) & \
+                        (sources['Y_IMAGE'] < imsize[0] - corner_cut)
+
+            """
+            # Remove sources that are likely cosmic rays
+            # Compute flux ratio as total_flux / nb_pixels for each source
+            # Compute the median and std for sources with 10 < nb_pixels < 100
+            # Higher than 10 to discard cosmics
+            # Smaller than 100 to discard saturated sources
+            # Remove sources with nb_pixels < 10 and fluxratio > fluxratio_med + fluxratio_std
+            flux = sources['FLUX_AUTO']
+            nbpix = sources['ISOAREA_IMAGE']
+            fluxratio = flux / nbpix
+            # Compute the median and std on the original image only
+            # This assumes that the substracted image follows the original image in the for loop
+            if '_sub' not in filename2:
+                mask = (nbpix > 10) & (nbpix < 100)
+                fluxratio_med = np.median(fluxratio[mask])
+                fluxratio_std = np.std(fluxratio[mask])
+
+            mask_cosmics = (nbpix < 10) & (fluxratio > fluxratio_med + sigma * fluxratio_std)
+            mask_tot = np.bitwise_and(mask_edge, np.invert(mask_cosmics))
+            """
+            sources_filt = sources[mask_edge]
+            sources_filt.write(folder + filename2 + '_SourcesDet.cat',format='ascii.commented_header', overwrite=True)
 
 
-def convert_xy_radec(filelist, soft='sextractor'):
+
+def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
     """
     Performs pyraf transformation of x-y into RA-DEC coordinates
     filename is WITHOUT suffix .fits
     Input is the *.magfiltered file from select_good_stars() function
     Output is the *.magwcs file
     """
-    for filename in filelist:
+
+    # If substraction has been performed
+    if subFiles:
+        original_filelist = [im for im in filelist]*2
+        subfiles = np.array(subFiles)
+        #filelist = [im for im in subfiles[:, 0]]
+        # Rather take the original before registration as it introduces artefact
+        filelist = [im for im in filelist]
+        filelist.extend([im for im in subfiles[:, 2]])
+        reference_filelist = [im for im in subfiles[:, 1]]*2
+    else:
+        original_filelist = filelist
+        reference_filelist = ['None']*len(filelist)
+
+    for filename, original_filename, refimage  in zip(filelist, original_filelist, reference_filelist):
         path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
@@ -329,19 +418,30 @@ def convert_xy_radec(filelist, soft='sextractor'):
             #data = Table([data1['Xpos'],data1['Ypos'], ra, dec, data1['Mag_aper'], data1['Mag_err_aper'], [filename]*len(data1)], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'filenames'])
  
         elif soft == 'sextractor':
-            sources = ascii.read(folder + filename2 + '_SourcesDet.cat', format='sextractor')
+            sources = ascii.read(folder + filename2 + '_SourcesDet.cat')
             header = fits.getheader(filename)
             w = wcs.WCS(header)
             ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 1)
             filenames = [filename] * len(ra)
-            data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_isnt', 'Magerr_inst', 'filenames'])
-
+            data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'filenames'])
+        
+        # Flag to identify substraction image
+        if '_sub' in magfilewcs:
+            data['FlagSub'] = ['Y'] * len(data)
+            data['OriginalIma'] = [original_filename]*len(data)
+            data['RefIma'] = [refimage] * len(data)
+        else:
+            data['FlagSub'] = ['N'] * len(data)
+            data['OriginalIma'] = [original_filename] * len(data)
+            data['RefIma'] = [refimage] * len(data)
+        
+        
         data.write(magfilewcs, format='ascii.commented_header', overwrite=True)
         check_RADEC=data['RA', 'DEC']
         check_RADEC.write(magfilewcs+'2',format='ascii.commented_header', overwrite=True)
 
 
-def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II/349/ps1', 'I/271/out', 'I/284/out'], Nb_cuts=(1,1)):
+def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II/349/ps1', 'I/271/out', 'I/284/out'], Nb_cuts=(1,1), subFiles=None):
 #def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2','II/349/ps1', 'I/271/out'], Nb_cuts=(1,1)):
     """
     Performs crosscheck with USNO B1.0 catalogue with *.magwcs
@@ -360,7 +460,17 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
     cat_dict = {'I/284/out':'USNO-B1', 'I/345/gaia2':'GAIA DR2', 'II/349/ps1':'PS1 DR1', 'I/271/out':'GSC'}
     counter = 0
     transients_out_list = []
-    for i, filename in enumerate(image_table['filenames']):
+
+    if subFiles is not None:
+        subfiles = np.array(subFiles)
+        #filelist = [im for im in subfiles[:, 0]]
+        # Rather take the original data as the registartion introduces artefact
+        filelist = [im for im in image_table['filenames']]
+        filelist.extend([im for im in subfiles[:, 2]])
+    else:
+        filelist = image_table['filenames']
+
+    for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
         if path:
             folder = path + '/'
@@ -377,36 +487,41 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
 
         if Nb_cuts == (1,1):
             original_name = folder + filename2
+            quadrant = 1
         else:
-            split_file = filename2.split('_')
+            split_file = filename2.split('_Q')
+            original_name = folder + split_file[0]
+            for name in  split_file[1].split('_')[1:]:
+                original_name = original_name + '_'  + name
+            original_name = original_name.split('.')[0] 
+            quadrant = split_file[1].split('_')[0]
+            """
             if len(split_file[-1]) == 2:
                 idx = 3
             elif len(split_file[-1]) == 3:
                 idx = 4
-            original_name = folder + filename2[:-idx]
-
+            """
         transients_out_list.append(original_name + ".oc")
 
         header = fits.getheader(filename)
-
         # Get pixel scale in degrees
         try:
             pixScale = abs(header['CDELT1'])
         except Exception:
             try:
-                pixScale = abs(header['_DELT1'])
+                pixScale = abs(header['CD1_1'])
             except Exception:
-                try:
-                    pixScale = abs(header['CD1_1'])
-                except Exception:
-                    print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
+                print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
 
         # Load detected sources in astropy table
-        detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
-        detected_sources['quadrant'] = [image_table['quadrant'][i]]*len(detected_sources)
-
+        detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
+        #detected_sources = ascii.read(magfilewcs)
+        #detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
+        detected_sources['quadrant'] = [quadrant]*len(detected_sources)
+        # Do not need it as the astrometric calibration is performed on each quadrant now.
+        """
         # Transform X_pos and Y_pos to original image in case it was split
-        header2 = fits.getheader(original_name + extension)
+        header2 = fits.getheader(filename)
         Naxis1 = float(header2['NAXIS1'])
         Naxis2 = float(header2['NAXIS2'])
         Naxis11 = int(Naxis1/Nb_cuts[0])
@@ -419,10 +534,10 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
             quad, index_i, index_j = image_table['quadrant'][i].split('_')
             quad = quad[1:]
         detected_sources['Xpos'] = detected_sources['Xpos'] + Naxis22 * int(index_j)
-        detected_sources['Xpos_quad'] = detected_sources['Xpos'] 
         detected_sources['Ypos'] = detected_sources['Ypos'] + Naxis11 * int(index_i)
+        """
+        detected_sources['Xpos_quad'] = detected_sources['Xpos'] 
         detected_sources['Ypos_quad'] = detected_sources['Ypos'] 
-
         if i == 0:
             detected_sources_tot = deepcopy(detected_sources)
         else:
@@ -432,7 +547,7 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
     detected_sources_tot['_DEJ2000'] *= u.deg
     # Add index for each source
     detected_sources_tot['idx'] = np.arange(len(detected_sources_tot))
-    
+
     # Initialise candidates with all detected sources
     candidates = deepcopy(detected_sources_tot)
     #candidates.write('test0.dat', format='ascii.commented_header', overwrite=True)
@@ -462,16 +577,31 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
         #print (len(candidates))
         # Update indexes
         candidates['idx'] = np.arange(len(candidates))
-        print ('%d/%d candidates left after crossmatching with %s' % (len(candidates),len(detected_sources), cat_dict[catalog]))
+        if subFiles is not None:
+            mask = candidates['FlagSub'] == 'Y'
+            mask2 = detected_sources_tot['FlagSub'] == 'Y'
+            print ('%d/%d candidates left in substracted image after crossmatching with %s' % (len(candidates[mask]),len(detected_sources_tot[mask2]), cat_dict[catalog]))
+            mask = np.invert(mask)
+            mask2 = np.invert(mask2)
+            print ('%d/%d candidates left in original image (without substraction) after crossmatching with %s' % (len(candidates[mask]),len(detected_sources_tot[mask2]), cat_dict[catalog]))
+        else:
+            print ('%d/%d candidates left after crossmatching with %s' % (len(candidates),len(detected_sources_tot), cat_dict[catalog]))
         if (len(candidates) == 0):
             break
 
     # Get filename    
     transients = np.unique(transients_out_list)[0]
-    # Write candidates file
-    candidates.write(transients, format='ascii.commented_header', overwrite=True)
-    oc=candidates['_RAJ2000', '_DEJ2000']
-    oc.write(folder + filename2 + '_oc_RADEC',format='ascii.commented_header', overwrite=True)
+    # Write candidates file.
+    # If substraction was performed, split transients into specific files
+    mask = candidates['FlagSub'] == 'Y'
+    candidates[mask].write(transients.split('.')[0]+'_sub.oc', format='ascii.commented_header', overwrite=True)
+    oc=candidates[mask]['_RAJ2000', '_DEJ2000']
+    oc.write(transients.split('.')[0]+'_sub.oc_RADEC',format='ascii.commented_header', overwrite=True)
+    mask = np.invert(mask)
+    candidates[mask].write(transients, format='ascii.commented_header', overwrite=True)
+    oc=candidates[mask]['_RAJ2000', '_DEJ2000']
+    oc.write(transients.split('.')[0]+'.oc_RADEC',format='ascii.commented_header', overwrite=True)
+
     #oc=candidates['Xpos', 'Ypos']
     #oc.write(magfilewcs+'4',format='ascii.commented_header', overwrite=True)
 
@@ -548,7 +678,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--telescope',
                         dest='telescope',
-                        choices=['TRE','TCA','TCH','OAJ-T80','Lisniky-AZT8','UBAI-T60S','UBAI-T60N', 'FRAM-CTA-N', 'FRAM-Auger', 'KAIT'],
+                        choices=['TRE','TCA','TCH','OAJ-T80','Lisniky-AZT8','UBAI-T60S','UBAI-T60N', 'FRAM-CTA-N', 'FRAM-Auger', 'KAIT', 'IRIS'],
                         required=True,
                         type=str,
                         help='Alias for the telescopes')
@@ -594,6 +724,11 @@ if __name__ == "__main__":
                         type=str,
                         help='Whether to perform astrometric calibration, with ps1 images or user provided reference image. Type "ps1" for PS1 reference image or provide the path to your reference image.')
 
+    parser.add_argument('--Remove_cosmics',
+                        dest='Remove_cosmics',
+                        action='store_true',
+                        help='Whether to remove cosmic rays using lacosmic.')
+
 
 
     args = parser.parse_args()
@@ -621,22 +756,28 @@ if __name__ == "__main__":
         else:
             FWHM_list = [args.FWHM] * len(image_table)
 
+        if args.Remove_cosmics:
+            # Clean cosmic rays
+            run_lacosmic(image_table['filenames'], FWHM_list, sigma=5)
+
         if args.doSub:
-            substraction(image_table['filenames'], args.doSub, config, method='hotpants')
+            substracted_files = substraction(image_table['filenames'], args.doSub, config, method='hotpants')
+        else:
+            substracted_files = None
 
         if args.soft == 'iraf':
-            clean_folder(image_table['filenames'])
-            get_photometry(image_table['filenames'], FWHM_list, args.threshold)
-            select_good_stars(image_table['filenames'], args.mag_err_cut)
+            clean_folder(image_table['filenames'], subFiles=substracted_files)
+            get_photometry(image_table['filenames'], FWHM_list, args.threshold, subFiles=substracted_files)
         elif args.soft == 'sextractor':
-            sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope,config,verbose=args.verbose)
+            sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope, config,verbose=args.verbose, subFiles=substracted_files)
 
-        convert_xy_radec(image_table['filenames'],soft=args.soft)
-        total_candidates = crosscheck_with_catalogues(image_table,args.radius_crossmatch, Nb_cuts=Nb_cuts)
+        select_good_stars(image_table['filenames'], args.mag_err_cut, args.soft, sigma=1, subFiles=substracted_files)
+        convert_xy_radec(image_table['filenames'],soft=args.soft, subFiles=substracted_files)
+        total_candidates = crosscheck_with_catalogues(image_table,args.radius_crossmatch, Nb_cuts=Nb_cuts, subFiles=substracted_files)
         #check_moving_objects(args.filename, total_candidates)
    
         #total_candidates = ascii.read('total_candidates.dat')
-        total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True)
+        total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True, subFiles=substracted_files)
     
         #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
 
@@ -644,4 +785,4 @@ if __name__ == "__main__":
         # Send candidates to database
         # Set the tile_id corresponding to your tile by hand at the moment
         if args.VOE_path and args.owncloud_path:
-            send_data2DB(filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True)
+            send_data2DB(filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True, subFiles=substracted_files)

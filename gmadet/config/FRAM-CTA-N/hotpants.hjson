@@ -36,10 +36,10 @@ bgo: 1
 r: 10
 
 # radius: half width substamp to extract around each centroid, default: 15
-rss: 20
+rss: 15
 
 # fitthresh: RMS threshold for good centroid in kernel fit, default: 20.0
-ft: 10.0
+ft: 20.0
 
 # statsig: threshold for sigma clipping statistics, default: 3
 ssig: 3

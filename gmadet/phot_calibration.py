@@ -31,7 +31,7 @@ def crossmatch(fname, radius, pixScale, catalog):
     """
 
     # Import Sextractor or pyRAF results
-    detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
+    detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
     # Add units
     detected_sources['_RAJ2000'] *= u.deg
     detected_sources['_DEJ2000'] *= u.deg
@@ -183,15 +183,21 @@ def zeropoint(data, sigma, quadrant, folder, fname, band, catalog, doPlot=False)
 
     return newdata, delta_mag_median, delta_mag_std 
 
-def phot_calib(candidates_list, telescope, radius = 3, doPlot=True):
+def phot_calib(candidates_list, telescope, radius = 3, doPlot=True, subFiles=None):
     """Perform photometric calibration using catalogs"""
 
     deltaMagMedianlist = []
     deltaMagStdlist = []
     filename_list = []
 
+    # Filter to perfrom the calibration on the original image.
+    # Not the substracted image
+    mask = candidates_list['FlagSub'] == 'N'
+
+    #candidates_list.group_by('filenames').show_in_browser()
+    #candidates_list[mask].group_by('filenames').show_in_browser()
     # Get sources 
-    for i, key in enumerate(candidates_list.group_by('filenames').groups.keys) :
+    for i, key in enumerate(candidates_list[mask].group_by('filenames').groups.keys) :
         print ('Processing photometric calibration for ', key[0])
 
         # Get path and filename to images
@@ -254,7 +260,7 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True):
     candidates_list.add_columns([mag_calib_col, mag_calib_err_col, magsys_col, filter_cat_col, filter_DB_col])
 
     for j, filename in enumerate(filename_list):
-        mask = candidates_list['filenames'] == filename
+        mask = candidates_list['OriginalIma'] == filename
         candidates_list['mag_calib'][mask] = candidates_list['mag_inst'][mask] - deltaMagMedianlist[j]
         # Quadratic sum of statistics and calibration errors. 
         candidates_list['mag_calib_err'][mask] = np.sqrt(candidates_list['mag_inst_err'][mask]**2 + deltaMagStdlist[j]**2)

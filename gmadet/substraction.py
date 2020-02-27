@@ -28,10 +28,11 @@ def get_corner_coords(filename):
 
     return [ra, dec]
 
-def substraction(filename, reference, config, method='hotpants'):
+def substraction(filenames, reference, config, method='hotpants'):
     """Substract a reference image to the input image"""
 
-    imagelist = np.atleast_1d(filename)
+    imagelist = np.atleast_1d(filenames)
+    subFiles = []
     for ima in imagelist:
         
         path, filename = os.path.split(ima)
@@ -45,7 +46,7 @@ def substraction(filename, reference, config, method='hotpants'):
 
         # Define the reference image
         if reference == 'ps1':
-            _, band, _ = get_phot_cat(filename, None)
+            _, band, _ = get_phot_cat(ima, None)
             if band == 'B':
                 band = 'g'
             elif band == 'V':
@@ -59,24 +60,27 @@ def substraction(filename, reference, config, method='hotpants'):
             #band = 'g'
             cell_table = ps1_grid(im_coords)
             download_ps1_cells(cell_table, band, ima)
-            refim = folder + 'ps1_mosaic.fits' 
-            refim_mask = folder + 'ps1_mosaic_mask.fits'
+            refim = folder +  filename.split('.')[0] + '_ps1_mosaic.fits' 
+            refim_mask = folder +  filename.split('.')[0] + '_ps1_mosaic_mask.fits'
 
-        sub_info = registration(ima, refim, refim_mask, False)
-
+        sub_info = registration(ima, refim, config, refim_mask, False)
+        
         if method == 'hotpants':
             ima_regist = folder + 'substraction/' + filename.split('.')[0] + '_regist.fits'
-            refim_regist = folder + 'substraction/ps1_mosaic_regist.fits'
-            refim_regist_mask = folder + 'substraction/ps1_mosaic_mask_regist.fits'
-            hotpants(ima_regist, refim_regist, config, sub_info, refim_mask=refim_regist_mask)
+            refim_regist = folder + 'substraction/' + filename.split('.')[0] + '_ps1_mosaic_regist.fits'
+            refim_regist_mask = folder + 'substraction/' + filename.split('.')[0] + '_ps1_mosaic_mask_regist.fits'
+            subfiles = hotpants(ima_regist, refim_regist, config, sub_info, refim_mask=refim_regist_mask)
 
+        subFiles.append(subfiles)
 
+    return subFiles
 
 def hotpants(inim, refim, config, sub_info, refim_mask=None):
     """Image substraction using hotpants"""
 
     path, _ = os.path.split(inim)
     resfile = inim.split('.')[0] + '_sub.fits'
+    maskfile = inim.split('.')[0] + '_sub_mask.fits'
 
     with open(config['hotpants']['conf']) as json_file: 
         hotpants_conf = hjson.load(json_file)
@@ -93,8 +97,9 @@ def hotpants(inim, refim, config, sub_info, refim_mask=None):
                                   sub_info[0][2],
                                   sub_info[0][3],)
 
-    hotpants_cmd = 'hotpants -inim %s -tmplim %s -outim %s ' % (inim, refim, resfile)
-    hotpants_cmd += '-il %s -iu %s -tl %s -tu %s -gd %s ' % (il, iu, tl, tu, overlap)
+    hotpants_cmd = 'hotpants -inim %s -tmplim %s -outim %s -omi %s ' % (inim, refim, resfile, maskfile)
+    #hotpants_cmd += '-il %s -iu %s -tl %s -tu %s -gd %s ' % (il, iu, tl, tu, overlap)
+    hotpants_cmd += '-il %s -iu %s -tl %s -tu %s ' % (il, iu, tl, tu)
     hotpants_cmd += '-tuk %s -iuk %s ' % (tu, iu)
     hotpants_cmd += '-ig %s -tg %s ' % (sub_info[2][0], sub_info[2][1])
 
@@ -111,10 +116,10 @@ def hotpants(inim, refim, config, sub_info, refim_mask=None):
     os.system(hotpants_cmd)
     #subprocess.call([hotpants_cmd])
     
-    """
-    # Set bad pixel values to nan for visualisation puprpose
-    hdulist = fits.open(resfile)
-    # 1e-30 is the default value of bad pixels for hotpants
-    hdulist[0].data[hdulist[0].data == 1e-30] = np.nan
-    hdulist.writeto(resfile, overwrite=True)
-    """
+    # Set bad pixel values to 0 and others to 1 for sextractor
+    hdulist = fits.open(maskfile)
+    hdulist[0].data[hdulist[0].data == 0] = 1
+    hdulist[0].data[hdulist[0].data != 1] = 0
+    hdulist.writeto(maskfile, overwrite=True)
+
+    return [inim, refim, resfile, maskfile]

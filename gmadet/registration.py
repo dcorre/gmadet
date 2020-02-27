@@ -9,9 +9,9 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from utils import rm_p, mkdir_p 
 from copy import deepcopy
+from astrometry import scamp
 
-
-def registration(inim, refim, refim_mask=None, useweight=False, gain=1):
+def registration(inim, refim, config, refim_mask=None, useweight=False, gain=1):
     """Register images"""
 
     # Create folder with substraction results
@@ -32,12 +32,12 @@ def registration(inim, refim, refim_mask=None, useweight=False, gain=1):
     hdulist = fits.open(inim)
     hdulist[0].data = hdulist[0].data / hdulist[0].header['EXPTIME']
     try:
-        hdulist[0].header['SATURATE'] /= hdulist[0].header['EXPTIME']
+        hdulist.header[0]['SATURATE'] = hdulist[0].header['SATURATE'] / hdulist[0].header['EXPTIME']
     except:
         pass
     hdulist[0].header['EXPTIME'] = 1
     hdulist.writeto(inim, overwrite=True)
-    header = fits.getheader(inim)
+    #header = fits.getheader(inim)
 
     # Create list of images to register
     filelist=[inim, refim]
@@ -61,13 +61,10 @@ def registration(inim, refim, refim_mask=None, useweight=False, gain=1):
                      point + '.head'])
     # Run swarp to perform the registration on each image in filelist
     for i, ima in enumerate(filelist):
-        if 'mask' in ima:
+        if 'ps1' in ima:
             subBackground = 'N'
         else:
             subBackground = 'Y'
-        print('\n\n\n')
-        print (subBackground)
-        print('\n\n\n')
         path, filename_ext = os.path.split(ima)
         epoch = resultDir + filename_ext.split('.')[0] + '_regist'
         # Copy the common header in the .head file 
@@ -93,7 +90,8 @@ def registration(inim, refim, refim_mask=None, useweight=False, gain=1):
                              '-RESAMPLING_TYPE', 'BILINEAR',\
                              #'-RESAMPLING_TYPE', 'NEAREST', \
                              '-OVERSAMPLING', '0',\
-                             '-COMBINE_TYPE', 'MEDIAN'] + [ima])
+                             '-COMBINE_TYPE', 'MEDIAN', \
+                             '-COPY_KEYWORDS', 'FILTER'] + [ima])
 
         # replace borders with NaNs in ref image if there are any that are == 0,
         #hdulist=fits.open(epoch + '.fits')
@@ -101,46 +99,46 @@ def registration(inim, refim, refim_mask=None, useweight=False, gain=1):
         #hdulist.writeto(epoch + '.fits',overwrite=True)
 
         rm_p(epoch + '.head')
-    rm_p(point + '.head')
+    rm_p('*.head')
     rm_p('register.list')
     rm_p('coadd.weight.fits')
 
-    # Set specific value for mask image
     path, filename_ext = os.path.split(inim)
-    hdulist = fits.open(resultDir + filename_ext.split('.')[0] + '_regist.fits')
-    # 1e-30 is the default value of bad pixels for hotpants
-    hdulist[0].data[hdulist[0].data == 0] = 1e-30
-    #hdulist[0].data[hdulist[0].data != 1e-30] /= 20
-    hdulist.writeto(resultDir + filename_ext.split('.')[0] + '_regist.fits', overwrite=True)
-
-
+    inim_regist = resultDir + filename_ext.split('.')[0] + '_regist.fits'
     path, filename_ext = os.path.split(refim)
-    hdulist = fits.open(resultDir + filename_ext.split('.')[0] + '_regist.fits')
+    refim_regist = resultDir + filename_ext.split('.')[0] + '_regist.fits'
+    path, filename_ext = os.path.split(refim_mask)
+    maskim_regist = resultDir + filename_ext.split('.')[0] + '_regist.fits'
+
+    # Set specific value for mask image
+    hdulist = fits.open(inim_regist)
     # 1e-30 is the default value of bad pixels for hotpants
     hdulist[0].data[hdulist[0].data == 0] = 1e-30
     #hdulist[0].data[hdulist[0].data != 1e-30] /= 20
-    hdulist.writeto(resultDir + filename_ext.split('.')[0] + '_regist.fits', overwrite=True)
+    hdulist.writeto(inim_regist, overwrite=True)
 
-    path, filename_ext = os.path.split(refim_mask)
-    hdulist = fits.open(resultDir + filename_ext.split('.')[0] + '_regist.fits')
+    hdulist = fits.open(refim_regist)
+    # 1e-30 is the default value of bad pixels for hotpants
+    hdulist[0].data[hdulist[0].data == 0] = 1e-30
+    #hdulist[0].data[hdulist[0].data != 1e-30] /= 20
+    hdulist.writeto(refim_regist, overwrite=True)
+
+    hdulist = fits.open(maskim_regist)
     hdulist[0].data[hdulist[0].data != 0] = 1e8
-    hdulist.writeto(resultDir + filename_ext.split('.')[0] + '_regist.fits', overwrite=True)
+    hdulist.writeto(maskim_regist, overwrite=True)
 
-    overlap_info = get_exact_overlap(filelist, resultDir)
+    filelist_regist = [inim_regist, refim_regist, maskim_regist]
+    overlap_info = get_exact_overlap(filelist_regist, resultDir, config)
 
     return overlap_info
 
-def get_exact_overlap(filelist, resultDir):
+def get_exact_overlap(filelist, resultDiri, config):
     """Cut the registered images to get rid of the edges filled by 0 or nan"""
 
     # Get the min and max pix with non 0 values 
     # to delimate the new frame
-    path, filename_ext = os.path.split(filelist[0])
-    inFile = resultDir + filename_ext.split('.')[0] + '_regist.fits'
-    path, filename_ext = os.path.split(filelist[1])
-    tmpFile = resultDir + filename_ext.split('.')[0] + '_regist.fits'
-    imdata, imheader = fits.getdata(inFile, header=True)
-    refdata, refheader = fits.getdata(tmpFile, header=True)
+    imdata, imheader = fits.getdata(filelist[0], header=True)
+    refdata, refheader = fits.getdata(filelist[1], header=True)
     ymin1, xmin1 = np.min(np.where(imdata>1e-30),axis=1)
     ymax1, xmax1 = np.max(np.where(imdata>1e-30),axis=1)
     ymin2, xmin2 = np.min(np.where(refdata>1e-30),axis=1)
@@ -150,28 +148,26 @@ def get_exact_overlap(filelist, resultDir):
     xmax=np.min([xmax1,xmax2])
     ymin=np.max([ymin1,ymin2])
     ymax=np.min([ymax1,ymax2])
-
-    path, filename_ext = os.path.split(filelist[2])
-    hdulist = fits.open(resultDir + filename_ext.split('.')[0] + '_regist.fits')
+    
+    hdulist = fits.open(filelist[2])
     # 1e-30 is the default value of bad pixels for hotpants
     good_region = deepcopy(hdulist[0].data[xmin:xmax,ymin:ymax])
     hdulist[0].data[:] = 1e8
     hdulist[0].data[xmin:xmax,ymin:ymax] = good_region
     #hdulist[0].data[hdulist[0].data != 1e-30] /= 20
-    hdulist.writeto(resultDir + filename_ext.split('.')[0] + '_regist.fits', overwrite=True)
-
+    hdulist.writeto(filelist[2], overwrite=True)
+    
     inmin = -10#np.nanmin(imdata)
-    #try:
-    #    inmax = imheader['SATURATE']
-    #except:
-    #    inmax = np.nanmax(imdata)
-    inmax = np.nanmax(imdata)
+    try:
+        inmax = imheader['SATURATE']
+    except:
+        inmax = 0.8 * np.nanmax(imdata)
     refmin = -10#np.nanmin(refdata)
-    #try:
-    #    refmax = refheader['SATURATE']
-    #except:
-    #    refmax = np.nanmax(refdata)
-    refmax = np.nanmax(refdata)
+    try:
+        refmax = refheader['SATURATE']
+    except:
+        refmax = 0.8 * np.nanmax(refdata)
+    #refmax = np.nanmax(refdata)
 
     try:
         imgain = imheader['GAIN']
@@ -188,7 +184,7 @@ def get_exact_overlap(filelist, resultDir):
     if refgain == 0 or refgain > 10:
        refgain = 1.0
 
-    """
+    
     # replace borders with NaNs in ref image if there are any that are == 0,
     hdulist=fits.open(filelist[0])
     ycenter1, xcenter1 = hdulist[0].header['CRPIX1'],  hdulist[0].header['CRPIX2']
@@ -197,18 +193,22 @@ def get_exact_overlap(filelist, resultDir):
     ycenter, xcenter = int(ycenter1 - ymin)+1,  int(xcenter1- xmin)+1
     hdulist[0].header['CRPIX1'] = xcenter
     hdulist[0].header['CRPIX2'] = ycenter
-    print (np.min(hdulist[0].data))
+    #print (np.min(hdulist[0].data))
     inimmed=np.median(hdulist[0].data)
     inimmax=np.max(hdulist[0].data)
     inimmin=np.min(hdulist[0].data)
     hdulist.writeto(filelist[0],overwrite=True)
+
+    # perform astrometric calibration after cutting image on input image only
+    scamp(filelist[0], config, useweight=False, CheckPlot=False, verbose='NORMAL')
+    
 
     hdulist=fits.open(filelist[1])
     ycenter1, xcenter1 = hdulist[0].header['CRPIX1'],  hdulist[0].header['CRPIX2']
     newimg = hdulist[0].data[ymin:ymax, xmin:xmax]
     #set max pixel value to 65000
     factor = np.max(newimg)
-    hdulist[0].data=newimg/200#/factor*10000
+    hdulist[0].data=newimg#/200#/factor*10000
     #hdulist[0].data[hdulist[0].data == 0] = 1e-30
 
     ycenter, xcenter = int(ycenter1 - ymin)+1,  int(xcenter1- xmin)+1
@@ -217,7 +217,7 @@ def get_exact_overlap(filelist, resultDir):
 
     #hdulist[0].data=hdulist[0].data *1000
     #hdulist[0].header['GAIN']=5.0
-    print (np.min(hdulist[0].data))
+    #print (np.min(hdulist[0].data))
     refmed=np.median(hdulist[0].data)
     refmax=np.max(hdulist[0].data)
     refmin=np.min(hdulist[0].data)
@@ -225,7 +225,7 @@ def get_exact_overlap(filelist, resultDir):
 
     if len(filelist) == 3:
     
-        hdulist=fits.open(filelist[1])
+        hdulist=fits.open(filelist[2])
         ycenter1, xcenter1 = hdulist[0].header['CRPIX1'],  hdulist[0].header['CRPIX2']
         newdata=hdulist[0].data[ymin:ymax, xmin:xmax]
         newdata[newdata!=0]=1e8
@@ -234,11 +234,8 @@ def get_exact_overlap(filelist, resultDir):
         ycenter, xcenter = int(ycenter1 - ymin)+1,  int(xcenter1- xmin)+1
         hdulist[0].header['CRPIX1'] = xcenter
         hdulist[0].header['CRPIX2'] = ycenter
-        hdulist.writeto('mask00.fits',overwrite=True)
-
-    """
-
-
+        hdulist.writeto(filelist[2],overwrite=True)
+    
     return [[xmin, xmax, ymin, ymax], [inmin, inmax, refmin, refmax], [imgain, refgain]]
 
 if __name__ == '__main__':
