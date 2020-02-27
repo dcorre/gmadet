@@ -7,18 +7,23 @@ Installation
 Prerequisites
 -------------
 
-Create a virtual environment to avoid messing with python version.
+Create a virtual environment to avoid messing with different python libraries version that could be already installed on your computer and required for other projects.
 
 Install conda: https://docs.conda.io/en/latest/miniconda.html
 
 If you want to use sextractor to find sources you can create a python 3 environment. If you want to use pyraf you need to use python2.
 
-For sextractor:
+
+Installation with sextractor:
+-----------------------------
 
 .. code-block:: console
  
     $ conda create -n gmadet python=3 numpy astropy astroquery matplotlib pandas 
 
+
+Installation with Pyraf:
+------------------------
 
 For pyraf, first install some 32bits libraries if your computer is a 64bits:
 
@@ -41,7 +46,7 @@ RHEL/CentOS >=6, Fedora >=14:
 
 .. code-block:: console
     
-    $ conda create -n gmadet27 python=2.7 iraf-all pyraf-all stsci
+    $ conda create -n iraf27 python=2.7 iraf-all pyraf-all stsci
 
 
 
@@ -63,7 +68,7 @@ Install other libraries
 
 .. code-block:: console
  
-    $ pip install astroquery astroML requests h5py 
+    $ pip install astroquery astroML requests h5py xmltodict
 
 
 From sources
