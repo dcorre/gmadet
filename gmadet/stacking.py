@@ -4,7 +4,20 @@
 # email: corre@lal.in2p3.fr
 
 """
-Group astronomical images by fields and epochs
+Group astronomical images by fields and epochs.
+
+Example of usage:
+
+    python stacking.py --path_data pathtoyourdata/ --radius 10 --deltaT 1 
+
+will stack all images in pathtoyourdata/ whose referenced RA and Dec
+(CRVAL1 and CRVAL2) are separated by 10 arcmin maximum and taken
+within time interval of 1 hour.
+
+SWARP is required to perform the stacking.
+On linux machines it can be installed with:
+    sudo apt install swarp
+
 """
 
 import errno, glob, os, subprocess, shutil
@@ -148,7 +161,7 @@ def table_obs(path_data, radius, deltaT):
                    JD_ref = data['JD']
                    mask_idx = obs_table['idx'] == data['idx']
                    obs_table['epochID'][mask_idx] = epoch_id
-   obs_table.show_in_browser()
+   #obs_table.show_in_browser()
    return obs_table
 
 def makelists(path_data, radius, deltaT):
