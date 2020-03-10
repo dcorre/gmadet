@@ -251,7 +251,6 @@ def stacking(path_data, radius, deltaT,useweight=False, subBack=True, gain=1):
 
     # Get all the prefixes corresponding to one field
     filenames = glob.glob(path_lists + '*.list')
-    print (filenames)
     prefixes = []
     for filename in filenames:
         splitfilename = os.path.splitext(filename)[0].split('/')[-1].split('_')
