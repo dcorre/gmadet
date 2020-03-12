@@ -1,0 +1,36 @@
+# Simple configuration file for SExtractor prior to PSFEx use
+# only non-default parameters are present.
+# EB 2007-08-01
+#
+ 
+#-------------------------------- Catalog ------------------------------------
+ 
+CATALOG_NAME     prepscamp.cat   # Catalog filename
+CATALOG_TYPE     FITS_LDAC      # FITS_LDAC format
+PARAMETERS_NAME  prepscamp.param # name of the file containing catalog contents
+ 
+#------------------------------- Extraction ----------------------------------
+ 
+DETECT_MINAREA   4              # minimum number of pixels above threshold
+DETECT_THRESH    5              # a fairly conservative threshold
+ANALYSIS_THRESH  5              # idem
+ 
+FILTER           Y              # apply filter for detection ("Y" or "N")?
+FILTER_NAME      config/conv_kernels/default.conv   # name of the file containing the filter
+ 
+#-------------------------------- WEIGHTing ----------------------------------
+
+#WEIGHT_TYPE      MAP_WEIGHT
+#-------------------------------- FLAGging -----------------------------------
+#------------------------------ Photometry -----------------------------------
+ 
+PHOT_APERTURES   15             # <- put the referrence aperture diameter here
+
+#------------------------- Star/Galaxy Separation ---------------------------- 
+#------------------------------ Background -----------------------------------
+#------------------------------ Check Image ----------------------------------
+#--------------------- Memory (change with caution!) -------------------------
+#------------------------------- ASSOCiation ---------------------------------
+#----------------------------- Miscellaneous ---------------------------------
+VERBOSE_TYPE     QUIET
+
