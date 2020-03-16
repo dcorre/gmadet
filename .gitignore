@@ -110,3 +110,4 @@ gmadet/utilsDB/usrpwd.json
 # Ignore data and test folders
 gmadet/data/
 gmadet/test/
+*/gmadet_results/*
