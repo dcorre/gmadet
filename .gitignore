@@ -106,3 +106,7 @@ ENV/
 
 # Ignore the file containing email and password to login to grandma website
 gmadet/utilsDB/usrpwd.json
+
+# Ignore data and test folders
+gmadet/data/
+gmadet/test/
