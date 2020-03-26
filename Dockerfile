@@ -107,7 +107,7 @@ RUN \
 
 # Install python libraries
 RUN \
-   conda install python=3 numpy scipy matplotlib astropy pandas shapely requests h5py  
+   conda install python=3 numpy scipy matplotlib astropy pandas shapely requests h5py sphinx sphinx_rtd_theme 
 
 RUN \ 
    pip install lacosmic hjson voevent-parse xmltodict astroML regions \
@@ -120,13 +120,17 @@ RUN \
    && make \
    && cp hotpants /usr/local/bin/
 
+# Create directory to link on volume with host machine
+RUN \
+   mkdir gmadet/
+
 # Clone gmadet
-RUN \ 
-   git clone https://github.com/dcorre/gmadet.git
+#RUN \ 
+#   git clone https://github.com/dcorre/gmadet.git
 
 # Update gmadet each time the docker is executed
-RUN \
-   echo "git -C /home/gmadet/ pull origin master" > gitpull.sh \
-   && chmod 777 gitpull.sh
+#RUN \
+#   echo "git -C /home/gmadet/ pull origin master" > gitpull.sh \
+#   && chmod 777 gitpull.sh
 
-CMD /home/gitpull.sh
+#CMD /home/gitpull.sh
