@@ -190,7 +190,8 @@ def download_ps1_cells(cell_table, band, inputimage):
     file_list = []
     # extension to get auxiliary images
     # See https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images
-    auxiliaryFiles = ['.mask', '.wt', '.num', '.exp', '.expwt', '']
+    #auxiliaryFiles = ['.mask', '.wt', '.num', '.exp', '.expwt', '']
+    auxiliaryFiles = ['.mask', '']
 
     BaseURL = "http://ps1images.stsci.edu/"
     for cell in cell_table:
@@ -245,7 +246,7 @@ def linear_rescale_ps1(filename, inputDir, outputDir, normalise=True):
     
     # Transform into linear flux scale
     hdulist=fits.open(inputDir+filename)
-    hdulist_exp=fits.open(inputDir+filename.split('.')[0]+'_exp.fits')
+    #hdulist_exp=fits.open(inputDir+filename.split('.')[0]+'_exp.fits')
     #hdulist_expwt=fits.open(inputDir+filename.split('.')[0]+'_expwt.fits')
     
     boffset = hdulist[0].header['BOFFSET']
