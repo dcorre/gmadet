@@ -16,7 +16,7 @@ gmadet
 
 
 
-Tools to help identification of transients for Grandma network
+Tools to help identification of transients in astronomical images. 
 
 
 * Free software: MIT license
@@ -26,7 +26,16 @@ Tools to help identification of transients for Grandma network
 Features
 --------
 
-* TODO
+* Configurable for any telescopes through individual config files.
+* Astrometric solution computed using SCAMP.
+* Sources detection using Sextractor or pyRAF.
+* Crossmatch of detected sources with Pan-STARRS DR1, GAIA DR2, GSC and USNO-B1 catalogs using the Xmatch algorithm.
+* Crossmatch of detected sources with solar system moving objects using SkyBot.  
+* Image substraction using Pan-STARRS stack images as reference:   
+   * Image alignment performed using SWARP 
+   * PSF estimation using PSFex
+   * Substraction performed using hotpants
+* Images can be stacked using SWARP before the analysis.
 
 Credits
 -------
