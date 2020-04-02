@@ -17,14 +17,14 @@ RUN \
 
 # Install requirements
 RUN \
-  apt-get install unzip wget git build-essential gfortran autoconf libtool libfftw3-dev libplplot-dev vim -y \ 
+  apt-get install unzip wget curl git build-essential gfortran autoconf libtool libfftw3-dev libplplot-dev vim -y \ 
   && apt-get install libatlas3-base libatlas-base-dev libcurl4-openssl-dev -y \
   && apt-get autoremove -y \
   && apt-get clean -y 
 
 # Download cfitsio
 RUN \ 
-   wget --no-verbose http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz \
+   curl -OL -m 3600 http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz \
    && tar zxf cfitsio_latest.tar.gz \
    && rm -f cfitsio_latest.tar.gz
 
@@ -46,7 +46,7 @@ RUN \
 
 # Download and build cdsclient used by SCAMP
 RUN \
-   wget --no-verbose http://cdsarc.u-strasbg.fr/ftp/pub/sw/cdsclient.tar.gz \
+   curl -OL -m 3600 http://cdsarc.u-strasbg.fr/ftp/pub/sw/cdsclient.tar.gz \
    && tar xfz cdsclient.tar.gz \
    && rm -f cdsclient.tar.gz \
    && cd cdsclient-* \
@@ -60,7 +60,7 @@ ARG SWARP_version
 ARG Sextractor_version
 ARG PSFEX_version
 RUN \
-   wget --no-verbose https://github.com/astromatic/psfex/archive/$PSFEX_version.zip -O astromatic/psfex_$PSFEX_version.zip \
+   curl -m 3600 -L -o astromatic/psfex_$PSFEX_version.zip https://github.com/astromatic/psfex/archive/$PSFEX_version.zip \
    && unzip -q astromatic/psfex_$PSFEX_version.zip -d astromatic/ \
    && rm -f astromatic/psfex_$PSFEX_version.zip \
    && cd astromatic/psfex-* \
@@ -70,7 +70,7 @@ RUN \
    && make install
 
 RUN \
-   wget --no-verbose https://github.com/astromatic/scamp/archive/$SCAMP_version.zip -O astromatic/scamp_$SCAMP_version.zip \
+   curl -m 7200 -L -o astromatic/scamp_$SCAMP_version.zip https://github.com/astromatic/scamp/archive/$SCAMP_version.zip \
    && unzip -q astromatic/scamp_$SCAMP_version.zip -d astromatic/ \
    && rm -f astromatic/scamp_$SCAMP_version.zip \
    && cd astromatic/scamp-* \
@@ -80,7 +80,7 @@ RUN \
    && make install
 
 RUN \
-   wget --no-verbose https://github.com/astromatic/sextractor/archive/$Sextractor_version.zip -O astromatic/sextractor_$Sextractor_version.zip \
+   curl -m 3600 -L -o astromatic/sextractor_$Sextractor_version.zip https://github.com/astromatic/sextractor/archive/$Sextractor_version.zip \
    && unzip -q astromatic/sextractor_$Sextractor_version.zip -d astromatic/ \
    && rm -f astromatic/sextractor_$Sextractor_version.zip \
    && cd astromatic/sextractor-* \
@@ -90,7 +90,7 @@ RUN \
    && make install
 
 RUN \
-   wget --no-verbose https://github.com/astromatic/swarp/archive/$SWARP_version.zip -O astromatic/swarp_$SWARP_version.zip \
+   curl -m 7200 -L -o astromatic/swarp_$SWARP_version.zip https://github.com/astromatic/swarp/archive/$SWARP_version.zip \
    && unzip -q astromatic/swarp_$SWARP_version.zip -d astromatic/ \
    && rm -f astromatic/swarp_$SWARP_version.zip \ 
    && cd astromatic/swarp-* \
@@ -101,7 +101,7 @@ RUN \
 # Install python libraries through miniconda
 ENV PATH="/root/miniconda3/bin:${PATH}"
 RUN \
-   wget --no-verbose https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \ 
+   curl -m 7200 -OL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \ 
    && bash Miniconda3-latest-Linux-x86_64.sh -b \
    && rm -f Miniconda3-latest-Linux-x86_64.sh 
 
@@ -123,14 +123,3 @@ RUN \
 # Create directory to link on volume with host machine
 RUN \
    mkdir gmadet/
-
-# Clone gmadet
-#RUN \ 
-#   git clone https://github.com/dcorre/gmadet.git
-
-# Update gmadet each time the docker is executed
-#RUN \
-#   echo "git -C /home/gmadet/ pull origin master" > gitpull.sh \
-#   && chmod 777 gitpull.sh
-
-#CMD /home/gitpull.sh
