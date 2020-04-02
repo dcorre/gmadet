@@ -28,7 +28,7 @@ def get_corner_coords(filename):
 
     return [ra, dec]
 
-def substraction(filenames, reference, config, method='hotpants'):
+def substraction(filenames, reference, config, method='hotpants', debug=False):
     """Substract a reference image to the input image"""
 
     imagelist = np.atleast_1d(filenames)
@@ -63,7 +63,7 @@ def substraction(filenames, reference, config, method='hotpants'):
             refim = folder +  filename.split('.')[0] + '_ps1_mosaic.fits' 
             refim_mask = folder +  filename.split('.')[0] + '_ps1_mosaic_mask.fits'
 
-        sub_info = registration(ima, refim, config, refim_mask, False)
+        sub_info = registration(ima, refim, config, refim_mask, debug=debug)
         
         if method == 'hotpants':
             ima_regist = folder + 'substraction/' + filename.split('.')[0] + '_regist.fits'

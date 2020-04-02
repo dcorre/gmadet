@@ -11,7 +11,7 @@ from utils import rm_p, mkdir_p
 from copy import deepcopy
 from astrometry import scamp
 
-def registration(inim, refim, config, refim_mask=None, useweight=False, gain=1):
+def registration(inim, refim, config, refim_mask=None, useweight=False, gain=1, debug=False):
     """Register images"""
 
     # Create folder with substraction results

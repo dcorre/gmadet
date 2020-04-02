@@ -144,7 +144,7 @@ def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='
     return image_table
 
 
-def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL', subFiles=None):
+def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL', subFiles=None, debug=False):
     """Run sextractor """
 
     # if substraction have been performed
@@ -176,6 +176,13 @@ def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL',
 
         # Get rid of the extension to keep only the name
         filename2 = filename_ext.split('.')[0]
+        if debug:
+            checkimage_type = 'BACKGROUND, SEGMENTATION'
+            checkimage_name = folder + filename2 + '_background.fits' + ', ' + folder + filename2 + '_segmentation.fits'
+
+        else:
+            checkimage_type = 'NONE'
+            checkimage_name = ' '
 
         subprocess.call(['sex', '-c', config['sextractor']['conf'], \
                 filename, \
@@ -185,10 +192,8 @@ def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL',
                 '-DETECT_THRESH', str(thresh), \
                 '-PARAMETERS_NAME', config['sextractor']['param'], \
                 #'-FILTER_NAME', config['sextractor']['default_conv'], \
-                #'-CHECKIMAGE_TYPE', 'SEGMENTATION', \
-                '-CHECKIMAGE_TYPE', 'BACKGROUND, SEGMENTATION', \
-                #'-CHECKIMAGE_NAME', folder + filename2 + '_segmentation.fits', \
-                '-CHECKIMAGE_NAME', folder + filename2 + '_background.fits' + ', ' + folder + filename2 + '_segmentation.fits' , \
+                '-CHECKIMAGE_TYPE', checkimage_type, \
+                '-CHECKIMAGE_NAME',  checkimage_name, \
                 '-VERBOSE_TYPE', verbose, \
                 '-CATALOG_NAME', folder + filename2 + '_SourcesDet.cat' ])
 
@@ -729,7 +734,10 @@ if __name__ == "__main__":
                         action='store_true',
                         help='Whether to remove cosmic rays using lacosmic.')
 
-
+    parser.add_argument('--debug',
+                        dest='debug',
+                        action='store_true',
+                        help='If given, will write a bunch of files to help checking the whole process.')
 
     args = parser.parse_args()
 
@@ -758,10 +766,10 @@ if __name__ == "__main__":
 
         if args.Remove_cosmics:
             # Clean cosmic rays
-            run_lacosmic(image_table['filenames'], FWHM_list, sigma=5)
+            run_lacosmic(image_table['filenames'], FWHM_list, sigma=5, debug=args.debug)
 
         if args.doSub:
-            substracted_files = substraction(image_table['filenames'], args.doSub, config, method='hotpants')
+            substracted_files = substraction(image_table['filenames'], args.doSub, config, method='hotpants', debug=args.debug)
         else:
             substracted_files = None
 
@@ -769,7 +777,7 @@ if __name__ == "__main__":
             clean_folder(image_table['filenames'], subFiles=substracted_files)
             get_photometry(image_table['filenames'], FWHM_list, args.threshold, subFiles=substracted_files)
         elif args.soft == 'sextractor':
-            sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope, config,verbose=args.verbose, subFiles=substracted_files)
+            sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope, config,verbose=args.verbose, subFiles=substracted_files, debug=args.debug)
 
         select_good_stars(image_table['filenames'], args.mag_err_cut, args.soft, sigma=1, subFiles=substracted_files)
         convert_xy_radec(image_table['filenames'],soft=args.soft, subFiles=substracted_files)
@@ -777,7 +785,7 @@ if __name__ == "__main__":
         #check_moving_objects(args.filename, total_candidates)
    
         #total_candidates = ascii.read('total_candidates.dat')
-        total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True, subFiles=substracted_files)
+        total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=False, subFiles=substracted_files)
     
         #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
 

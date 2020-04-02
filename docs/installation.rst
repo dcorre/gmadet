@@ -65,7 +65,7 @@ After building the image, you can run it in a terminal mode typing (from gmadet 
 
 .. code-block:: console
 
-   $ sudo docker run -v $(pwd)/gmadet/:/home/gmadet/ --user $(id -u):$(id -g) --rm -it gmadet:1.0 bash
+   $ sudo docker run -v $(pwd)/gmadet/:/home/gmadet/ --rm -it gmadet:1.0 bash
 
 This means that you run interactively in a bash terminal the Docker image. The -v option means that you mount a volume pointing to the gmadet directory on your host machine, so that you can exchange data between the Docker and your machine.
 

@@ -210,7 +210,9 @@ def download_ps1_cells(cell_table, band, inputimage):
             if os.path.isfile(FileNameFitsPath):
                 print ('File %s already downloaded' % FileNameFitsPath)
             else:
-                wget_command = "wget %s -O %s"%(Link,FileNameFitsPath)
+                #wget_command = "wget %s -O %s"%(Link,FileNameFitsPath)
+                wget_command = "curl -m 7200 -L -o %s %s" % (FileNameFitsPath, Link)
+                print (wget_command)
                 os.system(wget_command)
                 if os.path.isfile(FileNameFitsPath):
                     # do not really understand what this is doing
@@ -398,6 +400,7 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
     #    rm_p(ima)
     #for ima in mask_list:
     #    rm_p(ima)
+    rm_p('*.head')
     rm_p('mosaic.list')
     rm_p('mask.list')
     rm_p('swarp.xml')

@@ -3,13 +3,17 @@ ARG SWARP_version=2.38.0
 ARG Sextractor_version=2.25.0
 ARG PSFEX_version=3.21.1
 
+# Building image from
 FROM ubuntu:18.04
- 
+
 LABEL maintainer="David Corre <david.corre.fr@gmail.com>"
 
-# Set the working directory
+# Create a variable corresponding to the name of the new user that will be created inside the Docker.
+ENV USR newuser
+
+# Set up working directory
 WORKDIR /home
- 
+
 # Install updates to base image
 RUN \
   apt-get update -y \
@@ -21,6 +25,9 @@ RUN \
   && apt-get install libatlas3-base libatlas-base-dev libcurl4-openssl-dev -y \
   && apt-get autoremove -y \
   && apt-get clean -y 
+
+# Create new user
+RUN useradd -ms /bin/bash ${USR}
 
 # Download cfitsio
 RUN \ 
@@ -98,8 +105,29 @@ RUN \
    && make \
    && make install
 
+# Clone and build hotpants
+RUN \
+   git clone https://github.com/acbecker/hotpants.git \
+   && cd hotpants \
+   && make \
+   && cp hotpants /usr/local/bin/
+
+# switch ownership
+# (all commands are root until a USER command changes that)
+USER ${USR}
+
+# Set the working directory
+WORKDIR /home/${USR}
+
+# change ownership from root to USR:
+RUN chown -R ${USR}:${USR}  /home/${USR}
+
+# Create directory to link on volume with host machine
+RUN \
+   mkdir /home/${USR}/gmadet/
+
 # Install python libraries through miniconda
-ENV PATH="/root/miniconda3/bin:${PATH}"
+ENV PATH="/home/${USR}/miniconda3/bin:$PATH"
 RUN \
    curl -m 7200 -OL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \ 
    && bash Miniconda3-latest-Linux-x86_64.sh -b \
@@ -113,13 +141,8 @@ RUN \
    pip install lacosmic hjson voevent-parse xmltodict astroML regions \
    && pip install --pre astroquery
 
-# Clone and build hotpants
-RUN \
-   git clone https://github.com/acbecker/hotpants.git \
-   && cd hotpants \
-   && make \
-   && cp hotpants /usr/local/bin/
+# Change working directory to gmadet
+WORKDIR /home/${USR}/gmadet
 
-# Create directory to link on volume with host machine
-RUN \
-   mkdir gmadet/
+# define entrypoint which is the default executable at launch
+ENTRYPOINT ["bash"]

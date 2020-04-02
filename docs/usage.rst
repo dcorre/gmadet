@@ -6,7 +6,7 @@ If you are using a Docker, run it first:
 
 .. code-block:: console
 
-    sudo docker run -v $(pwd)/gmadet/:/home/gmadet/ --user $(id -u):$(id -g) --rm -it gmadet:1.0 bash
+    sudo docker run -v $(pwd)/gmadet/:/home/gmadet/ --rm -it gmadet:1.0 bash
 
 To test if gmadet is running normally, go to gmadet directory where gmadet.py is and type::
 
