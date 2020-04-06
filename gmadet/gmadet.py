@@ -20,11 +20,12 @@ import warnings
 
 from catalogues import *
 from phot_calibration import phot_calib
-from utils import load_config, clean_folder, send_data2DB, mv_p, mkdir_p
+from utils import load_config, clean_folder, send_data2DB, mv_p, mkdir_p, clean_outputs
 from remove_cosmics import run_lacosmic
 from astrometry import astrometrynet, scamp
 from psfex import psfex
 from substraction import substraction
+from background import bkg_estimation
 
 from astropy.io import ascii, fits
 from astropy.table import vstack, Table, Column
@@ -144,7 +145,7 @@ def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='
     return image_table
 
 
-def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL', subFiles=None, debug=False):
+def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL', subFiles=None, outLevel=1):
     """Run sextractor """
 
     # if substraction have been performed
@@ -176,7 +177,7 @@ def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL',
 
         # Get rid of the extension to keep only the name
         filename2 = filename_ext.split('.')[0]
-        if debug:
+        if outLevel == 2:
             checkimage_type = 'BACKGROUND, SEGMENTATION'
             checkimage_name = folder + filename2 + '_background.fits' + ', ' + folder + filename2 + '_segmentation.fits'
 
@@ -734,10 +735,18 @@ if __name__ == "__main__":
                         action='store_true',
                         help='Whether to remove cosmic rays using lacosmic.')
 
-    parser.add_argument('--debug',
-                        dest='debug',
+    parser.add_argument('--sub_bkg',
+                        dest='sub_bkg',
                         action='store_true',
-                        help='If given, will write a bunch of files to help checking the whole process.')
+                        help='Whether to substract background.')
+
+    parser.add_argument('--output_data_level',
+                        dest='outLevel',
+                        required=False,
+                        type=int,
+                        default=1,
+                        choices=[0,1,2],
+                        help='Number of output files that are kept after the process.')
 
     args = parser.parse_args()
 
@@ -760,16 +769,20 @@ if __name__ == "__main__":
 
         if args.FWHM == 'psfex':
             # Estimate the PSF FWHM for each image/quadrants using psfex
-            FWHM_list = psfex(image_table['filenames'], config)
+            FWHM_list = psfex(image_table['filenames'], config, outLevel=args.outLevel)
         else:
             FWHM_list = [args.FWHM] * len(image_table)
 
         if args.Remove_cosmics:
             # Clean cosmic rays
-            run_lacosmic(image_table['filenames'], FWHM_list, sigma=5, debug=args.debug)
+            run_lacosmic(image_table['filenames'], FWHM_list, sigma=5, outLevel=args.outLevel)
+
+        if args.sub_bkg:
+            # Substract background
+            bkg_estimation(image_table['filenames'], box=(20,20), filter_size=(3,3), outLevel=args.outLevel)
 
         if args.doSub:
-            substracted_files = substraction(image_table['filenames'], args.doSub, config, method='hotpants', debug=args.debug)
+            substracted_files = substraction(image_table['filenames'], args.doSub, config, method='hotpants', outLevel=args.outLevel)
         else:
             substracted_files = None
 
@@ -777,7 +790,7 @@ if __name__ == "__main__":
             clean_folder(image_table['filenames'], subFiles=substracted_files)
             get_photometry(image_table['filenames'], FWHM_list, args.threshold, subFiles=substracted_files)
         elif args.soft == 'sextractor':
-            sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope, config,verbose=args.verbose, subFiles=substracted_files, debug=args.debug)
+            sextractor(image_table['filenames'], FWHM_list, args.threshold, args.telescope, config,verbose=args.verbose, subFiles=substracted_files, outLevel=args.outLevel)
 
         select_good_stars(image_table['filenames'], args.mag_err_cut, args.soft, sigma=1, subFiles=substracted_files)
         convert_xy_radec(image_table['filenames'],soft=args.soft, subFiles=substracted_files)
@@ -787,10 +800,11 @@ if __name__ == "__main__":
         #total_candidates = ascii.read('total_candidates.dat')
         total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=False, subFiles=substracted_files)
     
-        #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
-
         # If both arguments VOE_path and owncloud_path are provided
         # Send candidates to database
         # Set the tile_id corresponding to your tile by hand at the moment
         if args.VOE_path and args.owncloud_path:
             send_data2DB(filename, total_candidates_calib, Nb_cuts, args.owncloud_path, args.VOE_path, "utilsDB/usrpwd.json",debug=True, subFiles=substracted_files)
+
+        # clean output files
+        clean_outputs(image_table['filenames'], args.outLevel)
