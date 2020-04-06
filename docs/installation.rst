@@ -65,7 +65,7 @@ After building the image, you can run it in a terminal mode typing (from gmadet 
 
 .. code-block:: console
 
-   $ sudo docker run -v $(pwd)/gmadet/:/home/gmadet/ --rm -it gmadet:1.0 bash
+   $ sudo docker run -v $(pwd)/gmadet/:/home/newuser/gmadet/ --rm -it gmadet:1.0
 
 This means that you run interactively in a bash terminal the Docker image. The -v option means that you mount a volume pointing to the gmadet directory on your host machine, so that you can exchange data between the Docker and your machine.
 
@@ -85,7 +85,7 @@ Python 3 environment with sextractor:
 
 .. code-block:: console
  
-    $ conda create -n gmadet python=3 numpy scipy matplotlib astropy pandas shapely requests h5py sphinx sphinx_rtd_theme
+    $ conda create -n gmadet python=3 numpy scipy matplotlib astropy pandas shapely requests h5py sphinx sphinx_rtd_theme scikit-image
 
 
 Python2 environment with Pyraf:
@@ -139,7 +139,7 @@ Once you have activated the environment, install the packages that are not avail
 
 .. code-block:: console
  
-    $ pip install lacosmic hjson voevent-parse xmltodict astroML regions
+    $ pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils
     $ pip install --pre astroquery
 
 .. _Github repo: https://github.com/dcorre/gmadet
