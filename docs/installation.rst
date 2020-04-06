@@ -49,7 +49,7 @@ The usage of a Docker allows to build an OS environment on your machine and thus
 Build the Docker image on your machine
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Go to the top directory of gmadet, where the Dockerfile is.   
+Go to the gmadet/Docker/ directory, where the Dockerfile is.   
 Type the following instruction:   
 
 .. code-block:: console
