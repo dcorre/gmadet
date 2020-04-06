@@ -36,10 +36,12 @@ def mv_p(src, dest):
     pass
 
 def rm_p(src):
-  try:
-    os.remove(src)
-  except:
-    pass
+    fileList = glob.glob(src, recursive = False)
+    for filePath in fileList:
+        try:
+            os.remove(filePath)
+        except:
+            pass
 
 def mkdir_p(path):
   try:
@@ -697,3 +699,46 @@ def filter_catalog_data(data, catalogName):
         quality_mask = np.ones(len(data), dtype=bool)
 
     return data[quality_mask]
+
+
+def clean_outputs(filenames, outLevel):
+    """Delete non required output files"""
+
+    imagelist = np.atleast_1d(filenames)
+    for ima in imagelist:
+        print ('\nCleaning up output files for %s'  % ima)
+        path, _ = os.path.split(ima)
+        if path:
+            folder = path + '/'
+        else:
+            folder = ''
+
+        rm_p(folder + '*.head')
+        if outLevel == 0:
+            rm_p(folder + '*.magwcs*')
+            rm_p(folder + '*.oc*')
+            rm_p(folder + '*.cat')
+            rm_p(folder + '*.png')
+            rm_p(folder + '*.fits')
+            rm_p(folder + '*_ZP_')
+            rm_p(folder + 'substraction/*.magwcs*')
+            rm_p(folder + 'substraction/*.cat')
+            rm_p(folder + 'substraction/*mask*')
+            rm_p(folder + 'substraction/*background')
+            rm_p(folder + 'substraction/*segmentation')
+        
+        elif outLevel == 1:
+            rm_p(folder + '*.magwcs')
+            rm_p(folder + '*.oc')
+            rm_p(folder + '*.cat')
+            rm_p(folder + '*.png')
+            rm_p(folder + '*.fits')
+            rm_p(folder + '*_CRmask.fits')
+            rm_p(folder + '*_CR_notcleaned.fits')
+            rm_p(folder + 'substraction/*.magwcs')
+            rm_p(folder + 'substraction/*mask')
+            rm_p(folder + 'substraction/*background')
+            rm_p(folder + 'substraction/*segmentation')
+
+        elif outLevel == 2:
+            pass
