@@ -116,7 +116,7 @@ def scamp(filename, config, useweight=False, CheckPlot=False, verbose='NORMAL'):
     for ima in imagelist:
          # Make sure to use only the Primary hdu.
          # sextractor, scamp seems to crash otherwise.
-         hdul = fits.open(filename)
+         hdul = fits.open(ima)
          #hdul.verify('fix')
          #print (hdul.info())
          # Delete empty keywords
