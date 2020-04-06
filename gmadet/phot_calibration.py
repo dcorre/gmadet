@@ -275,7 +275,7 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True, subFiles=Non
         candidates_list['filter_DB'][mask] = band_DB
 
 
-    candidates_list.write(folder+fname2+'_tot_cand2.dat', format='ascii.commented_header', overwrite=True)
+    candidates_list.write(folder+fname2+'_transient_candidates.dat', format='ascii.commented_header', overwrite=True)
 
 
     return  candidates_list
