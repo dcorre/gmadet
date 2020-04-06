@@ -10,7 +10,7 @@ from astropy import units as u
 import numpy as np
 from registration import registration
 from ps1_survey import ps1_grid, download_ps1_cells
-from utils import get_phot_cat
+from utils import get_phot_cat, rm_p
 import hjson
 
 def get_corner_coords(filename):
@@ -28,7 +28,7 @@ def get_corner_coords(filename):
 
     return [ra, dec]
 
-def substraction(filenames, reference, config, method='hotpants', debug=False):
+def substraction(filenames, reference, config, method='hotpants', outLevel=1):
     """Substract a reference image to the input image"""
 
     imagelist = np.atleast_1d(filenames)
@@ -63,13 +63,22 @@ def substraction(filenames, reference, config, method='hotpants', debug=False):
             refim = folder +  filename.split('.')[0] + '_ps1_mosaic.fits' 
             refim_mask = folder +  filename.split('.')[0] + '_ps1_mosaic_mask.fits'
 
-        sub_info = registration(ima, refim, config, refim_mask, debug=debug)
+        sub_info = registration(ima, refim, config, refim_mask)
         
         if method == 'hotpants':
             ima_regist = folder + 'substraction/' + filename.split('.')[0] + '_regist.fits'
             refim_regist = folder + 'substraction/' + filename.split('.')[0] + '_ps1_mosaic_regist.fits'
             refim_regist_mask = folder + 'substraction/' + filename.split('.')[0] + '_ps1_mosaic_mask_regist.fits'
             subfiles = hotpants(ima_regist, refim_regist, config, sub_info, refim_mask=refim_regist_mask)
+
+        # Delete files if necessary, mainly to save space disk
+        if outLevel == 0:
+            #rm_p(ima)
+            rm_p(refim)
+            rm_p(refim_mask)
+            rm_p(ima_regist)
+            rm_p(refim_regist)
+            rm_p(refim_regist_mask)
 
         subFiles.append(subfiles)
 
@@ -110,9 +119,6 @@ def hotpants(inim, refim, config, sub_info, refim_mask=None):
     for key, value in hotpants_conf.items():
         hotpants_cmd += '-%s %s ' % (key, value)
 
-    print (hotpants_cmd)
-
-    
     os.system(hotpants_cmd)
     #subprocess.call([hotpants_cmd])
     

@@ -9,7 +9,7 @@ from astropy.io import fits
 from utils import rm_p, mv_p, mkdir_p
 import xmltodict
 
-def psfex(filename, config, useweight=False):
+def psfex(filename, config, useweight=False, outLevel=0):
     """Compute PSF in astronomical images"""
 
     FWHM_list = []
@@ -31,9 +31,14 @@ def psfex(filename, config, useweight=False):
                     '-PARAMETERS_NAME', config['psfex']['param']])
         cat = 'preppsfex.cat'
         subprocess.call(['psfex', cat, '-c', config['psfex']['conf'] ])
-        mv_p('snap_preppsfex.fits', root + '_psf.fits')
         rm_p(cat)
-   
+
+        # Delete files depending on the required level of output files
+        if outLevel < 2:
+            rm_p('snap_preppsfex.fits')
+        else:
+            mv_p('snap_preppsfex.fits', root + '_psf.fits')
+
         # Get the mean PSF FWHM in pixels
         with open('psfex.xml') as fd:
             doc = xmltodict.parse(fd.read())
@@ -50,4 +55,3 @@ def psfex(filename, config, useweight=False):
             FWHM_list.append(FHWM_mean)
 
     return FWHM_list
-

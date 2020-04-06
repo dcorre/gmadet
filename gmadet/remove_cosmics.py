@@ -7,7 +7,7 @@ from astropy.io import fits
 from lacosmic import lacosmic
 from utils import cp_p
 
-def run_lacosmic(filename, FWHM, flim=2, sigma=5,debug=False):
+def run_lacosmic(filename, FWHM, flim=2, sigma=5, outLevel=1):
     """Run lacosmic to remove cosmic rays from the input image"""
 
     imagelist = np.atleast_1d(filename)
@@ -22,7 +22,7 @@ def run_lacosmic(filename, FWHM, flim=2, sigma=5,debug=False):
         filename2 = filename_ext.split('.')[0]
 
         # Make copy of original image
-        if debug:
+        if outLevel == 2:
             cp_p(ima, folder+filename2+'_CR_notcleaned.fits')
 
         hdulist = fits.open(ima)
@@ -47,7 +47,7 @@ def run_lacosmic(filename, FWHM, flim=2, sigma=5,debug=False):
         hdulist[0].data = lacosmic_res[0]
         hdulist.writeto(ima, overwrite=True)
 
-        if debug:
+        if outLevel == 2:
             # Create mask of cosmic rays
             hdulist[0].data = np.asarray(lacosmic_res[1],dtype=int)
             hdulist.writeto(folder+filename2+'_CRmask.fits', overwrite=True)
