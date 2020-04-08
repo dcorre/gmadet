@@ -192,12 +192,12 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True, subFiles=Non
 
     # Filter to perfrom the calibration on the original image.
     # Not the substracted image
-    mask = candidates_list['FlagSub'] == 'N'
+    #mask = candidates_list['FlagSub'] == 'N'
 
     #candidates_list.group_by('filenames').show_in_browser()
     #candidates_list[mask].group_by('filenames').show_in_browser()
     # Get sources 
-    for i, key in enumerate(candidates_list[mask].group_by('filenames').groups.keys) :
+    for i, key in enumerate(candidates_list.group_by('OriginalIma').groups.keys) :
         print ('Processing photometric calibration for ', key[0])
 
         # Get path and filename to images
