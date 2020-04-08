@@ -759,7 +759,7 @@ if __name__ == "__main__":
     if os.path.isdir(args.filename):
         # expected extensions: .fits and .fit
         # Get all the prefixes corresponding to one field
-        filenames = glob.glob(args.filename + '*.fit*')
+        filenames = glob.glob(args.filename + '/**/*.fit*', recursive=True)
     else:
         filenames = [args.filename]
 
