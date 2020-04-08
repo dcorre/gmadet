@@ -296,7 +296,8 @@ def stacking(path_data, radius, deltaT,useweight=False, subBack=True, gain=1):
                                  '-RESAMPLING_TYPE', 'LANCZOS3',\
                                  '-OVERSAMPLING', '0',\
                                  '-COMBINE_TYPE', 'MEDIAN',\
-                                 '-GAIN_DEFAULT', str(gain)] + [imalist])
+                                 '-GAIN_DEFAULT', str(gain), \
+                                 '-COPY_KEYWORDS', 'FILTER'] + [imalist])
             else:
                 subprocess.call(['swarp',
                                  '-IMAGEOUT_NAME', epoch + '.fits',\
@@ -306,7 +307,8 @@ def stacking(path_data, radius, deltaT,useweight=False, subBack=True, gain=1):
                                  '-BACK_FILTERSIZE', '3',\
                                  '-RESAMPLING_TYPE', 'LANCZOS3',\
                                  '-OVERSAMPLING', '0',\
-                                 '-COMBINE_TYPE', 'MEDIAN'] + [imalist])
+                                 '-COMBINE_TYPE', 'MEDIAN', \
+                                 '-COPY_KEYWORDS', 'FILTER'] + [imalist])
             rm_p(epoch + '.head')
 
         rm_p(point + '.head')
