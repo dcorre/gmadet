@@ -69,6 +69,8 @@ After building the image, you can run it in a terminal mode typing (from gmadet 
 
 This means that you run interactively in a bash terminal the Docker image. The -v option means that you mount a volume pointing to the gmadet directory on your host machine, so that you can exchange data between the Docker and your machine.
 
+If the command $(pwd) does not work on your computer, just write the whole to the gmadet/gmadet/ repository on your computer.
+
 
 Installation without Docker
 ---------------------------
@@ -139,7 +141,7 @@ Once you have activated the environment, install the packages that are not avail
 
 .. code-block:: console
  
-    $ pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils
+    $ pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis
     $ pip install --pre astroquery
 
 .. _Github repo: https://github.com/dcorre/gmadet

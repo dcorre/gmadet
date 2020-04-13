@@ -8,6 +8,7 @@ Welcome to gmadet's documentation!
    readme
    installation
    usage
+   machine_learning
    modules
    contributing
    authors
