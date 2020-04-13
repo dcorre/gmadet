@@ -32,7 +32,7 @@ def psfex(filename, config, useweight=False, outLevel=0):
         cat = 'preppsfex.cat'
         subprocess.call(['psfex', cat, '-c', config['psfex']['conf'] ])
         rm_p(cat)
-
+  
         # Delete files depending on the required level of output files
         if outLevel < 2:
             rm_p('snap_preppsfex.fits')
@@ -54,4 +54,6 @@ def psfex(filename, config, useweight=False, outLevel=0):
             rm_p('psfex.xml')
             FWHM_list.append(FHWM_mean)
 
+    rm_p('preppsf.psf')
+    rm_p('psfex.xml')
     return FWHM_list

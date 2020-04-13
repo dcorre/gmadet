@@ -22,6 +22,7 @@ import json
 import requests
 from copy import deepcopy
 from shapely.geometry import Point, Polygon
+import importlib
 
 def cp_p(src, dest):
   try:
@@ -52,12 +53,22 @@ def mkdir_p(path):
     else:
       raise
 
+def getpath():
+    """Get the path to gmadet module"""
+    try:
+        findspec = importlib.util.find_spec('gmadet')
+        path = findspec.submodule_search_locations[0]
+    except:
+        print ('path to gmadet can not be found.')
+
+    return path
+
 def load_config(telescope):
     """Load the path to the configuration files required by the softs.
        They are telescope dependent.
     """
-
-    path2tel = 'config/' + telescope + '/'
+    path = getpath()
+    path2tel = path + '/config/' + telescope + '/'
     config = {
             'sextractor': {
                 'conf': path2tel + 'sourcesdet.sex',
@@ -175,7 +186,7 @@ def cut_image(filename, resultDir, Nb_cuts=(2,2)):
 
 def make_sub_image(filename, OT_coords, coords_type='world',
                    output_name='subimage.fits.gz', size=[200,200],
-                   FoV=-1, fmt='png'):
+                   FoV=-1, fmt='png', addheader=True):
     """
     Extract sub-image around OT coordinates for the given size.
 
@@ -251,14 +262,15 @@ def make_sub_image(filename, OT_coords, coords_type='world',
     if fmt == 'fits':
         # write new sub-image
         hdu = fits.PrimaryHDU()
-        hdu.data = subimage.astype(np.uint16)
+        hdu.data = subimage.astype(np.float32)
         # Need to adapt header here !!!
         header['CRPIX1'] = int(size[0]/2)
         header['CRPIX2'] = int(size[1]/2)
         header['CRVAL1'] = pix_ref[0]
         header['CRVAL2'] = pix_ref[1]
 
-        hdu.header = header
+        if addheader:
+            hdu.header = header
         hdu.writeto(output_name,overwrite=True)
 
     elif fmt == 'png':
