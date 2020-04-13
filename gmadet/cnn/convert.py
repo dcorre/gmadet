@@ -39,63 +39,54 @@ import glob, re, os, errno
 import numpy as np
 from astropy.io import fits
 import argparse
-
-def mkdir_p(path):
-  try:
-    os.makedirs(path)
-  except OSError as exc:  # Python >2.5
-    if exc.errno == errno.EEXIST and os.path.isdir(path):
-      pass
-    else:
-      raise
-
+from gmadet.utils import getpath, rm_p, mkdir_p
 
 def convert(path, telescope, cubename):
     """convert simulated data before starting training"""
+    
+    path_gmadet = getpath()
 
-    dir = path + telescope + '/'
-
-    outdir = 'datacube/' + telescope + '/'
+    outdir = path_gmadet + '/cnn/datacube/' + telescope + '/'
     mkdir_p(outdir)
 
     # Get all the prefixes corresponding to one field
-    filenames = glob.glob(dir + '*.fits')
-    prefixes = []
-    for filename in filenames:
-        splitfilename = os.path.splitext(filename)[0].split('/')[-1].split('_')
-        prefixes.append(splitfilename[0] + '_' + splitfilename[1])
-    # Discard duplicates
-    prefixes = np.unique(sorted(prefixes))
-    
-    #npz_name = sys.argv[1]
-    #prefixes = sys.argv[2:]
+    truelist = glob.glob(path + '/true/*.fits')
+    falselist = glob.glob(path + '/false/*.fits')
+
+    # output cube name
     npz_name = "%s.npz" % cubename
 
     cube = []
     labels = []
     mags = []
-    dmags = []
+    errmags = []
+    filters = []
     
-    for prefix in prefixes:
-        imas = sorted(glob.glob(dir + prefix + '_??_??_????.fits'))
-        #imas = imas[:8000]
+    for cand in truelist:
+        hdus = fits.open(cand, memmap=False)
+        head = hdus[0].header
+        labels += [1]
+        mags += [head['MAG']]
+        errmags += [head['MAGERR']]
+        filters += [head['FILTER']]
+        cube.append(hdus[0].data)
+        hdus.close()
+    for cand in falselist:
+        hdus = fits.open(cand, memmap=False)
+        head = hdus[0].header
+        labels += [0]
+        mags += [head['MAG']]
+        errmags += [head['MAGERR']]
+        filters += [head['FILTER']]
+        cube.append(hdus[0].data)
+        hdus.close()
 
-        for ima in imas:
-            print("Checking " + ima + " ...", end='\r', flush=True)
-            hdus = fits.open(ima, memmap=False)
-            head = hdus[0].header
-            labels += [head['EVENT']]
-            mags += [head['SIMMAG']]
-            dmags += [head['SIMDMAG']]
-            cube.append(hdus[0].data)
-            hdus.close()
 
-    print("")
     print("Converting and reshaping arrays ...")
 
     # Convert lists to B.I.P. NumPy arrays
     cube = np.asarray(cube, dtype=np.float32)
-    #print (cube.shape)
+    print (cube.shape)
     if cube.ndim < 4:
         cube = np.reshape(cube, [cube.shape[0], cube.shape[1], cube.shape[2], 1])
     else:
@@ -103,17 +94,17 @@ def convert(path, telescope, cubename):
 
     # Report dimensions of the data cube
     print("Saving %d %d×%d×%d image datacube ..." %cube.shape, end='\r', flush=True)
-    np.savez(outdir+npz_name, cube=cube, labels=labels, mags=mags, dmags=dmags)
+    np.savez(outdir+npz_name, cube=cube, labels=labels, mags=mags, errmags=errmags, filters=filters)
 
     print("Saved to " + outdir + npz_name)
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-            description='Stacking images.')
+            description='Convert sim data to a .npz cube.')
 
-    parser.add_argument('--path_simdata',
-                        dest='path_simdata',
+    parser.add_argument('--path',
+                        dest='path',
                         required=True,
                         type=str,
                         help='Path to simulated data')
@@ -132,5 +123,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    convert(args.path_simdata,args.telescope,args.cubename)
+    convert(args.path,args.telescope,args.cubename)
 

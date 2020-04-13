@@ -45,49 +45,28 @@ import astropy.coordinates as coord
 from vis.visualization import visualize_cam
 from vis.utils import utils
 from keras import activations
+from gmadet.utils import getpath, rm_p, mkdir_p
 
 
-def mkdir_p(path):
-  try:
-    os.makedirs(path)
-  except OSError as exc:  # Python >2.5
-    if exc.errno == errno.EEXIST and os.path.isdir(path):
-      pass
-    else:
-      raise
-
-def infer(telescope, path_stacks, path_model, modelname, probratio):
+def infer(path, telescope, modelname, probratio):
     """Apply a previously trained CNN"""
 
-    eventdir = 'events/' + telescope + '/'
+    path_gmadet = getpath()
+
+    eventdir = path_gmadet + '/cnn/events/' + telescope + '/'
     mkdir_p(eventdir)
 
-    dir_data = path_stacks + telescope + '/'
-    dir_model = path_model + telescope + '/'
+    dir_model = path_gmadet + '/cnn/CNN_training/' + telescope + '/'
 
     model_name = dir_model + modelname + '.h5'
     probratio = 1.0 / float(probratio)
     sstart = int(0)
 
-    edge_shift = 128
+    edge_shift = 64
 
-    data_compression = False
-    cleandata = False
-    # Get all the prefixes corresponding to one field
+    # Get all the images
     filenames = glob.glob(dir_data + '*.fits')
-    prefixes = []
-    for filename in filenames:
-        if 'psf' not in filename:
-            splitfilename = os.path.splitext(filename)[0].split('/')[-1].split('_')
-            prefixes.append(splitfilename[0] + '_' + splitfilename[1])
-    # Discard duplicates
-    prefixes = np.unique(sorted(prefixes))
-
-    # take only one event
-    prefixes=[prefixes[1]]
-    #prefixes = prefixes[0]
-    print (prefixes)
-        
+     
     print("Loading model " + model_name + " ...", end='\r', flush=True)
 
     model = keras.models.load_model(model_name)
@@ -106,6 +85,10 @@ def infer(telescope, path_stacks, path_model, modelname, probratio):
     backprop = None
     # This is the output node we want to maximize.
     filter_idx = None
+
+    
+
+
 
 
     size = 64
@@ -232,18 +215,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description='Apply a previously trained CNN.')
 
-    parser.add_argument('--path_stacks',
-                        dest='path_stacks',
+    parser.add_argument('--path',
+                        dest='path',
                         required=True,
                         type=str,
-                        help='Path to the stackes images')
-
-    parser.add_argument('--path_model',
-                        dest='path_model',
-                        required=True,
-                        type=str,
-                        help='Path to the trained CNN')
-
+                        help='Path to images')
 
     parser.add_argument('--telescope',
                         dest='telescope',
@@ -265,5 +241,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    infer(args.telescope, args.path_stacks, args.path_model, args.modelname, args.probratio)
+    infer(args.path, args.telescope, args.modelname, args.probratio)
 

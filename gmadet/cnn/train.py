@@ -30,52 +30,44 @@
 #   Original scrip modified by: David Corre (IJCLab/CNRS)
 
 import sys, os, errno
-#if len(sys.argv) < 3:
-#  print('syntax: ' + sys.argv[0] + ' <input_npz> <output_model>')
-#  sys.exit(0)
 
 import numpy as np
 import matplotlib.pyplot as plt
 import keras
 import argparse
 from keras.utils import multi_gpu_model
+from gmadet.utils import getpath, rm_p, mkdir_p
 
 
-def mkdir_p(path):
-  try:
-    os.makedirs(path)
-  except OSError as exc:  # Python >2.5
-    if exc.errno == errno.EEXIST and os.path.isdir(path):
-      pass
-    else:
-      raise
-
-
-def train(telescope, path, cubename, modelname):
+def train(telescope, cubename, modelname):
     """Train CNN with simulated data"""
 
-    dir = path + telescope + '/'
-    gpus = 4 
-
-    outdir = 'CNN_training/' +  telescope + '/'
+    gpus = -1 
+    path_gmadet = getpath()
+    inputdir = path_gmadet + '/cnn/datacube/' + telescope + '/'
+    outdir = path_gmadet + '/cnn/CNN_training/' +  telescope + '/'
     mkdir_p(outdir)
 
-    #K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=32, inter_op_parallelism_threads=32)))
-
+    # Fraction of data used for the validation test
     fract = 0.1
+    # define dropout percentage of each dropout
     dprob = np.array([0.3, 0.3, 0.3])
+    # define padding
     padding = 'same'  # valid, same
+    # number of epochs
     epochs = 10
-    size=64
+    # name of the cube with data
     npz = cubename + '.npz'
+    # outputname for the trained model
     model_name = outdir + "%s.h5" % modelname
      
-    print("Loading " + dir +  npz + " ...", end='\r', flush=True)
-    data = np.load(dir + npz)
+    print("Loading " + inputdir +  npz + " ...", end='\r', flush=True)
+    data = np.load(inputdir + npz)
     ima = data["cube"]
     lab = keras.utils.to_categorical(data["labels"])
     mag = data["mags"]
-    dmag = data["dmags"]
+    errmag = data["errmags"]
+    band = data["filters"]
     nclass = lab.shape[1]
     n = ima.shape[0]
     nt = int(n * fract)
@@ -86,18 +78,21 @@ def train(telescope, path, cubename, modelname):
     ima = ima[randomize]
     lab = lab[randomize]
     mag = mag[randomize]
-    dmag = dmag[randomize]
+    errmag = errmag[randomize]
+    band = band[randomize]
 
     print("Splitting dataset ...", end='\r', flush=True)
     imal = ima[nt:]
     labl = lab[nt:]
     magl = mag[nt:]
-    dmagl = dmag[nt:]
+    errmagl = errmag[nt:]
+    bandl = band[nt:]
 
     imat = ima[:nt]
     labt = lab[:nt]
     magt = mag[:nt]
-    dmagt = dmag[:nt]
+    errmagt = errmag[:nt]
+    bandt = band[:nt]
 
     model = keras.models.Sequential()
 
@@ -188,29 +183,38 @@ def train(telescope, path, cubename, modelname):
     fig, ax = plt.subplots()
     ax.set_xlabel("FPR")
     ax.set_ylabel("TPR")
-    dmag_min = np.min(abs(dmagt[dmagt != 0]))
-    dmag_max = np.max(abs(dmagt[dmagt != 0]))
-    for dmaglim in np.linspace(dmag_min, dmag_max, 6):
-        labpm = labp[dmagt < dmaglim]
-        labtm = labt[dmagt < dmaglim]
+    errmag_min = np.min(abs(errmagt[errmagt != 0]))
+    errmag_max = np.max(abs(errmagt[errmagt != 0]))
+    for errmaglim in np.linspace(errmag_min, errmag_max, 6):
+        labpm = labp[errmagt < errmaglim]
+        labtm = labt[errmagt < errmaglim]
         labpf = labpm[labtm[:,1] <= 0.5]
         labpt = labpm[labtm[:,1] > 0.5]
         tpr = [np.mean(labpt[:,1] > t) for t in trange]
         fpr = [np.mean(labpf[:,1] > t) for t in trange]
-        plt.plot(fpr,tpr, label = "dmag < %.1f" %dmaglim)
+        plt.plot(fpr,tpr, label = "errmag < %.1f" %errmaglim)
     legend = ax.legend(loc='lower right')
-    plt.savefig('ROC_dmag.png')
+    plt.savefig('ROC_errmag.png')
     #plt.show()
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel("FPR")
+    ax.set_ylabel("TPR")
+    for band in ['g', 'r', 'i', 'z']:
+        labpm = labp[bandt == band]
+        labtm = labt[bandt == band]
+        labpf = labpm[labtm[:,1] <= 0.5]
+        labpt = labpm[labtm[:,1] > 0.5]
+        tpr = [np.mean(labpt[:,1] > t) for t in trange]
+        fpr = [np.mean(labpf[:,1] > t) for t in trange]
+        plt.plot(fpr,tpr, label = "%s" % band)
+    legend = ax.legend(loc='lower right')
+    plt.savefig('ROC_band.png')
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description='Formatting data before stacking.')
-
-    parser.add_argument('--path_datacube',
-                        dest='path_datacube',
-                        required=True,
-                        type=str,
-                        help='Path to the datacube containing simulated images')
 
     parser.add_argument('--telescope',
                         dest='telescope',
@@ -232,5 +236,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    train(args.telescope, args.path_datacube,args.cubename, args.modelname)
+    train(args.telescope, args.cubename, args.modelname)
 
