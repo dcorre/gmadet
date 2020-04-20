@@ -42,42 +42,39 @@ import argparse
 from astropy.wcs import WCS
 import astropy.units as u
 import astropy.coordinates as coord
+from astropy.table import Table
 from vis.visualization import visualize_cam
 from vis.utils import utils
 from keras import activations
 from gmadet.utils import getpath, rm_p, mkdir_p
+import matplotlib.pyplot as plt
 
-
-def infer(path, telescope, modelname, probratio):
+def infer(eventDir, telescope, modelname, probratio):
     """Apply a previously trained CNN"""
 
     path_gmadet = getpath()
 
-    eventdir = path_gmadet + '/cnn/events/' + telescope + '/'
-    mkdir_p(eventdir)
+    trainedModelDir = path_gmadet + '/cnn/CNN_training/' + telescope + '/'
 
-    dir_model = path_gmadet + '/cnn/CNN_training/' + telescope + '/'
-
-    model_name = dir_model + modelname + '.h5'
+    model_name = trainedModelDir + modelname + '.h5'
     probratio = 1.0 / float(probratio)
     sstart = int(0)
 
     edge_shift = 64
 
     # Get all the images
-    filenames = glob.glob(dir_data + '*.fits')
-     
+    filenames = sorted(glob.glob(eventDir + '/*.fits'))
     print("Loading model " + model_name + " ...", end='\r', flush=True)
 
     model = keras.models.load_model(model_name)
     model.summary()
 
     # Load same model in another variable to be used and modified for cam visualisation
-    model_cam = keras.models.load_model(model_name)
+    #model_cam = keras.models.load_model(model_name)
     # Search for the layer index corresponding to the 2 last convolutional layer
-    layer_idx = utils.find_layer_idx(model_cam, 'conv2d_4')
-    layer_idx2 = utils.find_layer_idx(model_cam, 'conv2d_3')
-    model_cam.layers[layer_idx].activation = activations.softmax
+    #layer_idx = utils.find_layer_idx(model_cam, 'conv2d_4')
+    #layer_idx2 = utils.find_layer_idx(model_cam, 'conv2d_3')
+    #model_cam.layers[layer_idx].activation = activations.softmax
 
     # Type of gradient modifier to use
     grad = 'small_values'
@@ -86,11 +83,55 @@ def infer(path, telescope, modelname, probratio):
     # This is the output node we want to maximize.
     filter_idx = None
 
-    
+    cube = []
+    for ima in filenames:
+        hdus = fits.open(ima, memmap=False)
+        head = hdus[0].header
+        data = hdus[0].data
+        #ima1 = ima1[edge_shift:-edge_shift,edge_shift:-edge_shift]
+        cube.append(data)
+        hdus.close()
+
+    # Convert lists to B.I.P. NumPy arrays
+    cube = np.asarray(cube, dtype=np.float32)
+    print (cube.shape)
+    if cube.ndim < 4:
+        cube = np.reshape(cube, [cube.shape[0], cube.shape[1], cube.shape[2], 1])
+    else:
+        cube = np.moveaxis(cube, 1,-1)
+
+    p = model.predict(cube)
+    p2 = p[:,1]
+    #print (p)
+    #print (p2)
+
+    #label[j] = p / (p + (1.0 - p) * probratio)
+
+    RA_list = []
+    Dec_list = []
+
+    for i in range(len(p)):
+        hdus = fits.open(filenames[i], memmap=False)
+        head = hdus[0].header
+        RA_list.append(head['RA'])
+        Dec_list.append(head['DEC'])
+
+        # Format image cube to run the visualisation_cam
+        #img = np.expand_dims(hdus[0].data, axis=0)
+        #img = np.moveaxis(img, 1,-1)
+        #im_res = visualize_cam(model_cam, layer_idx=layer_idx,filter_indices=filter_idx,
+        #                       seed_input=img, penultimate_layer_idx=layer_idx2, \
+        #                       backprop_modifier=backprop, grad_modifier=grad)
+
+        #plt.imshow(im_res)
+        #plt.show()
+        #print (filenames[i], head['RA'], head['DEC'], p[i])
+    table = Table([filenames, RA_list, Dec_list, p[:,0], p[:,1]], names=['filename', 'RA', 'Dec', 'label0', 'label1'])
+    table.show_in_browser()
 
 
 
-
+    """
     size = 64
     cutsize = np.array([size, size], dtype=np.int32)
     hcutsize = cutsize // 2
@@ -210,7 +251,7 @@ def infer(path, telescope, modelname, probratio):
                 tot +=s-1
             hdusi1.close()
             print('nb events total: ',tot)
-
+    """
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description='Apply a previously trained CNN.')

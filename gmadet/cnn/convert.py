@@ -52,16 +52,15 @@ def convert(path, telescope, cubename):
     # Get all the prefixes corresponding to one field
     truelist = glob.glob(path + '/true/*.fits')
     falselist = glob.glob(path + '/false/*.fits')
-
     # output cube name
     npz_name = "%s.npz" % cubename
 
-    cube = []
+    Ncand = len(truelist)+len(falselist)
+    cube = [] #np.zeros((Ncand, 64, 64))
     labels = []
     mags = []
     errmags = []
     filters = []
-    
     for cand in truelist:
         hdus = fits.open(cand, memmap=False)
         head = hdus[0].header
@@ -71,8 +70,12 @@ def convert(path, telescope, cubename):
         filters += [head['FILTER']]
         cube.append(hdus[0].data)
         hdus.close()
+
     for cand in falselist:
         hdus = fits.open(cand, memmap=False)
+        if hdus[0].data.shape != (64, 64):
+            print ('skip %s as its shape is not (64,64): (%d,%d)' % (cand, hdus[0].data.shape[0], hdus[0].data.shape[1]))
+            continue
         head = hdus[0].header
         labels += [0]
         mags += [head['MAG']]
@@ -83,12 +86,12 @@ def convert(path, telescope, cubename):
 
 
     print("Converting and reshaping arrays ...")
-
     # Convert lists to B.I.P. NumPy arrays
     cube = np.asarray(cube, dtype=np.float32)
     print (cube.shape)
     if cube.ndim < 4:
         cube = np.reshape(cube, [cube.shape[0], cube.shape[1], cube.shape[2], 1])
+        #cube = np.reshape(cube, [len(cube), 64, 64,1])
     else:
         cube = np.moveaxis(cube, 1,-1)
 

@@ -67,7 +67,7 @@ def subimage(path, telescope, training, size=64, radius=2):
         resdir = path + '/candidates/'
         mkdir_p(resdir)
 
-    for i, cand in enumerate(candidates_list[:1000]):
+    for i, cand in enumerate(candidates_list):
         print ("processing candidate %d/%d ..." % (i, len(candidates_list)), end='\r', flush=True)
 
         OT_coords = [cand['RA'], cand['Dec']]
