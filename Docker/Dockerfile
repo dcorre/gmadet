@@ -138,7 +138,7 @@ RUN \
    conda install python=3 numpy scipy matplotlib astropy pandas shapely requests h5py sphinx sphinx_rtd_theme scikit-image 
 
 RUN \ 
-   pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis opencv-python \
+   pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis opencv-python tensorflow \
    && pip install --pre astroquery
 
 # Change working directory to gmadet
