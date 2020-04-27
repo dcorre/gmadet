@@ -17,7 +17,7 @@ import argparse
 from skimage.feature import register_translation
 from gmadet.utils import getpath, rm_p, mkdir_p
 
-def sim(datapath, telescope, Ntrans=20, size=48, magrange=[14,20], gain=1, magzp=30):
+def sim(datapath, telescope, Ntrans=50, size=48, magrange=[14,22], gain=1, magzp=30):
     """Insert point sources in real images """
 
     path_gmadet = getpath()
@@ -39,7 +39,7 @@ def sim(datapath, telescope, Ntrans=20, size=48, magrange=[14,20], gain=1, magzp
     filenames = glob.glob(datapath + '/**/*.fits', recursive=True)
 
     counter=0
-    for filename in filenames[:200]:
+    for filename in filenames:
         if 'psf' not in filename and 'weight' not in filename:
             _, name = os.path.split(filename)
             #print("\x1b[2K", end='\r', flush=True),
