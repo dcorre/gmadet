@@ -266,7 +266,7 @@ def get_photometry(filelist,FWHM_list,thresh,mkiraf=True,subFiles=None):
         iraf.daophot.phot(image=filename,coords=daofind_output, output=daophot_output, interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="no")
     
 
-def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFiles=None):
+def select_good_stars(filelist,limiting_mag_err,soft,edge_cut=32,sigma=1,subFiles=None):
 # Performs selection of stars without INDEF in magnitude or magnitude error and with the flag "NoError" inside *.mag.1 file
 # Saves into *.magfiltered file in x-y coordinates
 # filename is WITHOUT suffix .fits
@@ -341,14 +341,14 @@ def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFi
 
         elif soft == 'sextractor':
             sources = ascii.read(folder + filename2 + '_SourcesDet.cat', format='sextractor')
-            mv_p(folder + filename2 + '_SourcesDet.cat',folder + filename2 + '_SourcesDetnoFilter.cat')
+            #mv_p(folder + filename2 + '_SourcesDet.cat',folder + filename2 + '_SourcesDetnoFilter.cat')
             # Remove sources too close to the imge edges
             header = fits.getheader(folder + filename2 + fileext)
             imsize = [int(header['NAXIS1']), int(header['NAXIS2'])]
-            mask_edge = (sources['X_IMAGE'] > corner_cut) & \
-                        (sources['Y_IMAGE'] > corner_cut) & \
-                        (sources['X_IMAGE'] < imsize[1] - corner_cut) & \
-                        (sources['Y_IMAGE'] < imsize[0] - corner_cut)
+            mask_edge = (sources['X_IMAGE'] > edge_cut) & \
+                        (sources['Y_IMAGE'] > edge_cut) & \
+                        (sources['X_IMAGE'] < imsize[1] - edge_cut) & \
+                        (sources['Y_IMAGE'] < imsize[0] - edge_cut)
 
             """
             # Remove sources that are likely cosmic rays
@@ -370,8 +370,13 @@ def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFi
             mask_cosmics = (nbpix < 10) & (fluxratio > fluxratio_med + sigma * fluxratio_std)
             mask_tot = np.bitwise_and(mask_edge, np.invert(mask_cosmics))
             """
-            sources_filt = sources[mask_edge]
-            sources_filt.write(folder + filename2 + '_SourcesDet.cat',format='ascii.commented_header', overwrite=True)
+            # Remove sources too close to the edges
+            #sources_filt = sources[mask_edge]
+            # Flag sources too close to the edges
+            edge_flag = np.array(['N'] * len(sources))
+            edge_flag[~mask_edge] = 'Y'
+            sources['edge'] = edge_flag
+            sources.write(folder + filename2 + '_SourcesDet.cat',format='ascii.commented_header', overwrite=True)
 
 
 
@@ -429,7 +434,7 @@ def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
             w = wcs.WCS(header)
             ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 1)
             filenames = [filename] * len(ra)
-            data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'filenames'])
+            data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], sources['edge'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'edge', 'filenames'])
         
         # Flag to identify substraction image
         if '_sub' in magfilewcs:
@@ -465,7 +470,7 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
 
     cat_dict = {'I/284/out':'USNO-B1', 'I/345/gaia2':'GAIA DR2', 'II/349/ps1':'PS1 DR1', 'I/271/out':'GSC'}
     counter = 0
-    transients_out_list = []
+    _filename_list = []
 
     if subFiles is not None:
         subfiles = np.array(subFiles)
@@ -507,7 +512,7 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
             elif len(split_file[-1]) == 3:
                 idx = 4
             """
-        transients_out_list.append(original_name + ".oc")
+        _filename_list.append(original_name + ".oc")
 
         header = fits.getheader(filename)
         # Get pixel scale in degrees
@@ -520,7 +525,7 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
                 print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
 
         # Load detected sources in astropy table
-        detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
+        detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
         #detected_sources = ascii.read(magfilewcs)
         #detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
         detected_sources['quadrant'] = [quadrant]*len(detected_sources)
@@ -554,59 +559,63 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
     # Add index for each source
     detected_sources_tot['idx'] = np.arange(len(detected_sources_tot))
 
+    # Add a flag to indicate whether a source is crossmatched with 
+    # a referenced source
+    detected_sources_tot['Match'] = ['N'] * len(detected_sources_tot)
+
     # Initialise candidates with all detected sources
     candidates = deepcopy(detected_sources_tot)
     #candidates.write('test0.dat', format='ascii.commented_header', overwrite=True)
     print ('\nCrossmatching sources with catalogs.')
     print ('Radius used for crossmatching with catalogs: %.2f arcseconds\n' % (radius*pixScale*3600))
+
+    mask_matched = candidates['Match'] == 'N'
     for catalog in catalogs:
-        print (catalog, len(candidates))
+        print (catalog, len(candidates[mask_matched]))
         # Use Xmatch to crossmatch with catalog
-        crossmatch = run_xmatch(candidates, catalog, radius*pixScale*3600)
+        crossmatch = run_xmatch(candidates[mask_matched], catalog, radius*pixScale*3600)
 
         #crossmatch.write('test.dat', format='ascii.commented_header', overwrite=True)
-        # Initialise flag array. 0: unknown sources / 1: known sources
-        flag = np.zeros(len(candidates))
         # Do not consider duplicates
+        # Meaning that if there are several sources
+        # we consider it as a crossmatch
         referenced_star_idx = np.unique(crossmatch['idx'])
-        #print (referenced_star_idx)
-        #print (candidates)
-        #print (np.max(referenced_star_idx))
-        #ref_idx = 
-        # Set flag indexes to 1 for detected sources associated to a star
-        flag[np.array(referenced_star_idx)] = 1
-        #print (len(candidates)) 
-        #print (flag)
-        # Table for candidates
-         
-        candidates = candidates[flag == 0]
-        #print (len(candidates))
-        # Update indexes
-        candidates['idx'] = np.arange(len(candidates))
+
+        candidates['Match'][referenced_star_idx ] = 'Y'
+
+        # Update Match mask
+        mask_matched = candidates['Match'] == 'N'
+
         if subFiles is not None:
-            mask = candidates['FlagSub'] == 'Y'
-            mask2 = detected_sources_tot['FlagSub'] == 'Y'
-            print ('%d/%d candidates left in substracted image after crossmatching with %s' % (len(candidates[mask]),len(detected_sources_tot[mask2]), cat_dict[catalog]))
-            mask = np.invert(mask)
+            mask = (candidates['FlagSub'] == 'Y') & (mask_matched)
+            mask2 = candidates['FlagSub'] == 'Y'
+            print ('%d/%d candidates left in substracted image after crossmatching with %s' % (len(candidates[mask]),len(candidates[mask2]), cat_dict[catalog]))
+            mask = (candidates['FlagSub'] == 'N') & (mask_matched)
             mask2 = np.invert(mask2)
-            print ('%d/%d candidates left in original image (without substraction) after crossmatching with %s' % (len(candidates[mask]),len(detected_sources_tot[mask2]), cat_dict[catalog]))
+            print ('%d/%d candidates left in original image (without substraction) after crossmatching with %s' % (len(candidates[mask]),len(candidates[mask2]), cat_dict[catalog]))
         else:
-            print ('%d/%d candidates left after crossmatching with %s' % (len(candidates),len(detected_sources_tot), cat_dict[catalog]))
-        if (len(candidates) == 0):
+            print ('%d/%d candidates left after crossmatching with %s' % (len(candidates[mask_matched]),len(candidates), cat_dict[catalog]))
+        if (len(candidates[mask_matched]) == 0):
             break
 
     # Get filename    
-    transients = np.unique(transients_out_list)[0]
+    _filename = np.unique(_filename_list)[0]
     # Write candidates file.
     # If substraction was performed, split transients into specific files
-    mask = candidates['FlagSub'] == 'Y'
-    candidates[mask].write(transients.split('.')[0]+'_sub.oc', format='ascii.commented_header', overwrite=True)
+    if subfiles is not None:
+        mask = (candidates['FlagSub'] == 'Y') & (mask_matched)
+        candidates[mask].write(_filename.split('.')[0]+'_sub.oc', format='ascii.commented_header', overwrite=True)
+    
+    oc = candidates[mask]['_RAJ2000', '_DEJ2000']
+    oc.write(_filename.split('.')[0]+'_sub.oc_RADEC',format='ascii.commented_header', overwrite=True)
+    mask = (candidates['FlagSub'] == 'N') & (mask_matched)
+    candidates[mask].write(_filename, format='ascii.commented_header', overwrite=True)
     oc=candidates[mask]['_RAJ2000', '_DEJ2000']
-    oc.write(transients.split('.')[0]+'_sub.oc_RADEC',format='ascii.commented_header', overwrite=True)
-    mask = np.invert(mask)
-    candidates[mask].write(transients, format='ascii.commented_header', overwrite=True)
-    oc=candidates[mask]['_RAJ2000', '_DEJ2000']
-    oc.write(transients.split('.')[0]+'.oc_RADEC',format='ascii.commented_header', overwrite=True)
+    oc.write(_filename.split('.')[0]+'.oc_RADEC',format='ascii.commented_header', overwrite=True)
+
+    # Also write a file with all the sources detected to know
+    candidates.write(_filename.split('.')[0] + '.alldetections', format='ascii.commented_header', overwrite=True)
+
 
     #oc=candidates['Xpos', 'Ypos']
     #oc.write(magfilewcs+'4',format='ascii.commented_header', overwrite=True)
