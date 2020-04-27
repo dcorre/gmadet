@@ -31,7 +31,7 @@ def crossmatch(fname, radius, pixScale, catalog):
     """
 
     # Import Sextractor or pyRAF results
-    detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
+    detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
     # Add units
     detected_sources['_RAJ2000'] *= u.deg
     detected_sources['_DEJ2000'] *= u.deg
