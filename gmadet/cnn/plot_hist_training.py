@@ -12,7 +12,7 @@ def hist(modelname, telescope):
     model_name = trainedModelDir + modelname + '.h5'
 
     print("Loading " + model_name + " ...", end='\r', flush=True)
-    data = np.load(model_name)
+    data = np.load(model_name, allow_pickle=True)
     ima = data["cube"]
     lab = keras.utils.to_categorical(data["labels"])
     mag = data["mags"]
