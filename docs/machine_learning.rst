@@ -81,10 +81,16 @@ Whithin a terminal, go to the gmadet/gmadet/cnn/ folder and type:
 
 .. code-block:: console
 
-    python makesubimage.py --path cnn/data/sim/yourtelescopeID/images/ --telescope yourtelescopeID --training
+    python makesubimage.py --path cnn/data/sim/yourtelescopeID/images/ --telescope yourtelescopeID --training  --radius 2
 
-The candidates are created in gmadet/gmadet/cnn/sim/yourtelescopeID/candidates/ . Two others folder are created true/ and false/, they will be used to contain what we classify as true and false candidates.
-The simulated candidates are put in the true folder.
+The radius is used in training mode, it is the crossmatch radius between simulated sources and sources that are actually detected. The candidates are created in gmadet/gmadet/cnn/sim/yourtelescopeID/candidates/ . Two others folder are created true/ and false/, they will be used to contain what we classify as true and false candidates.
+The simulated candidates are automatically put in the true folder.
+
+You can plot some histograms to check the distribution of magnitudes for the different bands and fraction of the simulated objects that are actually detected by writing:
+
+.. code-block:: console
+
+    python checksim.py --path cnn/data/sim/yourtelescopeID/images/ --telescope yourtelescopeID --training  --radius 2
 
 Classify true and false candidates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
