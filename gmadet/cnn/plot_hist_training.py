@@ -27,7 +27,7 @@ def hist(modelname, telescope):
     hist_mag = plt.hist(mag,range = (mag_min, mag_max), bins = 20)
     plt.savefig(cubeDir+modelname+'_hist_mag.png')
     plt.figure()
-    hist_dmag = plt.hist(dmag,range = (errmag_min,errmag_max), bins = 20, edgecolor = 'red')
+    hist_errmag = plt.hist(errmag,range = (errmag_min,errmag_max), bins = 20, edgecolor = 'red')
     plt.savefig(cubeDir+modelname+'_hist_errmag.png')
     plt.figure()
     hist2D = plt.hist2d(mag[mag < 18.5],errmag[mag < 18.5],bins = 100)
