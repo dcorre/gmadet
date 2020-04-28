@@ -2,9 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import keras
 import argparse
+from gmadet.utils import getpath
 
 def hist(modelname, telescope):
-    
+
+    path_gmadet = getpath()
+
+    trainedModelDir = path_gmadet + '/cnn/CNN_training/' + telescope + '/'
+    model_name = trainedModelDir + modelname + '.h5'
+
     print("Loading " + modelname + " ...", end='\r', flush=True)
     data = np.load(modelname)
     ima = data["cube"]
