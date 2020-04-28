@@ -104,7 +104,7 @@ def crossmatch_detections(path, candidates_list, radius=1, getFilter=False):
         sim_list['closest_candID'] = closest_candID_list
         sim_list['all_candIDs'] = candID_list
         sim_list.write(path+'/crossmatch.dat', format='ascii.commented_header', overwrite = True)
-    sim_list.show_in_browser()    
+    #sim_list.show_in_browser()    
     return sim_list
 
 def makestats(path, radius=1):

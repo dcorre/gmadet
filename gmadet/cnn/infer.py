@@ -127,8 +127,8 @@ def infer(eventDir, telescope, modelname, probratio):
         #plt.show()
         #print (filenames[i], head['RA'], head['DEC'], p[i])
     table = Table([filenames, RA_list, Dec_list, p[:,0], p[:,1]], names=['filename', 'RA', 'Dec', 'label0', 'label1'])
-    table.show_in_browser()
-
+    #table.show_in_browser()
+    table.write(eventDir+'/infer_results.dat', format='ascii.commented_header', overwrite=True)
 
 
     """
