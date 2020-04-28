@@ -56,7 +56,7 @@ Whithin a terminal, go to the gmadet/gmadet/cnn/ folder and type:
 
 .. code-block:: console
 
-    python psf.py --datapath data/yourtelescopeID/ --telescope yourtelescopeID
+    python sim.py --datapath data/yourtelescopeID/ --telescope yourtelescopeID
 
 The new fits images are created in gmadet/gmadet/cnn/sim/yourtelescopeID/images
 
@@ -81,7 +81,7 @@ Whithin a terminal, go to the gmadet/gmadet/cnn/ folder and type:
 
 .. code-block:: console
 
-    python makesubimage.py --path cnn/data/sim/yourtelescopeID/images/gmadet_results/ --telescope yourtelescopeID --training
+    python makesubimage.py --path cnn/data/sim/yourtelescopeID/images/ --telescope yourtelescopeID --training
 
 The candidates are created in gmadet/gmadet/cnn/sim/yourtelescopeID/candidates/ . Two others folder are created true/ and false/, they will be used to contain what we classify as true and false candidates.
 The simulated candidates are put in the true folder.
