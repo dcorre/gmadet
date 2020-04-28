@@ -176,7 +176,7 @@ def train(telescope, cubename, modelname):
         fpr = [np.mean(labpf[:,1] > t) for t in trange]
         plt.plot(fpr,tpr, label = "mag < %.1f" %maglim)
     legend = ax.legend(loc='lower right')
-    plt.savefig(outdir+model_name+'_ROC_mag.png')
+    plt.savefig(outdir+modelname+'_ROC_mag.png')
     #plt.show()
 
     # ROC with dmag
