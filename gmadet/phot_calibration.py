@@ -23,23 +23,27 @@ from copy import deepcopy
 
 warnings.simplefilter(action='ignore')
 
-def crossmatch(fname, radius, pixScale, catalog):
+def crossmatch(detected_sources, radius, pixScale, catalog):
     """
-    Load the output file of Sextractor / pyRAF
+    Crossmatch the output file of Sextractor / pyRAF
     Remove duplicate source during crossmatch
     Keep only the closest match
     """
 
     # Import Sextractor or pyRAF results
-    detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
+    #detected_sources = ascii.read(fname, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
+
     # Add units
     detected_sources['_RAJ2000'] *= u.deg
     detected_sources['_DEJ2000'] *= u.deg
     # Add index for each source
     detected_sources['idx'] = np.arange(len(detected_sources))
 
+    # Do not consider sources close to the image edges
+    mask = detected_sources['edge'] == 'N'
+
     # Run xmatch to crossmatch detected sources with available catalog
-    crossmatch = run_xmatch(detected_sources, catalog, radius*pixScale*3600)
+    crossmatch = run_xmatch(detected_sources[mask], catalog, radius*pixScale*3600)
     # Initialise flag array. 0: unknown sources / 1: known sources
     flag = np.zeros(len(crossmatch))
     # Do not consider duplicates
@@ -227,9 +231,11 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True, subFiles=Non
         band_DB, band_cat, catalog = get_phot_cat(key[0], telescope)
 
         # Import Sextractor or pyRAF results
-        fname = folder + fname2 + '.magwcs'
+        #fname = folder + fname2 + '.magwcs'
+        fname = folder + fname2 + '.alldetections'
+        detected_sources = ascii.read(fname)
         print ('Crossmatching with catalog.')
-        ref_sources = crossmatch(fname, radius, pixScale, catalog)
+        ref_sources = crossmatch(detected_sources, radius, pixScale, catalog)
 
         # Remove extended sources and bad measurements from reference
         # stars catalog
@@ -249,6 +255,16 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True, subFiles=Non
         deltaMagStdlist.append(deltaMagStd)
         filename_list.append(key[0])
 
+        # Adding calibrated mag to all detected sources
+        detected_sources['ZP'] = [deltaMagMedian] * len(detected_sources)
+        detected_sources['ZP_err'] = [deltaMagStd] * len(detected_sources)
+        detected_sources['mag_calib'] = detected_sources['mag_inst'] - deltaMagMedian
+        detected_sources['mag_calib_err'] = np.sqrt(detected_sources['mag_inst_err']**2 + deltaMagStd**2)
+        detected_sources['filter_cat'] = [band_cat] * len(detected_sources)
+        detected_sources['filter_DB'] = [band_DB] * len(detected_sources)
+
+        detected_sources.write(fname, format='ascii.commented_header', overwrite=True)
+
     print ('Add magnitude to candidates.') 
     # Apply photmetric calibration to candidates
     mag_calib_col = Column(np.zeros(len(candidates_list)), name='mag_calib')
@@ -260,6 +276,7 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True, subFiles=Non
     candidates_list.add_columns([mag_calib_col, mag_calib_err_col, magsys_col, filter_cat_col, filter_DB_col])
 
     for j, filename in enumerate(filename_list):
+        # Compute calibrated magnitudes for transient candidates only
         mask = candidates_list['OriginalIma'] == filename
         candidates_list['mag_calib'][mask] = candidates_list['mag_inst'][mask] - deltaMagMedianlist[j]
         # Quadratic sum of statistics and calibration errors. 
@@ -274,8 +291,6 @@ def phot_calib(candidates_list, telescope, radius = 3, doPlot=True, subFiles=Non
         candidates_list['filter_cat'][mask] = band_cat
         candidates_list['filter_DB'][mask] = band_DB
 
-
     candidates_list.write(folder+fname2+'_transient_candidates.dat', format='ascii.commented_header', overwrite=True)
-
 
     return  candidates_list
