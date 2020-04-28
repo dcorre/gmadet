@@ -84,7 +84,7 @@ def convert(path, telescope, cubename):
         # Exclude cases too close to the edge
         # Meaning they are located at less than the defined size
         # of the small images
-        if head['EDGE'] == 'False'
+        if head['EDGE'] == 'False':
             labels += [0]
             mags += [head['MAG']]
             errmags += [head['MAGERR']]
