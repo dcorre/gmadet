@@ -17,7 +17,7 @@ def hist(modelname, telescope):
     lab = keras.utils.to_categorical(data["labels"])
     mag = data["mags"]
     errmag = data["errmags"]
-    band = data["filter"]
+    band = data["filters"]
     errmag_min = np.min(errmag)
     errmga_max = np.max(errmag)
     mag_min = np.min(mag)
