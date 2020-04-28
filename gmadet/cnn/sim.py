@@ -33,12 +33,16 @@ def sim(datapath, telescope, Ntrans=50, size=48, magrange=[14,22], gain=1, magzp
     trans_wcs = []
     filelist = []
     maglist = []
+    filterlist = []
     cpsf1 = np.zeros((cutsize[1], cutsize[0]))
     
     # Get all the images
     filenames = glob.glob(datapath + '/**/*.fits', recursive=True)
 
     counter=0
+    # If you want to limit the number of images in which to simulate stars
+    # psf are also included in filenames
+    filenames = filenames[:4]
     for filename in filenames:
         if 'psf' not in filename and 'weight' not in filename:
             _, name = os.path.split(filename)
@@ -46,6 +50,7 @@ def sim(datapath, telescope, Ntrans=50, size=48, magrange=[14,22], gain=1, magzp
             #print("Loading " + epoch1 + " image data ...", end='\r', flush=True),
             hdusi1 = fits.open(filename, memmap=False)
             headi1 = hdusi1[0].header
+            band = str(headi1['FILTER'])
             ima1 = hdusi1[0].data.astype(np.float32)
             hdusp1 = fits.open(filename.split('.')[0] + '.psf.fits', memmap=False)
             headp1 = hdusp1[0].header
@@ -61,6 +66,9 @@ def sim(datapath, telescope, Ntrans=50, size=48, magrange=[14,22], gain=1, magzp
             for j in range(Ntrans):
                 newfile = simdir + name.split('.')[0] +'_' + str(counter) + '.fits'
                 filelist.append(newfile)
+
+                filterlist.append(band)
+
                 pos[j] = np.random.random_sample(2) * (imsize - cutsize) + cutsize / 2.0
                 # store positions
                 ra, dec = w.wcs_pix2world(pos[j][1], pos[j][0], 1)
@@ -115,7 +123,8 @@ def sim(datapath, telescope, Ntrans=50, size=48, magrange=[14,22], gain=1, magzp
             counter+=1
     xypos = np.array(trans_pix)
     wcspos = np.array(trans_wcs)
-    table = Table([filelist, xypos[:,1], xypos[:,0], wcspos[:,0], wcspos[:,1],maglist],names=['filename', 'Xpos', 'Ypos', 'RA', 'Dec', 'mag'])
+    idx = np.arange(len(xypos))
+    table = Table([idx, filelist, xypos[:,1], xypos[:,0], wcspos[:,0], wcspos[:,1], maglist, filterlist],names=['idx', 'filename', 'Xpos', 'Ypos', 'RA', 'Dec', 'mag', 'filter'])
     table.write(simdir+'simulated_objects.list', format='ascii.commented_header', overwrite=True)
     return table 
 

@@ -64,34 +64,50 @@ def convert(path, telescope, cubename):
     for cand in truelist:
         hdus = fits.open(cand, memmap=False)
         head = hdus[0].header
-        labels += [1]
-        mags += [head['MAG']]
-        errmags += [head['MAGERR']]
-        filters += [head['FILTER']]
-        cube.append(hdus[0].data)
+        # Exclude cases too close to the edge
+        # Meaning they are located at less than the defined size
+        # of the small images
+        if head['EDGE'] == 'False':  
+            labels += [1]
+            mags += [head['MAG']]
+            errmags += [head['MAGERR']]
+            filters += [head['FILTER']]
+            cube.append(hdus[0].data)
         hdus.close()
 
     for cand in falselist:
         hdus = fits.open(cand, memmap=False)
-        if hdus[0].data.shape != (64, 64):
-            print ('skip %s as its shape is not (64,64): (%d,%d)' % (cand, hdus[0].data.shape[0], hdus[0].data.shape[1]))
-            continue
         head = hdus[0].header
-        labels += [0]
-        mags += [head['MAG']]
-        errmags += [head['MAGERR']]
-        filters += [head['FILTER']]
-        cube.append(hdus[0].data)
+        #if hdus[0].data.shape != (64, 64):
+        #    print ('skip %s as its shape is not (64,64): (%d,%d)' % (cand, hdus[0].data.shape[0], hdus[0].data.shape[1]))
+        #    continue
+        # Exclude cases too close to the edge
+        # Meaning they are located at less than the defined size
+        # of the small images
+        if head['EDGE'] == 'False'
+            labels += [0]
+            mags += [head['MAG']]
+            errmags += [head['MAGERR']]
+            filters += [head['FILTER']]
+            cube.append(hdus[0].data)
         hdus.close()
 
 
     print("Converting and reshaping arrays ...")
     # Convert lists to B.I.P. NumPy arrays
+    print (len(cube))
+    # Check whether all candidates has 64x64 pixels
+    # If not, delete them
+    # This can happen at the edge of images
+    #for i in range(len(cube)):
+    #    if np.array(cube[i]).shape != (64, 64):
+    #        print (i, np.array(cube[i]).shape)
+    #        del cube[i]
+    print (len(cube))
     cube = np.asarray(cube, dtype=np.float32)
     print (cube.shape)
     if cube.ndim < 4:
         cube = np.reshape(cube, [cube.shape[0], cube.shape[1], cube.shape[2], 1])
-        #cube = np.reshape(cube, [len(cube), 64, 64,1])
     else:
         cube = np.moveaxis(cube, 1,-1)
 
