@@ -106,14 +106,30 @@ Once you have classified your candidates, the next step is to trained the CNN al
 
 .. code-block:: console
 
-    python convert.py --path data/sim/yourtelescopeID/candidates/ --telescope yourtelescopeID --cubename test
+    python convert.py --path data/sim/yourtelescopeID/candidates/ --telescope yourtelescopeID --cubename yourCubeName
 
 Then you can start the training:
 
 .. code-block:: console
 
-    python train.py --telescope yourtelescopeID --cubename test --modelname test
+    python train.py --telescope yourtelescopeID --cubename yourCubeName --modelname yourModelName
 
+
+Training statistics
+^^^^^^^^^^^^^^^^^^^
+
+You can plot some distributions regarding the training data set with:
+
+.. code-block:: console
+
+    python plot_hist_training.py --telescope yourtelescopeID --modelname yourModelName
+
+
+You can plot the ROC_curve with:
+
+.. code-block:: console
+
+    python roc_curve.py --telescope yourtelescopeID --modelname yourModelName
 
 Use this model in gmadet
 ^^^^^^^^^^^^^^^^^^^^^^^^
