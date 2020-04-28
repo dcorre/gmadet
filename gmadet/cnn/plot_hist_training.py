@@ -9,7 +9,7 @@ def hist(modelname, telescope):
     path_gmadet = getpath()
 
     cubeDir = path_gmadet + '/cnn/datacube/' + telescope + '/'
-    model_name = cubeDir + modelname + '.h5'
+    model_name = cubeDir + modelname + '.npz'
 
     print("Loading " + model_name + " ...", end='\r', flush=True)
     data = np.load(model_name)
