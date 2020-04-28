@@ -43,7 +43,7 @@ from astropy.wcs import WCS
 import astropy.units as u
 import astropy.coordinates as coord
 from astropy.table import Table
-from vis.visualization import visualize_cam
+#from vis.visualization import visualize_cam
 from vis.utils import utils
 from keras import activations
 from gmadet.utils import getpath, rm_p, mkdir_p
