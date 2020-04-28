@@ -108,10 +108,11 @@ def subimage(path, telescope, training, size=32, radius=1):
     print ('Combine the detections from all simulated images.')
     candidates_list = getCandPos(path)
 
-    print ('Crossmatch simulated events with detections')
-    sim_list = crossmatch_detections(path, candidates_list, radius=radius)
 
     if training:
+        print ('Crossmatch simulated events with detections')
+        sim_list = crossmatch_detections(path, candidates_list, radius=radius)
+
         resdir = path_gmadet + '/cnn/data/sim/' + telescope + '/candidates/'
         mkdir_p(resdir)
         truedir = path_gmadet + '/cnn/data/sim/' + telescope + '/candidates/true/'

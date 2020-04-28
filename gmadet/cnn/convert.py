@@ -95,7 +95,6 @@ def convert(path, telescope, cubename):
 
     print("Converting and reshaping arrays ...")
     # Convert lists to B.I.P. NumPy arrays
-    print (len(cube))
     # Check whether all candidates has 64x64 pixels
     # If not, delete them
     # This can happen at the edge of images
@@ -103,9 +102,7 @@ def convert(path, telescope, cubename):
     #    if np.array(cube[i]).shape != (64, 64):
     #        print (i, np.array(cube[i]).shape)
     #        del cube[i]
-    print (len(cube))
     cube = np.asarray(cube, dtype=np.float32)
-    print (cube.shape)
     if cube.ndim < 4:
         cube = np.reshape(cube, [cube.shape[0], cube.shape[1], cube.shape[2], 1])
     else:
