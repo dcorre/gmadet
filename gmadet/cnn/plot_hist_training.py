@@ -19,7 +19,7 @@ def hist(modelname, telescope):
     errmag = data["errmags"]
     band = data["filters"]
     errmag_min = np.min(errmag)
-    errmga_max = np.max(errmag)
+    errmag_max = np.max(errmag)
     mag_min = np.min(mag)
     mag_max = np.max(mag)
 
