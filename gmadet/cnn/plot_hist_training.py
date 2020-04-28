@@ -11,8 +11,8 @@ def hist(modelname, telescope):
     trainedModelDir = path_gmadet + '/cnn/CNN_training/' + telescope + '/'
     model_name = trainedModelDir + modelname + '.h5'
 
-    print("Loading " + modelname + " ...", end='\r', flush=True)
-    data = np.load(modelname)
+    print("Loading " + model_name + " ...", end='\r', flush=True)
+    data = np.load(model_name)
     ima = data["cube"]
     lab = keras.utils.to_categorical(data["labels"])
     mag = data["mags"]
@@ -25,13 +25,13 @@ def hist(modelname, telescope):
 
     plt.figure()
     hist_mag = plt.hist(mag,range = (mag_min, mag_max), bins = 20)
-    plt.savefig(trainedModelDir+'hist_mag.png')
+    plt.savefig(trainedModelDir+modelname+'_hist_mag.png')
     plt.figure()
     hist_dmag = plt.hist(dmag,range = (errmag_min,errmag_max), bins = 20, edgecolor = 'red')
-    plt.savefig(trainedModelDir+'hist_errmag.png')
+    plt.savefig(trainedModelDir+modelname+'_hist_errmag.png')
     plt.figure()
     hist2D = plt.hist2d(mag[mag < 18.5],errmag[mag < 18.5],bins = 100)
-    plt.savefig(trainedModelDir+'hist2d.png')
+    plt.savefig(trainedModelDir+modelname+'_hist2d.png')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
