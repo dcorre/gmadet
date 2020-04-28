@@ -20,18 +20,18 @@ def hist(modelname, telescope):
     band = data["filter"]
     errmag_min = np.min(errmag)
     errmga_max = np.max(errmag)
-    mag_min = np.min(mag])
+    mag_min = np.min(mag)
     mag_max = np.max(mag)
 
     plt.figure()
     hist_mag = plt.hist(mag,range = (mag_min, mag_max), bins = 20)
-    plt.savefig('hist_mag.png')
+    plt.savefig(trainedModelDir+'hist_mag.png')
     plt.figure()
     hist_dmag = plt.hist(dmag,range = (errmag_min,errmag_max), bins = 20, edgecolor = 'red')
-    plt.savefig('hist_errmag.png')
+    plt.savefig(trainedModelDir+'hist_errmag.png')
     plt.figure()
     hist2D = plt.hist2d(mag[mag < 18.5],errmag[mag < 18.5],bins = 100)
-    plt.savefig('hist2d.png')
+    plt.savefig(trainedModelDir+'hist2d.png')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
