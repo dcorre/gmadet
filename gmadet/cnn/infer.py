@@ -109,12 +109,20 @@ def infer(eventDir, telescope, modelname, probratio):
 
     RA_list = []
     Dec_list = []
+    original_file = []
+    Xpos_list = []
+    Ypos_list = []
+    Cand_ID = []
 
     for i in range(len(p)):
         hdus = fits.open(filenames[i], memmap=False)
         head = hdus[0].header
         RA_list.append(head['RA'])
         Dec_list.append(head['DEC'])
+        original_file.append(head['FILE'])
+        Xpos_list.append(head['XPOS'])
+        Ypos_list.append(head['YPOS'])
+        Cand_ID.append(head['CANDID'])
 
         # Format image cube to run the visualisation_cam
         #img = np.expand_dims(hdus[0].data, axis=0)
@@ -126,7 +134,7 @@ def infer(eventDir, telescope, modelname, probratio):
         #plt.imshow(im_res)
         #plt.show()
         #print (filenames[i], head['RA'], head['DEC'], p[i])
-    table = Table([filenames, RA_list, Dec_list, p[:,0], p[:,1]], names=['filename', 'RA', 'Dec', 'label0', 'label1'])
+    table = Table([filenames, RA_list, Dec_list, original_file, Xpos_list, Ypos_list, Cand_ID,p[:,0], p[:,1]], names=['filename', 'RA', 'Dec', 'originalFile', 'Xpos', 'Ypos','candID', 'label0', 'label1'])
     #table.show_in_browser()
     table.write(eventDir+'/infer_results.dat', format='ascii.commented_header', overwrite=True)
 
