@@ -29,8 +29,8 @@ def get_corner_coords(filename):
 
     return [ra, dec]
 
-def substraction(filenames, reference, config, method='hotpants',
-                 verbose='NORMAL',outLevel=1):
+def substraction(filenames, reference, config, soft='hotpants',
+                 method='individual', verbose='NORMAL',outLevel=1):
     """Substract a reference image to the input image"""
 
     imagelist = np.atleast_1d(filenames)
@@ -64,10 +64,10 @@ def substraction(filenames, reference, config, method='hotpants',
             #band = 'g'
             ps1_cell_table = ps1_grid(im_coords)
             # Get PS1 files with whom to perform substraction
-            subfiles = prepare_PS1_sub(ps1_cell_table, band, ima, config, verbose=verbose, method='individual')
+            subfiles = prepare_PS1_sub(ps1_cell_table, band, ima, config, verbose=verbose, method=method)
             regis_info = registration(subfiles, config, resultDir=resultDir, verbose=verbose)
         
-            if method == 'hotpants':
+            if soft == 'hotpants':
                 subFiles = hotpants(regis_info, config, verbose=verbose)
 
         # Delete files if necessary, mainly to save space disk

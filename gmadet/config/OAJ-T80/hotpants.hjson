@@ -27,10 +27,10 @@ nsx: 20
 nsy: 20
 
 # kernelorder: spatial order of kernel variation within region, default: 2
-ko: 2
+ko: 0
 
 # bgorder: spatial order of background variation within region, default: 1
-bgo: 1
+bgo: 0
 
 # rkernel: convolution kernel half width, default: 10
 r: 10

@@ -241,7 +241,6 @@ def prepare_PS1_sub(ps1_cell_table, band, inputimage, config, verbose='QUIET', m
 
     # Download PS1 files if not present, and reformat them
     ps1files = download_ps1_cells(ps1_cell_table, band, config, ps1Dir, ps1RescaledDir, verbose=verbose)
-    print (ps1files)
     subfiles = []
     if method == 'mosaic':
         # Create mosaic file if it does not exist
@@ -250,8 +249,7 @@ def prepare_PS1_sub(ps1_cell_table, band, inputimage, config, verbose='QUIET', m
             print ('PS1 mosaic image already exists in this location: %s. If you want to recompute it, delete it.' % mosaicfile)
         else:
             fileref_names = create_ps1_mosaic(ps1files, inputimage, folder, config, band, verbose=verbose)
-            subfiles.append([inputimage, fileref_names[0], filref_names[1]])
-
+            subfiles.append([inputimage, fileref_names[0], fileref_names[1]])
     elif method == 'individual':
         for i in range(0, len(ps1files), 2):
             ref = ps1files[i]
@@ -351,9 +349,9 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, config, band, useweight=
     _, filenameInput = os.path.split(inputimage)
 
     # Create list of mask fits
-    mask_list = [ima.split('.')[0] + '_mask.fits' for ima in file_list]
-
-    np.savetxt('mosaic.list', file_list, fmt='%s')
+    ima_list = [ima for ima in file_list if '_mask' not in ima]
+    mask_list = [ima for ima in file_list if '_mask' in ima]
+    np.savetxt('mosaic.list', ima_list, fmt='%s')
     np.savetxt('mask.list', mask_list, fmt='%s')
 
     imagefiles = [outputDir + filenameInput.split('.')[0] + '_ps1_mosaic',
@@ -464,5 +462,8 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, config, band, useweight=
     rm_p('swarp.xml')
     rm_p(point+'.head')
     #rm_p('coadd.weight.fits')
+
+    # Add extension to files
+    imagefiles = [i+'.fits' for i in imagefiles]
 
     return imagefiles

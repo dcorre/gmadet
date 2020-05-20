@@ -21,7 +21,7 @@ import warnings
 from catalogues import *
 from phot_calibration import phot_calib
 from utils import (load_config, clean_folder, send_data2DB, cut_image,
-                   mv_p, mkdir_p, make_copy)
+                   mv_p, mkdir_p, make_copy, clean_outputs)
 from sanitise import sanitise_fits
 from remove_cosmics import run_lacosmic
 from astrometry import astrometrynet, scamp
@@ -73,27 +73,30 @@ def astrometric_calib(filenames, config, soft='scamp', accuracy=0.5, itermax=4, 
 def sextractor(filelist, FWHM_list, thresh, telescope, config,
                verbose='NORMAL', subFiles=None, outLevel=1):
     """Run sextractor """
-
     # if substraction have been performed
     # Run sextractor on input image to get photometry calibrated and 
     # on substracted image to get interesting sources
     if subFiles:
         subFiles = np.array(subFiles)
+
+        # No mask on iput data
+        #mask = ['None'] * len(subFiles[:, 0])
+        mask = ['None'] * len(filelist)
+        mask.extend([im for im in subFiles[:, 3]])
+        #weight_type = ['NONE'] * len(subFiles[:, 0])
+        weight_type = ['NONE'] * len(filelist)
+        weight_type.extend(['MAP_WEIGHT'] * len(mask))
+        
         #filelist = [im for im in subFiles[:, 0]]
         # Rather take the original before registration as it introduces artefact
         filelist = [im for im in filelist]
         filelist.extend([im for im in subFiles[:, 2]])
         # Duplicate FWHM list
-        FWHM_list.extend(FWHM_list)
-        # No mask on iput data
-        mask = ['None'] * len(subFiles[:, 0])
-        mask.extend([im for im in subFiles[:, 3]])
-        weight_type = ['NONE'] * len(subFiles[:, 0])
-        weight_type.extend(['MAP_WEIGHT'] * len(mask))
+        #FWHM_list.extend(FWHM_list)
+        FWHM_list = np.ravel([[i]*len(filelist) for i in FWHM_list])
     else:
         mask = ['None'] * len(filelist)
         weight_type = ['NONE'] * len(filelist)
-
     for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
         if path:
@@ -192,11 +195,10 @@ def get_photometry(filelist,FWHM_list,thresh,mkiraf=True,subFiles=None):
         iraf.daophot.phot(image=filename,coords=daofind_output, output=daophot_output, interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="no")
     
 
-def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFiles=None):
+def select_good_stars(filelist,limiting_mag_err,soft,edge_cut=32,sigma=1,subFiles=None):
 # Performs selection of stars without INDEF in magnitude or magnitude error and with the flag "NoError" inside *.mag.1 file
 # Saves into *.magfiltered file in x-y coordinates
 # filename is WITHOUT suffix .fits
-
     # if substraction have been performed
     # Run sextractor on input image to get photometry calibrated and 
     # on substracted image to get interesting sources
@@ -204,12 +206,16 @@ def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFi
         subFiles = np.array(subFiles)
         #filelist = [im for im in subFiles[:, 0]]
         # Rather take the original before registration as it introduces artefact
-        originallist = [im for im in filelist]
-        filelist = []
-        for im, sub in zip(originallist, subFiles[:,2]):
-            filelist.append(im)
-            filelist.append(sub)
-
+        original_filelist = list(filelist)
+        original_filelist.extend([im for im in filelist]*len(subFiles))
+        #originallist = [im for im in filelist]
+        #filelist = []
+        #for im, sub in zip(originallist, subFiles[:,2]):
+        #    filelist.append(im)
+        #    filelist.append(sub)
+        subfiles = np.array(subFiles)
+        filelist = [im for im in filelist]
+        filelist.extend([im for im in subfiles[:, 2]])
     for filename in filelist:
         path, filename_ext = os.path.split(filename)
         if path:
@@ -271,10 +277,10 @@ def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFi
             # Remove sources too close to the imge edges
             header = fits.getheader(folder + filename2 + fileext)
             imsize = [int(header['NAXIS1']), int(header['NAXIS2'])]
-            mask_edge = (sources['X_IMAGE'] > corner_cut) & \
-                        (sources['Y_IMAGE'] > corner_cut) & \
-                        (sources['X_IMAGE'] < imsize[1] - corner_cut) & \
-                        (sources['Y_IMAGE'] < imsize[0] - corner_cut)
+            mask_edge = (sources['X_IMAGE'] > edge_cut) & \
+                        (sources['Y_IMAGE'] > edge_cut) & \
+                        (sources['X_IMAGE'] < imsize[1] - edge_cut) & \
+                        (sources['Y_IMAGE'] < imsize[0] - edge_cut)
 
             """
             # Remove sources that are likely cosmic rays
@@ -296,8 +302,14 @@ def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFi
             mask_cosmics = (nbpix < 10) & (fluxratio > fluxratio_med + sigma * fluxratio_std)
             mask_tot = np.bitwise_and(mask_edge, np.invert(mask_cosmics))
             """
-            sources_filt = sources[mask_edge]
-            sources_filt.write(folder + filename2 + '_SourcesDet.cat',format='ascii.commented_header', overwrite=True)
+
+            # Remove sources too close to the edges
+            #sources_filt = sources[mask_edge]
+            # Flag sources too close to the edges
+            edge_flag = np.array(['N'] * len(sources))
+            edge_flag[~mask_edge] = 'Y'
+            sources['edge'] = edge_flag
+            sources.write(folder + filename2 + '_SourcesDet.cat',format='ascii.commented_header', overwrite=True)
 
 
 def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
@@ -307,16 +319,37 @@ def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
     Input is the *.magfiltered file from select_good_stars() function
     Output is the *.magwcs file
     """
+    """
+        subFiles = np.array(subFiles)
 
+        # No mask on iput data
+        #mask = ['None'] * len(subFiles[:, 0])
+        mask = ['None'] * len(filelist)
+        print (len(subFiles[:, 0]))
+        mask.extend([im for im in subFiles[:, 3]])
+        #weight_type = ['NONE'] * len(subFiles[:, 0])
+        weight_type = ['NONE'] * len(filelist)
+        weight_type.extend(['MAP_WEIGHT'] * len(mask))
+
+        #filelist = [im for im in subFiles[:, 0]]
+        # Rather take the original before registration as it introduces artefact
+        filelist = [im for im in filelist]
+        filelist.extend([im for im in subFiles[:, 2]])
+        # Duplicate FWHM list
+        #FWHM_list.extend(FWHM_list)
+        FWHM_list = np.ravel([[i]*len(filelist) for i in FWHM_list])
+"""
     # If substraction has been performed
     if subFiles:
-        original_filelist = [im for im in filelist]*2
+        original_filelist = list(filelist)
+        original_filelist.extend([im for im in filelist]*len(subFiles))
         subfiles = np.array(subFiles)
+        reference_filelist = ['None'] * len(filelist)
+        reference_filelist.extend([im for im in subfiles[:, 1]])
         #filelist = [im for im in subfiles[:, 0]]
         # Rather take the original before registration as it introduces artefact
         filelist = [im for im in filelist]
         filelist.extend([im for im in subfiles[:, 2]])
-        reference_filelist = [im for im in subfiles[:, 1]]*2
     else:
         original_filelist = filelist
         reference_filelist = ['None']*len(filelist)
@@ -400,7 +433,6 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
         filelist.extend([im for im in subfiles[:, 2]])
     else:
         filelist = image_table['filenames']
-
     for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
         if path:
@@ -659,6 +691,15 @@ if __name__ == "__main__":
                         type=str,
                         help='Whether to perform astrometric calibration, with ps1 images or user provided reference image. Type "ps1" for PS1 reference image or provide the path to your reference image.')
 
+    parser.add_argument('--ps1_method',
+                        dest='ps1_method',
+                        required=False,
+                        default='mosaic',
+                        choices=['mosaic', 'individual'],
+                        type=str,
+                        help='When substracting images using Pan-STARRS reference images, there 2 options, either create a mosaic of all PS1 image and substract or do the substraction individually for each PS1 image. In the latter case, your image is cut to match the PS1 image.')
+
+
     parser.add_argument('--Remove_cosmics',
                         dest='Remove_cosmics',
                         action='store_true',
@@ -726,7 +767,7 @@ if __name__ == "__main__":
             astrometric_calib(image_table['filenames'], config, soft=args.doAstrometry, verbose=args.verbose, accuracy=0.5)
 
         if args.doSub:
-            substracted_files = substraction(image_table['filenames'], args.doSub, config, method='hotpants', verbose=args.verbose, outLevel=args.outLevel)
+            substracted_files = substraction(image_table['filenames'], args.doSub, config, soft='hotpants', method=args.ps1_method, verbose=args.verbose, outLevel=args.outLevel)
         else:
             substracted_files = None
 
