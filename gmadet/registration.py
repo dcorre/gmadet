@@ -10,6 +10,7 @@ from astropy import units as u
 from utils import rm_p, mkdir_p 
 from copy import deepcopy
 from astrometry import scamp
+from scipy import ndimage
 
 def registration(inim, refim, config, refim_mask=None, useweight=False, gain=1, debug=False):
     """Register images"""
@@ -125,7 +126,12 @@ def registration(inim, refim, config, refim_mask=None, useweight=False, gain=1, 
 
     hdulist = fits.open(maskim_regist)
     hdulist[0].data[hdulist[0].data != 0] = 1e8
+    # Dilate the mask same way as make_source_mask() of photutils
+    dilate_size=11
+    selem = np.ones((dilate_size, dilate_size))
+    hdulist[0].data = ndimage.binary_dilation(hdulist[0].data, selem).astype(hdulist[0].data.dtype)
     hdulist.writeto(maskim_regist, overwrite=True)
+    # Dilate the mask as make_source_mask() of photutils
 
     filelist_regist = [inim_regist, refim_regist, maskim_regist]
     overlap_info = get_exact_overlap(filelist_regist, resultDir, config)
