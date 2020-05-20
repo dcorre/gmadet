@@ -9,7 +9,8 @@ from astropy.io import fits
 from utils import rm_p, mv_p, mkdir_p
 import xmltodict
 
-def psfex(filename, config, useweight=False, outLevel=0):
+def psfex(filename, config, useweight=False,
+          verbose='NORMAL', outLevel=0):
     """Compute PSF in astronomical images"""
 
     FWHM_list = []
@@ -24,13 +25,17 @@ def psfex(filename, config, useweight=False, outLevel=0):
             subprocess.call(['sex', ima, \
                     '-c', config['psfex']['sextractor'], \
                     '-WEIGHT_IMAGE', weight, \
+                    '-VERBOSE_TYPE', verbose, \
                     '-PARAMETERS_NAME', config['psfex']['param']])
         else:
             subprocess.call(['sex', ima, \
                     '-c', config['psfex']['sextractor'], \
+                    '-VERBOSE_TYPE', verbose, \
                     '-PARAMETERS_NAME', config['psfex']['param']])
         cat = 'preppsfex.cat'
-        subprocess.call(['psfex', cat, '-c', config['psfex']['conf'] ])
+        subprocess.call(['psfex', cat, '-c', config['psfex']['conf'], \
+                         '-VERBOSE_TYPE', verbose])
+        mv_p('snap_preppsfex.fits', root + '_psf.fits')
         rm_p(cat)
   
         # Delete files depending on the required level of output files

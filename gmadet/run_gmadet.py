@@ -20,7 +20,9 @@ import warnings
 
 from catalogues import *
 from phot_calibration import phot_calib
-from utils import load_config, clean_folder, send_data2DB, mv_p, mkdir_p, clean_outputs
+from utils import (load_config, clean_folder, send_data2DB, cut_image,
+                   mv_p, mkdir_p, make_copy)
+from sanitise import sanitise_fits
 from remove_cosmics import run_lacosmic
 from astrometry import astrometrynet, scamp
 from psfex import psfex
@@ -38,114 +40,38 @@ from copy import deepcopy
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-
-def astrometric_calib(filename, config, Nb_cuts=(2,2), soft='scamp', outputDir='gmadet_results/', accuracy=0.6, itermax=3, verbose='NORMAL'):
+def astrometric_calib(filenames, config, soft='scamp', accuracy=0.5, itermax=4, verbose='NORMAL'):
     """perform astrometric calibration"""
-    from astrometry import astrometrynet, scamp
-    from utils import cut_image 
 
-    if soft in ['scamp', 'astrometrynet']:
-        doAstrometry = True
-    else:
-        doAstrometry = False
-
-    path, filename_ext = os.path.split(filename)
-
-    # Get rid of the extension to keep only the name
-    filename2 = filename_ext.split('.')[0]
-    extension = ''
-    for ext in filename_ext.split('.')[1:]:
-        extension = extension + '.' + ext
-
-    if path:
-        folder = path + '/'
-    else:
-        folder = ''
-
-    resultDir = folder + outputDir
-    # Create results folder
-    mkdir_p(resultDir)
-
-    # Cut the image in the required number of quadrants
-    cut_image(filename, resultDir, Nb_cuts = Nb_cuts)
-
-    filelist = []
-    quadrant = []
-    
-    if doAstrometry:
+    imagelist = np.atleast_1d(filenames)
+    for ima in imagelist:
         # Use scamp for astrometric calibration
         if soft == 'scamp':
-            print ('Performing astrometric calibration on %s using SCAMP.' % filename)
-            print ('You required astrometric precision of %.3f arcsec.\n' % accuracy)
-            if Nb_cuts[0] > 1 or Nb_cuts[1] > 1:
-                index = 0
-                for i in range(Nb_cuts[0]):
-                    for j in range(Nb_cuts[1]):
-                        index+=1
-                        filein = resultDir + filename2 + "_Q%d" % (index) + extension
-                        filelist.append(filein)
-                        ii=0
-                        doffset = 10
-                        while (doffset >= accuracy) and (ii <= itermax):
-                            ii+=1
-                            doffset = scamp(filein, config, verbose=verbose)
-                            print ('Astrometric precision after run %d: %.2f arcseconds' % (ii, doffset))
-                            print ('Required astrometric precision: %.2f arcseconds' % (accuracy))
-
-                        quadrant.append('Q%d_%d_%d' % (index,i,j))
-            else:
-                filelist.append(resultDir + filename2 + extension)
-                ii=0
-                doffset = 10
-                while (doffset >= accuracy) and (ii <= itermax):
-                    ii+=1
-                    doffset = scamp(resultDir + filename2 + extension, config, verbose=verbose)
-                    print ('Astrometric precision after run %d: %.2f arcseconds' % (ii, doffset))
-                    print ('Required astrometric precision: %.2f arcseconds' % (accuracy))
-
-                quadrant.append('None')
+            from astrometry import scamp
+            scamp(ima, config, accuracy=accuracy, itermax=itermax, verbose=verbose)
 
         # Use astrometry.net for astrometric calibration
         elif soft == 'astrometrynet':
+            from astrometry import astrometrynet
 
             # Get pixel scale in degrees
-            header = fits.getheader(filename)
+            header = fits.getheader(ima)
             try:
                 pixScale = abs(header['CDELT1'])
             except Exception:
                 try:
-                     pixScale = abs(header['_DELT1'])
+                    pixScale = abs(header['CD1_1'])
                 except Exception:
-                    try:
-                        pixScale = abs(header['CD1_1'])
-                    except Exception:
-                        print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
+                    print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
             # Set up boundaries for plate scale for astrometry.net
             scaleLow = 0.7 * pixScale * 3600
             scaleHigh = 1.3 * pixScale * 3600
             radius = max(header['NAXIS1']*pixScale, header['NAXIS2']*pixScale)
-            if Nb_cuts[0] > 1 or Nb_cuts[1] > 1:
-                index = 0
-                for i in range(Nb_cuts[0]):
-                    for j in range(Nb_cuts[1]):
-                        index+=1
-                        filein = resultDir + filename2 + "_Q%d" % (index) + extension
-                        filelist.append(filein)
-                        asrometrynet(filein,radius=radius,scaleLow=scaleLow,scaleHigh=scaleHigh)
-                        quadrant.append('Q%d_%d_%d' % (index,i,j))
-            else:
-                filelist.append(resultDir + filename2 + extension)
-                astrometrynet(resultDir + filename2 + extension,radius=radius,scaleLow=scaleLow,scaleHigh=scaleHigh)
-                quadrant.append('None')
-    else:
-        filelist.append(resultDir + filename2 + extension)
-        quadrant.append('None')
-
-    image_table = Table([filelist, quadrant], names=['filenames', 'quadrant']) 
-    return image_table
+            asrometrynet(ima, radius=radius, scaleLow=scaleLow, scaleHigh=scaleHigh)
 
 
-def sextractor(filelist, FWHM_list, thresh, telescope, config, verbose='NORMAL', subFiles=None, outLevel=1):
+def sextractor(filelist, FWHM_list, thresh, telescope, config,
+               verbose='NORMAL', subFiles=None, outLevel=1):
     """Run sextractor """
 
     # if substraction have been performed
@@ -266,7 +192,7 @@ def get_photometry(filelist,FWHM_list,thresh,mkiraf=True,subFiles=None):
         iraf.daophot.phot(image=filename,coords=daofind_output, output=daophot_output, interactive="no", sigma="INDEF", airmass="AIRMASS", exposure="EXPOSURE", filter="FILTER", obstime="JD", calgorithm="gauss", verify="no", verbose="no")
     
 
-def select_good_stars(filelist,limiting_mag_err,soft,edge_cut=32,sigma=1,subFiles=None):
+def select_good_stars(filelist,limiting_mag_err,soft,corner_cut=32,sigma=1,subFiles=None):
 # Performs selection of stars without INDEF in magnitude or magnitude error and with the flag "NoError" inside *.mag.1 file
 # Saves into *.magfiltered file in x-y coordinates
 # filename is WITHOUT suffix .fits
@@ -341,14 +267,14 @@ def select_good_stars(filelist,limiting_mag_err,soft,edge_cut=32,sigma=1,subFile
 
         elif soft == 'sextractor':
             sources = ascii.read(folder + filename2 + '_SourcesDet.cat', format='sextractor')
-            #mv_p(folder + filename2 + '_SourcesDet.cat',folder + filename2 + '_SourcesDetnoFilter.cat')
+            mv_p(folder + filename2 + '_SourcesDet.cat',folder + filename2 + '_SourcesDetnoFilter.cat')
             # Remove sources too close to the imge edges
             header = fits.getheader(folder + filename2 + fileext)
             imsize = [int(header['NAXIS1']), int(header['NAXIS2'])]
-            mask_edge = (sources['X_IMAGE'] > edge_cut) & \
-                        (sources['Y_IMAGE'] > edge_cut) & \
-                        (sources['X_IMAGE'] < imsize[1] - edge_cut) & \
-                        (sources['Y_IMAGE'] < imsize[0] - edge_cut)
+            mask_edge = (sources['X_IMAGE'] > corner_cut) & \
+                        (sources['Y_IMAGE'] > corner_cut) & \
+                        (sources['X_IMAGE'] < imsize[1] - corner_cut) & \
+                        (sources['Y_IMAGE'] < imsize[0] - corner_cut)
 
             """
             # Remove sources that are likely cosmic rays
@@ -370,14 +296,8 @@ def select_good_stars(filelist,limiting_mag_err,soft,edge_cut=32,sigma=1,subFile
             mask_cosmics = (nbpix < 10) & (fluxratio > fluxratio_med + sigma * fluxratio_std)
             mask_tot = np.bitwise_and(mask_edge, np.invert(mask_cosmics))
             """
-            # Remove sources too close to the edges
-            #sources_filt = sources[mask_edge]
-            # Flag sources too close to the edges
-            edge_flag = np.array(['N'] * len(sources))
-            edge_flag[~mask_edge] = 'Y'
-            sources['edge'] = edge_flag
-            sources.write(folder + filename2 + '_SourcesDet.cat',format='ascii.commented_header', overwrite=True)
-
+            sources_filt = sources[mask_edge]
+            sources_filt.write(folder + filename2 + '_SourcesDet.cat',format='ascii.commented_header', overwrite=True)
 
 
 def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
@@ -772,26 +692,41 @@ if __name__ == "__main__":
     else:
         filenames = [args.filename]
 
+    # copy original images
+    # Create list of the copy images
+    filenames = make_copy(filenames, outputDir='gmadet_results/')
+
+
+
     for filename in filenames:
-        print ('Analysing image: %s\n' % filename)
-        image_table = astrometric_calib(filename, config, Nb_cuts=Nb_cuts,soft=args.doAstrometry, verbose=args.verbose, accuracy=0.65)
+
+        print ('Sanitise header and data of %s.\n' % filename)
+        sanitise_fits(filename)
+
+        # Cut image into several quadrants if required
+        # And create table with filename and quadrant ID
+        image_table = cut_image(filename, config, Nb_cuts=Nb_cuts, doAstrometry=args.doAstrometry)
 
         if args.FWHM == 'psfex':
             # Estimate the PSF FWHM for each image/quadrants using psfex
-            FWHM_list = psfex(image_table['filenames'], config, outLevel=args.outLevel)
+            FWHM_list = psfex(image_table['filenames'], config, verbose=args.verbose, outLevel=args.outLevel)
         else:
             FWHM_list = [args.FWHM] * len(image_table)
-
-        if args.Remove_cosmics:
-            # Clean cosmic rays
-            run_lacosmic(image_table['filenames'], FWHM_list, sigma=5, outLevel=args.outLevel)
 
         if args.sub_bkg:
             # Substract background
             bkg_estimation(image_table['filenames'], box=(20,20), filter_size=(3,3), outLevel=args.outLevel)
 
+        if args.Remove_cosmics:
+            print ('Running lacosmic on %s to remove cosmic rays. \n' % filename )
+            # Clean cosmic rays
+            run_lacosmic(image_table['filenames'], FWHM_list, sigma=5, outLevel=args.outLevel)
+
+        if args.doAstrometry != 'No':
+            astrometric_calib(image_table['filenames'], config, soft=args.doAstrometry, verbose=args.verbose, accuracy=0.5)
+
         if args.doSub:
-            substracted_files = substraction(image_table['filenames'], args.doSub, config, method='hotpants', outLevel=args.outLevel)
+            substracted_files = substraction(image_table['filenames'], args.doSub, config, method='hotpants', verbose=args.verbose, outLevel=args.outLevel)
         else:
             substracted_files = None
 
@@ -805,10 +740,12 @@ if __name__ == "__main__":
         convert_xy_radec(image_table['filenames'],soft=args.soft, subFiles=substracted_files)
         total_candidates = crosscheck_with_catalogues(image_table,args.radius_crossmatch, Nb_cuts=Nb_cuts, subFiles=substracted_files)
         #check_moving_objects(args.filename, total_candidates)
-   
+
         #total_candidates = ascii.read('total_candidates.dat')
-        total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=False, subFiles=substracted_files)
-    
+        total_candidates_calib = phot_calib(total_candidates, args.telescope, radius=args.radius_crossmatch,doPlot=True, subFiles=substracted_files)
+
+        #total_candidates_calib = ascii.read('Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
+
         # If both arguments VOE_path and owncloud_path are provided
         # Send candidates to database
         # Set the tile_id corresponding to your tile by hand at the moment
@@ -817,3 +754,4 @@ if __name__ == "__main__":
 
         # clean output files
         clean_outputs(image_table['filenames'], args.outLevel)
+

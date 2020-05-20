@@ -70,6 +70,7 @@ def load_config(telescope):
     path = getpath()
     path2tel = path + '/config/' + telescope + '/'
     config = {
+            'telescope': telescope,
             'sextractor': {
                 'conf': path2tel + 'sourcesdet.sex',
                 'param': path2tel + 'sourcesdet.param',
@@ -116,7 +117,30 @@ def clean_folder(filelist,subFiles=None):
         os.remove(f)
 
 
-def cut_image(filename, resultDir, Nb_cuts=(2,2)):
+def make_copy(filelist, outputDir='gmadet_results/'):
+    """ Make copy of original images in gmadet_results/ """
+
+    filelist = np.atleast_1d(filelist)
+    newlist = []
+    for filename in filelist:
+        path, filename_ext = os.path.split(filename)
+
+        if path:
+            folder = path + '/'
+        else:
+            folder = ''
+
+        resultDir = folder + outputDir
+        # Create results folder
+        mkdir_p(resultDir)
+
+        copyname = resultDir + filename_ext
+        cp_p(filename, copyname)
+        newlist.append(copyname)
+
+    return newlist
+
+def cut_image(filename, config, Nb_cuts=(2,2), doAstrometry='scamp'):
 
     path, filename_ext = os.path.split(filename)
     if path:
@@ -129,23 +153,21 @@ def cut_image(filename, resultDir, Nb_cuts=(2,2)):
     for ext in filename_ext.split('.')[1:]:
         extension = extension + '.' + ext
 
+    quadrant_list = []
+    quadrant_ID = []
+
     if Nb_cuts == (1,1):
-        filename_out = resultDir + filename2 + extension
-        cp_p(filename,filename_out)
+        quadrant_list.append(filename)
+        quadrant_ID.append('None')
     else:
-        filename_out = resultDir + filename2 + extension
-        cp_p(filename,filename_out)
+        print ('\nCutting %s into %d quadrants.\n' % (filename, np.sum(Nb_cuts)))
+        if doAstrometry == 'scamp':
+            # Perform astrometry before cutting image into quadrants
+            # It will ensure the astrometic calibration for each quadrant will run smoothly
+            from astrometry import scamp
+            scamp(filename, config, accuracy=0.5, itermax=3, verbose='QUIET')
 
         data, header = fits.getdata(filename, header=True)
-        # if keyword with scamp PV keywords
-        # perform a quick and dirty fix
-        try:
-            pvlist = header['PV*']
-            for pv in pvlist:
-                tpv = 'T'+pv
-                header.rename_keyword(pv, tpv, force=False)
-        except:
-            pass
         w = wcs.WCS(header)
         Naxis1 = header['NAXIS1']
         Naxis2 = header['NAXIS2']
@@ -167,22 +189,46 @@ def cut_image(filename, resultDir, Nb_cuts=(2,2)):
                 x2 = Naxis11 * (i+1)
                 y2 = Naxis22 * (j+1)
 
-                filename_out = resultDir + filename2 + "_Q%d" % (index) + extension
- 
+                filename_out = folder + filename2 + "_Q%d" % (index) + extension
+
                 # No need to update the header if astrometric calibration is performed with scamp
                 # this will be updated later
                 #datacut = data[x1-1:x2-1,y1-1:y2-1]
                 datacut = data[y1-1:y2-1,x1-1:x2-1]
                 newheader = deepcopy(header)
+                """
+                # Set center center of quadrant as CRPIX1,2
+                # And compute the RA, Dec at this position for CRVAL1,2
+                coeff_astro = ['PV', 'PC']
+                #keys2delete=['CD1_1', 'CD1_2', 'CD2_1', 'CD2_2']
+                keys2delete=['CD1_2', 'CD2_1']
+                for  key, value in newheader.items():
+                   for coeff in coeff_astro:
+                       _len = len(coeff)
+                       if key[:_len] in [coeff]:
+                           keys2delete.append(key)
+
+                for keyword in keys2delete:
+                    if keyword in newheader:
+                        del newheader[keyword]
                 crpix2 = int((y2-y1)/2)
                 crpix1 = int((x2-x1)/2)
                 ra, dec = w.wcs_pix2world(crpix1+Naxis11*i, crpix2+Naxis22*j, 1)
-                newheader['CRPIX1'] = crpix1
-                newheader['CRPIX2'] = crpix2
                 newheader['CRVAL1'] = float(ra)
                 newheader['CRVAL2'] = float(dec)
-                fits.writeto(filename_out, datacut, newheader,overwrite=True)
+                """
+                # Use astrometric solution of the whole image by only
+                # transforming the coordinate of CVAL1,2 for each quadrant
+                newheader['CRPIX1'] = header['CRPIX1'] - Naxis11*i
+                newheader['CRPIX2'] = header['CRPIX2'] - Naxis22*j
 
+                fits.writeto(filename_out, datacut, newheader,overwrite=True)
+                quadrant_list.append(filename_out)
+                quadrant_ID.append('Q%d_%d_%d' % (index,i,j))
+
+    image_table = Table([quadrant_list, quadrant_ID], names=['filenames', 'quadrant'])
+
+    return image_table
 
 def make_sub_image(filename, OT_coords, coords_type='world',
                    output_name='subimage.fits.gz', size=[200,200],

@@ -10,8 +10,8 @@ import numpy as np
 from astropy.table import Table, vstack
 from shapely.geometry import Polygon
 
-from utils import rm_p, mkdir_p
-
+from utils import rm_p, mkdir_p, load_config
+from astrometry import scamp
 
 def get_crpix(proj_crpix1,proj_crpix2, Xcell, Ycell, x, y):
     """Compute CRPIX1 and CRPIX2 for cell based on the CRPIX values of the projcell """
@@ -167,37 +167,20 @@ def ps1_grid(im_corner_coords):
         
     return all_cells
 
-def download_ps1_cells(cell_table, band, inputimage):
+def download_ps1_cells(cell_table, band, config, ps1Dir, ps1RescaledDir, verbose='QUIET'):
     """Download the required cell from PS1 DR1"""
-   
-    path, filenameInput = os.path.split(inputimage)
-    if path:
-       folder = path + '/'
-    else:
-       folder = ''
 
-    ps1Dir = 'ps1Dir/'
-    if not os.path.isdir(ps1Dir):
-        os.makedirs(ps1Dir)
-
-    ps1ResampleDir = 'ps1_resample/'
-    if not os.path.isdir(ps1ResampleDir):
-        os.makedirs(ps1ResampleDir)
-
-    #if os.path.isfile(imagefile):
-    #    return
-    
     file_list = []
     # extension to get auxiliary images
     # See https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images
     #auxiliaryFiles = ['.mask', '.wt', '.num', '.exp', '.expwt', '']
-    auxiliaryFiles = ['.mask', '']
+    auxiliaryFiles = ['', '.mask']
 
     BaseURL = "http://ps1images.stsci.edu/"
+    #cell_table = [cell_table[7]]
     for cell in cell_table:
         cell_url_path = 'rings.v3.skycell/%s/%s/' % (cell['projcell_id'],
                                                       cell['cell_id'])
-
 
         for aux in auxiliaryFiles:
             cell_file = 'rings.v3.skycell.%s.%s.stk.%s.unconv%s.fits' % (cell['projcell_id'],
@@ -212,14 +195,13 @@ def download_ps1_cells(cell_table, band, inputimage):
             else:
                 #wget_command = "wget %s -O %s"%(Link,FileNameFitsPath)
                 wget_command = "curl -m 7200 -L -o %s %s" % (FileNameFitsPath, Link)
-                print (wget_command)
                 os.system(wget_command)
                 if os.path.isfile(FileNameFitsPath):
                     # do not really understand what this is doing
                     funpack_command = "fpack %s; rm %s; funpack %s.fz"%(FileNameFitsPath,FileNameFitsPath,FileNameFitsPath)
                     os.system(funpack_command)
 
-                    rm_command = "rm funpack %s.fz"%(FileNameFitsPath)
+                    rm_command = "rm %s.fz" % (FileNameFitsPath)
                     os.system(rm_command)
                 else:
                     print ("File %s was not downloaded or found on the server." % Link)
@@ -227,61 +209,126 @@ def download_ps1_cells(cell_table, band, inputimage):
             if aux == '':
                 # Check if targeted file was downloaded to continue
                 if os.path.isfile(FileNameFitsPath):
-                    if os.path.isfile(ps1ResampleDir + local_cell_file):
+                    if os.path.isfile(ps1RescaledDir + local_cell_file):
                         pass
                     else:
-                        linear_rescale_ps1(local_cell_file, ps1Dir, ps1ResampleDir)
-                
-                    file_list.append(ps1ResampleDir+local_cell_file)
+                        # Rescale to physical flux
+                        linear_rescale_ps1(local_cell_file, ps1Dir, ps1RescaledDir, band)
+                        # Perform astrometric calibration on each cell
+                        config_ps1 = load_config('PS1')
+                        scamp(ps1RescaledDir+local_cell_file, config_ps1, accuracy=0.1, itermax=3, band=band, verbose='QUIET')
 
-    # Create mosaic file if it does not exist
-    mosaicfile = folder + filenameInput.split('.')[0] + '_ps1_mosaic.fits'
-    if os.path.isfile(mosaicfile):
-        print ('PS1 mosaic image already exists in this location: %s. If you want to recompute it, delete it.' % mosaicfile)
+            file_list.append(ps1RescaledDir+local_cell_file)
+    return file_list
+
+def prepare_PS1_sub(ps1_cell_table, band, inputimage, config, verbose='QUIET', method='individual'):
+    """Prepare the download and formatting of PS1 images to be used for image
+    substraction"""
+
+    path, filenameInput = os.path.split(inputimage)
+    if path:
+       folder = path + '/'
     else:
-        create_ps1_mosaic(file_list, inputimage, folder)
+       folder = ''
 
-    return True
+    ps1Dir = 'ps1Dir/'
+    if not os.path.isdir(ps1Dir):
+        os.makedirs(ps1Dir)
 
-def linear_rescale_ps1(filename, inputDir, outputDir, normalise=True):
-    """resample the PS1 DR1 fits file"""
-    
+    ps1RescaledDir = 'ps1RescaledDir/'
+    if not os.path.isdir(ps1RescaledDir):
+        os.makedirs(ps1RescaledDir)
+
+    # Download PS1 files if not present, and reformat them
+    ps1files = download_ps1_cells(ps1_cell_table, band, config, ps1Dir, ps1RescaledDir, verbose=verbose)
+    print (ps1files)
+    subfiles = []
+    if method == 'mosaic':
+        # Create mosaic file if it does not exist
+        mosaicfile = folder + filenameInput.split('.')[0] + '_ps1_mosaic.fits'
+        if os.path.isfile(mosaicfile):
+            print ('PS1 mosaic image already exists in this location: %s. If you want to recompute it, delete it.' % mosaicfile)
+        else:
+            fileref_names = create_ps1_mosaic(ps1files, inputimage, folder, config, band, verbose=verbose)
+            subfiles.append([inputimage, fileref_names[0], filref_names[1]])
+
+    elif method == 'individual':
+        for i in range(0, len(ps1files), 2):
+            ref = ps1files[i]
+            mask = ps1files[i+1]
+            subfiles.append([inputimage, ref, mask])
+
+    return subfiles
+
+
+def linear_rescale_ps1(filename, inputDir, outputDir, band, normalise=True, method='headers'):
+    """rescale the PS1 DR1 fits file"""
     # Transform into linear flux scale
     hdulist=fits.open(inputDir+filename)
-    #hdulist_exp=fits.open(inputDir+filename.split('.')[0]+'_exp.fits')
-    #hdulist_expwt=fits.open(inputDir+filename.split('.')[0]+'_expwt.fits')
-    
+
     boffset = hdulist[0].header['BOFFSET']
     bsoften = hdulist[0].header['BSOFTEN']
     a = 2.5/np.log(10)
     hdulist[0].data = boffset + 2 *bsoften* np.sinh(hdulist[0].data/a)
 
+    # Normalise to 1s exposure time
     if normalise:
-        
-        hdr = hdulist[0].header
-        SCLlist = hdr['SCL_*']
-        scale_flux = []
-        for SCL in SCLlist:
-            if float(hdr[SCL]) > 0:
-                scale_flux.append(1)
-            else:
-                scale_flux.append(0)
-        explist = hdr['EXP_*']
-        exposure = 0
-        for i, exp in enumerate(explist):
-            exposure += float(scale_flux[i]) * float(hdr[exp])
-        #hdulist[0].data /= hdulist[0].header['EXPTIME']
-        hdulist[0].data /= exposure
+        # 'exposure_map', exptime, 'headers'
+        if method == 'exptime':
+            print ('Use exptime in header to rescale to an exposure of 1s.')
+            exptime = float(hdulist[0].header['EXPTIME'])
+            hdulist[0].data /= exptime
 
-        try:
-            #hdulist[0].header['SATURATE'] /= hdulist[0].header['EXPTIME']
-            hdulist[0].header['SATURATE'] /= exposure
-        except:
-            pass 
-        
-        # Normalise by exacte exposure time in each pixels
-        #hdulist[0].data = hdulist[0].data / hdulist_exp[0].data
-        hdulist[0].header['EXPTIME'] = 1 
+            try:
+                #hdulist[0].header['SATURATE'] /= hdulist[0].header['EXPTIME']
+                hdulist[0].header['SATURATE'] /= exptime
+            except:
+                pass
+
+        if method == 'headers':
+            print ('Use header information to rescale to an exposure of 1s.')
+            # Check for SCL_* keywords. It corresponds to the scaling factor
+            # applied to each individual exposure. If 0 it is not taken into
+            # in the stacked image.
+            # So exposure time is weighted by this factor:
+            # 0 if SCL_*=0
+            # 1 if SCL_*>0
+            hdr = hdulist[0].header
+            SCLlist = hdr['SCL_*']
+            scale_flux = []
+            for SCL in SCLlist:
+                if float(hdr[SCL]) > 0:
+                    scale_flux.append(1)
+                else:
+                    scale_flux.append(0)
+            explist = hdr['EXP_*']
+            exptime_tot = 0
+            for i, exp in enumerate(explist):
+                exptime_tot += float(scale_flux[i]) * float(hdr[exp])
+            #hdulist[0].data /= hdulist[0].header['EXPTIME']
+            hdulist[0].data /= exptime_tot
+
+            try:
+                #hdulist[0].header['SATURATE'] /= hdulist[0].header['EXPTIME']
+                hdulist[0].header['SATURATE'] /= exptime_tot
+            except:
+                pass
+
+        elif method == 'exposure_map':
+            print ('Use exposure map to rescale to an exposure of 1s.')
+            # Normalise by exact exposure time in each pixels
+            #hdulist_exp=fits.open(inputDir+filename.split('.')[0]+'_exp.fits')
+            #hdulist[0].data = hdulist[0].data / hdulist_exp[0].data
+            hdulist_expwt=fits.open(inputDir+filename.split('.')[0]+'_expwt.fits')
+            hdulist[0].data = hdulist[0].data / hdulist_expwt[0].data
+        hdulist[0].header['EXPTIME'] = 1
+    """
+    # Add some keywords for performing photometric calibration with scamp
+    hdulist[0].header['FILTER'] = band
+    hdulist[0].header['PHOT_C'] = 25
+    hdulist[0].header['PHOT_K'] = 0
+    hdulist[0].header['PHOTFLAG'] = 'T'
+    """
     hdulist.writeto(outputDir+filename,overwrite=True)
     hdulist.close()
 
@@ -290,7 +337,7 @@ def linear_rescale_ps1(filename, inputDir, outputDir, normalise=True):
     hdulist[0].data[hdulist[0].data==0]=np.nan
     hdulist.writeto(outputDir+filename,overwrite=True)
 
-    # Create a mask to propagate the nan pixels 
+    # Create a mask to propagate the nan pixels
     hdulist=fits.open(outputDir+filename)
     hdulist[0].data[np.isfinite(hdulist[0].data)]=0
     hdulist[0].data[np.isnan(hdulist[0].data)]=1
@@ -298,7 +345,8 @@ def linear_rescale_ps1(filename, inputDir, outputDir, normalise=True):
 
     return True
 
-def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
+
+def create_ps1_mosaic(file_list, inputimage, outputDir, config, band, useweight=False, verbose='NORMAL'):
     """Create a single mosaic of PS1 image using swarp"""
     _, filenameInput = os.path.split(inputimage)
 
@@ -307,7 +355,7 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
 
     np.savetxt('mosaic.list', file_list, fmt='%s')
     np.savetxt('mask.list', mask_list, fmt='%s')
-    
+
     imagefiles = [outputDir + filenameInput.split('.')[0] + '_ps1_mosaic',
                   outputDir + filenameInput.split('.')[0] + '_ps1_mosaic_mask']
 
@@ -318,19 +366,16 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
         pixScale = abs(header['CDELT1'])
     except Exception:
         try:
-            pixScale = abs(header['_DELT1'])
+            pixScale = abs(header['CD1_1'])
         except Exception:
-            try:
-                pixScale = abs(header['CD1_1'])
-            except Exception:
-                print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
-    pixScale = pixScale * 3600 
+            print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1 or CD1_1')
+    pixScale = pixScale * 3600
     #print (inputimage, pixScale)
     crval1 = header['CRVAL1']
     crval2 = header['CRVAL2']
     #print (crval1, crval2)
     #print (header['CRPIX1'], header['CRPIX2'])
-    imagesize = [header['NAXIS1'], header['NAXIS2']] 
+    imagesize = [header['NAXIS1'], header['NAXIS2']]
 
     # Force reference pixel to be in the center
 
@@ -341,13 +386,11 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
     rm_p(point + '.head')
     # First run swarp to create a .head file containing the shared header
     subprocess.call(['swarp', '-HEADER_ONLY', 'Y', '-IMAGEOUT_NAME', \
-                        point + '.head' ] + [inputimage])
+                        point + '.head' , '-VERBOSE_TYPE', verbose] + [inputimage])
     # Some keywords manipulation using sed
     subprocess.call(['sed', '-i', \
                              's/MJD-OBS/COMMENT/; s/EXPTIME/COMMENT/; s/GAIN   /COMMENT/; s/SATURATE/COMMENT /', \
                      point + '.head'])
-
-
 
     imalists=[['@' + 'mosaic.list'], ['@' + 'mask.list']]
     for i, imagefile in enumerate(imagefiles):
@@ -365,7 +408,8 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
         if useweight:
             subprocess.call(['swarp',
                              '-IMAGEOUT_NAME', imagefile + '.fits', \
-                             '-WEIGHTOUT_NAME', imagefile + '.weight.fits'] + imalists[i])
+                             '-WEIGHTOUT_NAME', imagefile + '.weight.fits', \
+                             '-VERBOSE_TYPE', verbose] + imalists[i])
         else:
             subprocess.call(['swarp',
                              '-IMAGEOUT_NAME', imagefile + '.fits',\
@@ -383,15 +427,26 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
                              #'-IMAGE_SIZE', '%s, %s' % (imagesize[0], imagesize[1]), \
                              '-OVERSAMPLING', '0',\
                              '-COMBINE_TYPE', 'MEDIAN', \
-                             '-COPY_KEYWORDS', ' PIXEL_SCALE'] + imalists[i])
-   
-    #hdulist[0].header['GAIN'] = 1
-    #hdulist[0].header['EXPTIME'] = 1
-    #hdulist[0].header.remove('SATURATE')
-
+                             '-COPY_KEYWORDS', ' PIXEL_SCALE', \
+                             '-VERBOSE_TYPE', verbose] + imalists[i])
+        rm_p(imagefile+'.head')
+    # Perform astrometric calibration of the mosaic with scamp
+    scamp(imagefiles[0] + '.fits', config, useweight=False, CheckPlot=False, verbose=verbose)
     # replace pixels == 0 with NaNs. Mostly the border, saturated pixels
     hdulist=fits.open(imagefiles[0] + '.fits')
     hdulist[0].data[hdulist[0].data==0]=np.nan
+    """
+    # Add header
+    hdulist[0].header['FILTER'] = band
+    hdulist[0].header['PHOT_C'] = 25
+    hdulist[0].header['PHOT_K'] = 0
+    hdulist[0].header['PHOTFLAG'] = 'T'
+    hdulist[0].header['EXPTIME'] = 1
+    """
+    hdulist[0].header['GAIN'] = 1
+    hdulist[0].header['EXPTIME'] = 1
+    hdulist[0].header.remove('SATURATE')
+
     hdulist.writeto(imagefiles[0] + '.fits',overwrite=True)
 
     # Create a mask to propagate the nan pixels 
@@ -404,8 +459,10 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
     #    rm_p(ima)
     #for ima in mask_list:
     #    rm_p(ima)
-    rm_p('*.head')
     rm_p('mosaic.list')
     rm_p('mask.list')
     rm_p('swarp.xml')
+    rm_p(point+'.head')
     #rm_p('coadd.weight.fits')
+
+    return imagefiles

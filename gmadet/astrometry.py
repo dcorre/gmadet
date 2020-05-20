@@ -6,7 +6,7 @@
 import subprocess, sys, os
 import numpy as np
 from astropy.io import fits
-from utils import mv_p, mkdir_p
+from utils import mv_p, mkdir_p, cp_p
 import xmltodict
 
 def clean_tmp_files(filename, soft='scamp'):
@@ -28,6 +28,41 @@ def clean_tmp_files(filename, soft='scamp'):
         os.remove('prepscamp.head')
         os.remove('scamp.xml')
 
+def remove_astro_keywords(header):
+    """ Remove from header all keywords related to astrometric solution  """
+
+    # First remove old keywords related to astrometric calibration
+    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","RADESYS","CTYPE1","CTYPE2", "EQUINOX", "CROTA1", "CROTA2", ]
+
+    # List of the first letters for standard astrometric coefficients.
+    # Such as TR, PV, SIA
+    #coeff_astro = ['TR', 'SIA', 'A_', 'B_', 'AP_', 'BP_', 'LT', 'PV', 'PC']
+    # For PS1 skycell, though not sure what it means
+    coeff_astro = ['PV', 'PC']
+
+    for  key, value in header.items():
+        for coeff in coeff_astro:
+            _len = len(coeff)
+            if key[:_len] in [coeff]:
+                keywords_to_remove.append(key)
+
+    for keyword in keywords_to_remove:
+        if keyword in header:
+                del header[keyword]
+
+    return header
+
+def header_from_string(scamphead):
+    """Create fits header from scamp .head output file"""
+
+    s=''
+    with open(scamphead) as f:
+        for line in f:
+            s = s + line + '\n'
+    header = fits.Header.fromstring(s, sep='\n')
+
+    return header
+
 def update_headers_scamp(filename, scamphead, pixelscale):
     """Modify the header after running scamp"""
 
@@ -36,27 +71,10 @@ def update_headers_scamp(filename, scamphead, pixelscale):
     hdulist.verify('fix')
     hdr = hdulist[0].header
     # First remove old keywords related to astrometric calibration
-    keywords_to_remove = ["CRPIX1","CRPIX2","CRVAL1","CRVAL2","CD1_1","CD1_2","CD2_1","CD2_2","CDELT1", "CDELT2","PIXSCALX","PIXSCALY","CUNIT1","CUNIT2","WCSAXES","WCSNAME","RADESYS","WCSVERS","CTYPE1","CTYPE2", "EQUINOX", "COORDSYS", "A_ORDER", "B_ORDER", "AP_ORDER", "BP_ORDER", "IMAGEW", "IMAGEH", "LONPOLE", "LATPOLE", "CTYPE1T","CTYPE2T", "CRPIX1T","CRPIX2T","CRVAL1T","CRVAL2T", "CDELT1T", "CDELT2T", "CROTA1", "CROTA2", "CROTA1T", "CROTA2T"]
+    hdr = remove_astro_keywords(hdr)
 
-    # List of the first letters for standard astrometric coefficients.
-    # Such as TR, PV, SIA
-    coeff_astro = ['TR', 'SIA', 'A_', 'B_', 'AP_', 'BP_', 'LT', 'PV']
+    newheader = header_from_string(scamphead)
 
-    for  key, value in hdr.items():
-        for coeff in coeff_astro:
-            _len = len(coeff)
-            if key[:_len] in [coeff]:
-                keywords_to_remove.append(key)
-
-    for keyword in keywords_to_remove:
-        if keyword in hdr:
-                del hdr[keyword]
-
-    s=''
-    with open(scamphead) as f:
-        for line in f:
-            s = s + line + '\n'
-    newheader = fits.Header.fromstring(s, sep='\n')
     for key, value in newheader.items():
         #print (key, value)
         #truncate long keys
@@ -79,6 +97,7 @@ def update_headers_scamp(filename, scamphead, pixelscale):
         print ('One might check the astrometry to be safe.\n')
         hdr['CTYPE1'] = 'RA---TPV'
         hdr['CTYPE2'] = 'DEC--TPV'
+
     hdulist.writeto(filename,overwrite=True)
 
 
@@ -108,66 +127,74 @@ def astrometrynet(filename, radius=4, scaleLow=3.5, scaleHigh=4, scaleUnits='arc
     clean_tmp_files(filename, soft='astrometrynet')
 
 
-def scamp(filename, config, useweight=False, CheckPlot=False, verbose='NORMAL'):
+def scamp(filename, config, accuracy=0.5, itermax=3, band=None, useweight=False, CheckPlot=False, verbose='NORMAL'):
     """Compute astrometric solution of astronomical image using scamp"""
 
     path = os.path.dirname(filename)
     imagelist = np.atleast_1d(filename)
     for ima in imagelist:
-         # Make sure to use only the Primary hdu.
-         # sextractor, scamp seems to crash otherwise.
-         hdul = fits.open(ima)
-         #hdul.verify('fix')
-         #print (hdul.info())
-         # Delete empty keywords
-         for key, val in hdul[0].header.items():
-             if key == '':
-                  del hdul[0].header[key]
-                  # Should delete all empty field, so break the loop otherwise it will crash if more than one empty keywords is found.
-                  break
-         newhdu = fits.PrimaryHDU()
-         newhdu.data = hdul[0].data
-         newhdu.header = hdul[0].header
-         newhdulist = fits.HDUList([newhdu])
-         newhdulist.writeto(filename,overwrite=True)
-         hdul.close()
+        print ('Performing astrometric calibration on %s using SCAMP.' % ima)
+        #print ('You required astrometric precision of %.3f arcsec.' % accuracy)
 
-         root = os.path.splitext(ima)[0]
-         _name = root.split('/')[-1]
+        root = os.path.splitext(ima)[0]
+        _name = root.split('/')[-1]
 
-         #print ('Create FITS-LDAC file from SExtractor')
-         subprocess.call(['sex', '-c', config['scamp']['sextractor'], \
-                 '-PARAMETERS_NAME', config['scamp']['param'], \
-                 #'-FILTER_NAME', config['sextractor']['default_conv'], \
-                 ima])
+        if CheckPlot:
+            plot_fmt = 'PNG'
+            plotnames = '%s_fgroups,%s_distort,%s_astr_interror2d,%s_astr_interror1d,%s_astr_referror2d,%s_astr_referror1d,%s_astr_chi2,%s_psphot_error' % (root,root,root,root,root,root,root,root)
+            plottypes = 'FGROUPS,DISTORTION,ASTR_INTERROR2D,ASTR_INTERROR1D,ASTR_REFERROR2D,ASTR_REFERROR1D,ASTR_CHI2,PHOT_ERROR'
+        else:
+            plot_fmt = 'NULL'
+            plotnames = ' '
+            plottypes = ' '
 
-         if CheckPlot:
-             plotnames = '%s_fgroups,%s_distort,%s_astr_interror2d,%s_astr_interror1d,%s_astr_referror2d,%s_astr_referror1d,%s_astr_chi2,%s_psphot_error' % (root,root,root,root,root,root,root,root)
-             subprocess.call(['scamp', 'prepscamp.cat', '-c', config['scamp']['conf'], \
-                 '-CHECKPLOT_DEV', 'PNG', \
-                 '-CHECKPLOT_NAME', plotnames, \
-                 '-VERBOSE_TYPE', verbose])
-         else:
-             subprocess.call(['scamp', 'prepscamp.cat', '-c', config['scamp']['conf'], \
-                 '-CHECKPLOT_DEV', 'NULL', \
-                 '-VERBOSE_TYPE', verbose])
+        if config['telescope'] == 'PS1' and band is not None:
+            astref_band = band
+        else:
+            astref_band = 'DEFAULT'
 
-         # Check astrometry offset
-         with open('scamp.xml') as fd:
-             doc = xmltodict.parse(fd.read())
-         offset = doc['VOTABLE']['RESOURCE']['RESOURCE']['TABLE'][0]['DATA']['TABLEDATA']['TR']['TD'][34]
-         daxis = offset.split(' ')
-         daxis1 = float(daxis[0])
-         daxis2 = float(daxis[1])
-         daxis_mean = np.mean([daxis1,daxis2])
+        # Initialise the while loop
+        i=0
+        # Dummy offset
+        mean_offset = 100
+        while (mean_offset >= accuracy) and (i <= itermax):
+            i+=1
+            # Create catalog using sextractor
+            #print ('Create FITS-LDAC file from SExtractor')
+            subprocess.call(['sex', '-c', config['scamp']['sextractor'], \
+                             '-PARAMETERS_NAME', config['scamp']['param'], \
+                             '-VERBOSE_TYPE', verbose, \
+                             #'-FILTER_NAME', config['sextractor']['default_conv'], \
+                             ima])
+            # Run SCAMP
+            subprocess.call(['scamp', 'prepscamp.cat', '-c', config['scamp']['conf'], \
+                             '-ASTREF_BAND', astref_band, \
+                             '-CHECKPLOT_DEV', plot_fmt, \
+                             '-CHECKPLOT_NAME', plotnames, \
+                             '-CHECKPLOT_TYPE', plottypes, \
+                             '-VERBOSE_TYPE', verbose])
+            # Check astrometry offset
+            with open('scamp.xml') as fd:
+                doc = xmltodict.parse(fd.read())
+            """
+            offset = doc['VOTABLE']['RESOURCE']['RESOURCE']['TABLE'][0]['DATA']['TABLEDATA']['TR']['TD'][34]
+            offset = offset.split(' ')
+            offset_axis1 = float(offset[0])
+            offset_axis2 = float(offset[1])
+            """
+            header = header_from_string('prepscamp.head')
+            offset_axis1 = float(header['ASTRRMS1'] * 3600)
+            offset_axis2 = float(header['ASTRRMS2'] * 3600)
 
-         pixelscale = doc['VOTABLE']['RESOURCE']['RESOURCE']['TABLE'][0]['DATA']['TABLEDATA']['TR']['TD'][18].split('  ')
-         
-         pixelscale = [float(pixelscale[0])/3600, float(pixelscale[1])/3600]
-         # Update header of input fits file
-         update_headers_scamp(ima,'prepscamp.head', pixelscale)
+            mean_offset = np.mean([offset_axis1,offset_axis2])
+            print ('Astrometric precision after run %d: %.2f arcseconds. Required: %.2f.' % (i, mean_offset, accuracy))
 
-         # Delete temporary files
-         clean_tmp_files(ima, soft='scamp')
+            pixelscale = doc['VOTABLE']['RESOURCE']['RESOURCE']['TABLE'][0]['DATA']['TABLEDATA']['TR']['TD'][18].split('  ')
+            pixelscale = [float(pixelscale[0])/3600, float(pixelscale[1])/3600]
+            # Update header of input fits file
+            update_headers_scamp(ima, 'prepscamp.head', pixelscale)
+        #cp_p('prepscamp.cat', _name.split('.')[0]+'.cat')
+        # Delete temporary files
+        clean_tmp_files(ima, soft='scamp')
+    print ('\n')
 
-         return daxis_mean

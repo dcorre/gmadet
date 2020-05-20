@@ -9,9 +9,10 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 import numpy as np
 from registration import registration
-from ps1_survey import ps1_grid, download_ps1_cells
-from utils import get_phot_cat, rm_p
+from ps1_survey import ps1_grid, prepare_PS1_sub
+from utils import get_phot_cat, mkdir_p
 import hjson
+from psfex import psfex
 
 def get_corner_coords(filename):
     """ Compute the RA, Dec coordinates at the corner of one image"""
@@ -28,18 +29,21 @@ def get_corner_coords(filename):
 
     return [ra, dec]
 
-def substraction(filenames, reference, config, method='hotpants', outLevel=1):
+def substraction(filenames, reference, config, method='hotpants',
+                 verbose='NORMAL',outLevel=1):
     """Substract a reference image to the input image"""
 
     imagelist = np.atleast_1d(filenames)
-    subFiles = []
     for ima in imagelist:
-        
+        # Create folder with substraction results
         path, filename = os.path.split(ima)
         if path:
             folder = path + '/'
         else:
             folder = ''
+
+        resultDir = folder + 'substraction/'
+        mkdir_p(resultDir)
 
         # Get coordinates of input image 
         im_coords = get_corner_coords(ima)
@@ -58,20 +62,17 @@ def substraction(filenames, reference, config, method='hotpants', outLevel=1):
             elif band == 'g+r':
                 band = 'r'
             #band = 'g'
-            cell_table = ps1_grid(im_coords)
-            download_ps1_cells(cell_table, band, ima)
-            refim = folder +  filename.split('.')[0] + '_ps1_mosaic.fits' 
-            refim_mask = folder +  filename.split('.')[0] + '_ps1_mosaic_mask.fits'
-
-        sub_info = registration(ima, refim, config, refim_mask)
+            ps1_cell_table = ps1_grid(im_coords)
+            # Get PS1 files with whom to perform substraction
+            subfiles = prepare_PS1_sub(ps1_cell_table, band, ima, config, verbose=verbose, method='individual')
+            regis_info = registration(subfiles, config, resultDir=resultDir, verbose=verbose)
         
-        if method == 'hotpants':
-            ima_regist = folder + 'substraction/' + filename.split('.')[0] + '_regist.fits'
-            refim_regist = folder + 'substraction/' + filename.split('.')[0] + '_ps1_mosaic_regist.fits'
-            refim_regist_mask = folder + 'substraction/' + filename.split('.')[0] + '_ps1_mosaic_mask_regist.fits'
-            subfiles = hotpants(ima_regist, refim_regist, config, sub_info, refim_mask=refim_regist_mask)
+            if method == 'hotpants':
+                subFiles = hotpants(regis_info, config, verbose=verbose)
 
         # Delete files if necessary, mainly to save space disk
+        # Problem when deleting files, they will appear in output files but
+        # user can not have a look at some that might be important
         if outLevel == 0:
             #rm_p(ima)
             rm_p(refim)
@@ -80,52 +81,98 @@ def substraction(filenames, reference, config, method='hotpants', outLevel=1):
             rm_p(refim_regist)
             rm_p(refim_regist_mask)
 
-        subFiles.append(subfiles)
-
     return subFiles
 
-def hotpants(inim, refim, config, sub_info, refim_mask=None):
+def hotpants(regis_info, config, verbose='QUIET'):
     """Image substraction using hotpants"""
-
-    path, _ = os.path.split(inim)
-    resfile = inim.split('.')[0] + '_sub.fits'
-    maskfile = inim.split('.')[0] + '_sub_mask.fits'
-
-    with open(config['hotpants']['conf']) as json_file: 
-        hotpants_conf = hjson.load(json_file)
-
-    # Set min and max acceptable values for input and template images
-    # Too simple, need to adapt it in the future
-    il = str(sub_info[1][0])
-    iu = str(sub_info[1][1])
-    tl = str(sub_info[1][2])
-    tu = str(sub_info[1][3])
-   
-    overlap = '%s, %s, %s, %s' % (sub_info[0][0],
-                                  sub_info[0][1],
-                                  sub_info[0][2],
-                                  sub_info[0][3],)
-
-    hotpants_cmd = 'hotpants -inim %s -tmplim %s -outim %s -omi %s ' % (inim, refim, resfile, maskfile)
-    #hotpants_cmd += '-il %s -iu %s -tl %s -tu %s -gd %s ' % (il, iu, tl, tu, overlap)
-    hotpants_cmd += '-il %s -iu %s -tl %s -tu %s ' % (il, iu, tl, tu)
-    hotpants_cmd += '-tuk %s -iuk %s ' % (tu, iu)
-    hotpants_cmd += '-ig %s -tg %s ' % (sub_info[2][0], sub_info[2][1])
-
-    if refim_mask:
-        hotpants_cmd += '-tmi %s ' % refim_mask
-
-    # Add params from the hjson conf file
-    for key, value in hotpants_conf.items():
-        hotpants_cmd += '-%s %s ' % (key, value)
-
-    os.system(hotpants_cmd)
-    #subprocess.call([hotpants_cmd])
     
-    # Set bad pixel values to 0 and others to 1 for sextractor
-    hdulist = fits.open(maskfile)
-    hdulist[0].data[hdulist[0].data == 0] = 1
-    hdulist[0].data[hdulist[0].data != 1] = 0
-    hdulist.writeto(maskfile, overwrite=True)
+    if verbose == 'QUIET':
+        verbosity = 0
+    elif verbose == 'NORMAL':
+        verbosity = 1
+    elif verbose == 'FULL':
+        verbosity = 2
 
-    return [inim, refim, resfile, maskfile]
+    subfiles = []
+
+    # Loop over the files 
+    for info in regis_info:
+        inim = info['inim']
+        refim = info['refim']
+        maskim = info['mask']
+
+        path, filename = os.path.split(inim)
+        if path:
+           folder = path + '/'
+        else:
+           folder = ''
+
+        resfile = inim.split('.')[0] + '_sub.fits'
+        resmask = inim.split('.')[0] + '_sub_mask.fits'
+
+        with open(config['hotpants']['conf']) as json_file: 
+            hotpants_conf = hjson.load(json_file)
+
+        if hotpants_conf['ng'] == 'auto' or hotpants_conf['r'] == 'auto' or hotpants_conf['rss'] == 'auto':
+            # Compute PSF FWHM on input and ref images
+            FWHM_inim = psfex(inim, config, verbose='QUIET')
+            FWHM_refim = psfex(refim, config, verbose='QUIET')
+
+        if hotpants_conf['ng'] == 'auto':
+            # transfrom to sigma
+            sigma_inim = FWHM_inim / (2*np.sqrt(2*np.log(2)))
+            sigma_refim = FWHM_refim / (2*np.sqrt(2*np.log(2)))
+
+            # As decribed here https://github.com/acbecker/hotpants
+            kernel_match = np.sqrt(sigma_inim**2 - sigma_refim**2)
+    
+            # update config file for hotpants
+            hotpants_conf['ng'] = '3 6 %.2f 4 %.2f 2 %.2f' % (0.5*kernel_match, kernel_match, 2*kernel_match)
+
+        if hotpants_conf['r'] == 'auto':
+            # Same as DECAM, arbitray
+            hotpants_conf['r'] = str(int(FWHM_inim[0] * 2.5))
+        if hotpants_conf['rss'] == 'auto':
+            # Same as DECAM, arbitray
+            hotpants_conf['rss'] = str(int(FWHM_inim[0] * 5))
+
+        # Set min and max acceptable values for input and template images
+        # Too simple, need to adapt it in the future
+        il = str(info['in_lo'])
+        iu = str(info['in_up'])
+        tl = str(info['ref_lo'])
+        tu = str(info['ref_up'])
+        overlap = '%s, %s, %s, %s' % (info['XY_lim'][0],
+                                      info['XY_lim'][1],
+                                      info['XY_lim'][2],
+                                      info['XY_lim'][3])
+
+        hotpants_cmd = 'hotpants -inim %s -tmplim %s -outim %s -omi %s ' % (inim, refim, resfile, resmask)
+        #hotpants_cmd += '-il %s -iu %s -tl %s -tu %s -gd %s ' % (il, iu, tl, tu, overlap)
+        hotpants_cmd += '-il %s -iu %s -tl %s -tu %s ' % (il, iu, tl, tu)
+        hotpants_cmd += '-tuk %s -iuk %s ' % (tu, iu)
+        hotpants_cmd += '-ig %s -tg %s ' % (info['gain_in'], info['gain_ref'])
+        hotpants_cmd += '-v %s ' % verbosity
+
+        if maskim:
+            hotpants_cmd += '-tmi %s ' % maskim
+
+        # Add params from the hjson conf file
+        for key, value in hotpants_conf.items():
+            hotpants_cmd += '-%s %s ' % (key, value)
+
+        hotpants_cmd_file = path + filename.split('.')[0] + '_hotpants.sh'
+        os.system("echo %s > %s" % (hotpants_cmd, hotpants_cmd_file))
+    
+        os.system(hotpants_cmd)
+        #subprocess.call([hotpants_cmd])
+    
+        # Set bad pixel values to 0 and others to 1 for sextractor
+        hdulist = fits.open(resmask)
+        hdulist[0].data[hdulist[0].data == 0] = 1
+        hdulist[0].data[hdulist[0].data != 1] = 0
+        hdulist.writeto(resmask, overwrite=True)
+
+        subfiles.append([inim, refim, resfile, resmask])
+
+    return subfiles
