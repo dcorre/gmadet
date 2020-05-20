@@ -384,6 +384,10 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
                              '-OVERSAMPLING', '0',\
                              '-COMBINE_TYPE', 'MEDIAN', \
                              '-COPY_KEYWORDS', ' PIXEL_SCALE'] + imalists[i])
+   
+    #hdulist[0].header['GAIN'] = 1
+    #hdulist[0].header['EXPTIME'] = 1
+    #hdulist[0].header.remove('SATURATE')
 
     # replace pixels == 0 with NaNs. Mostly the border, saturated pixels
     hdulist=fits.open(imagefiles[0] + '.fits')
@@ -405,35 +409,3 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, useweight=False):
     rm_p('mask.list')
     rm_p('swarp.xml')
     #rm_p('coadd.weight.fits')
-
-if __name__ == "__main__":
-
-    im_coords = [[121.18, 121.18, 121.05, 121.05],
-                 [ 38.3,  38.46,  38.46,  38.3]]
-
-
-    inputimage = 'Test_Atlascow/gmadet_results/ATLAS18qqn-S001-R001-C001-SDSS_g.fits'
-    
-    header = fits.getheader(inputimage)
-    Naxis1 = header['NAXIS1']
-    Naxis2 = header['NAXIS2']
-    print (fits.getdata(inputimage).data.shape)
-    print (Naxis1, Naxis2)
-
-    pix_coords = [[0,0,Naxis1,Naxis1], [0,Naxis2,Naxis2,0]]
-
-    from astropy import wcs
-    from astropy.wcs import WCS
-
-    from astropy.coordinates import SkyCoord
-    from astropy import units as u
- 
-    # Get physical coordinates of OT
-    w = WCS(header)
-    ra, dec = w.all_pix2world(pix_coords[0],pix_coords[1], 1) 
-    print (ra, dec)
-    #stop
-    im_coords = [ra, dec]
-    cell_table = ps1_grid(im_coords)
-    print (cell_table)
-    download_ps1_cells(cell_table, 'g', inputimage)
