@@ -86,10 +86,14 @@ def sextractor(filelist, FWHM_list, thresh, telescope, config,
         #weight_type = ['NONE'] * len(subFiles[:, 0])
         weight_type = ['NONE'] * len(filelist)
         weight_type.extend(['MAP_WEIGHT'] * len(mask))
-        
+       
+        psfs = [im.split('.')[0] +'.psf' for im in filelist]
+        # assume we take the psf of the original file
+        psfs.extend([psfs[0]] * len(subFiles[:, 2]))
         #filelist = [im for im in subFiles[:, 0]]
         # Rather take the original before registration as it introduces artefact
         filelist = [im for im in filelist]
+        
         filelist.extend([im for im in subFiles[:, 2]])
         # Duplicate FWHM list
         #FWHM_list.extend(FWHM_list)
@@ -125,6 +129,7 @@ def sextractor(filelist, FWHM_list, thresh, telescope, config,
                 '-CHECKIMAGE_TYPE', checkimage_type, \
                 '-CHECKIMAGE_NAME',  checkimage_name, \
                 '-VERBOSE_TYPE', verbose, \
+                '-PSF_NAME', psfs[i], \
                 '-CATALOG_NAME', folder + filename2 + '_SourcesDet.cat' ])
 
 
@@ -387,7 +392,7 @@ def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
             w = wcs.WCS(header)
             ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 1)
             filenames = [filename] * len(ra)
-            data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], sources['edge'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'edge', 'filenames'])
+            data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], sources['edge'], sources['CHI2_PSF'], sources['CHI2_MODEL'], sources['FWHM_IMAGE'], sources['FWHMPSF_IMAGE'], sources['FLAGS_MODEL'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'edge', 'psf_chi2', 'model_chi2', 'FWHM', 'FWHMPSF', 'flag_psf', 'filenames'])
         
         # Flag to identify substraction image
         if '_sub' in magfilewcs:
@@ -477,7 +482,7 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
                 print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
 
         # Load detected sources in astropy table
-        detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
+        detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'psf_chi2', 'model_chi2', 'FWHM', 'FWHMPSF', 'flag_psf', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
         #detected_sources = ascii.read(magfilewcs)
         #detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
         detected_sources['quadrant'] = [quadrant]*len(detected_sources)

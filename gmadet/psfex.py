@@ -59,6 +59,7 @@ def psfex(filename, config, useweight=False,
             rm_p('psfex.xml')
             FWHM_list.append(FHWM_mean)
 
-    rm_p('preppsf.psf')
+    mv_p('preppsfex.psf', root + '.psf')
+    rm_p('preppsfex.psf')
     rm_p('psfex.xml')
     return FWHM_list
