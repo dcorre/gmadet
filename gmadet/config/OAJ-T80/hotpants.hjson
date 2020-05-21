@@ -13,6 +13,7 @@ n: i
 # sigma  = width of gaussian, default: 0.70 1.50 3.00
 # N = 0 .. ngauss - 1
 ng: 3 6 0.70 4 1.50 2 3.00
+#ng: auto
 
 # xregion: number of image regions in x dimension, default: 1
 nrx: 1
@@ -34,9 +35,11 @@ bgo: 0
 
 # rkernel: convolution kernel half width, default: 10
 r: 10
+#r: auto
 
 # radius: half width substamp to extract around each centroid, default: 15
 rss: 15
+#rss: auto
 
 # fitthresh: RMS threshold for good centroid in kernel fit, default: 20.0
 ft: 20.0
