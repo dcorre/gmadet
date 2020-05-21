@@ -13,6 +13,7 @@ from ps1_survey import ps1_grid, prepare_PS1_sub
 from utils import get_phot_cat, mkdir_p
 import hjson
 from psfex import psfex
+from mosaic import create_mosaic
 
 def get_corner_coords(filename):
     """ Compute the RA, Dec coordinates at the corner of one image"""
@@ -70,16 +71,37 @@ def substraction(filenames, reference, config, soft='hotpants',
             if soft == 'hotpants':
                 subFiles = hotpants(regis_info, config, verbose=verbose)
 
-        # Delete files if necessary, mainly to save space disk
-        # Problem when deleting files, they will appear in output files but
-        # user can not have a look at some that might be important
-        if outLevel == 0:
-            #rm_p(ima)
-            rm_p(refim)
-            rm_p(refim_mask)
-            rm_p(ima_regist)
-            rm_p(refim_regist)
-            rm_p(refim_regist_mask)
+        # create a mosaic of al substracted images when ps1_method=='individual'
+        if method == 'individual':
+        
+            subfiles= np.array(subFiles)
+            # Mosaic for input file
+            sublist = [i for i in subfiles[:,0]]
+            outName = filename.split('.')[0] + '_mosaic'
+            create_mosaic(sublist, ima, resultDir, outName, config=config, verbose=verbose)
+            # Mosaic for ps1 reference files
+            sublist = [i for i in subfiles[:,1]]
+            outName = filename.split('.')[0] + '_mosaic_ps1'
+            create_mosaic(sublist, ima, resultDir, outName, config=config, verbose=verbose)
+            # Mosaic for substracted files
+            sublist = [i for i in subfiles[:,2]]
+            outName = filename.split('.')[0] + '_mosaic_sub'
+            create_mosaic(sublist, ima, resultDir, outName, config=config, verbose=verbose)
+            # Mosaic for mask applied to substracted files
+            sublist = [i for i in subfiles[:,3]]
+            outName = filename.split('.')[0] + '_mosaic_sub_mask'
+            create_mosaic(sublist, ima, resultDir, outName, config=config, verbose=verbose)
+
+    # Delete files if necessary, mainly to save space disk
+    # Problem when deleting files, they will appear in output files but
+    # user can not have a look at some that might be important
+    if outLevel == 0:
+        #rm_p(ima)
+        rm_p(refim)
+        rm_p(refim_mask)
+        rm_p(ima_regist)
+        rm_p(refim_regist)
+        rm_p(refim_regist_mask)
 
     return subFiles
 
