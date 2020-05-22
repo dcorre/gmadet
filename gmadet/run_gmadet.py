@@ -520,14 +520,11 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
             """
             detected_sources['Xpos_quad'] = detected_sources['Xpos']
             detected_sources['Ypos_quad'] = detected_sources['Ypos']
-        else:
-            detected_sources['quadrant'] = []
-            detected_sources['Xpos_quad'] = []
-            detected_sources['Ypos_quad'] = []
-        if i == 0:
-            detected_sources_tot = deepcopy(detected_sources)
-        else:
-            detected_sources_tot = vstack([detected_sources_tot, detected_sources])
+
+            if i == 0:
+                detected_sources_tot = deepcopy(detected_sources)
+            else:
+                detected_sources_tot = vstack([detected_sources_tot, detected_sources])
     # Add units
     detected_sources_tot['_RAJ2000'] *= u.deg
     detected_sources_tot['_DEJ2000'] *= u.deg
