@@ -383,7 +383,8 @@ def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
             magfile = folder + filename2 + ".magfiltered"
             iraf.wcsctran(input=magfile, output=magfilewcs, image=filename, inwcs="physical", outwcs="world")
 
-            data1 = ascii.read(magfile, names=['Xpos', 'Ypos', 'Mag_aper', 'Mag_err_aper' ])
+            data1 = ascii.read(magfile, names=['Xpos', 'Ypos', 'Mag_aper', 'Mag_err_aper' ],
+                               format='commented_header')
             #header = fits.getheader(filename)
             #w = wcs.WCS(header)
             #ra, dec = w.wcs_pix2world(data1['Xpos'], data1['Ypos'], 1)
@@ -393,7 +394,8 @@ def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
             #data = Table([data1['Xpos'],data1['Ypos'], ra, dec, data1['Mag_aper'], data1['Mag_err_aper'], [filename]*len(data1)], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'filenames'])
  
         elif soft == 'sextractor':
-            sources = ascii.read(folder + filename2 + '_SourcesDet.cat')
+            sources = ascii.read(folder + filename2 + '_SourcesDet.cat',
+                                 format='commented_header')
             # If there is at least one detection
             if sources:
                 header = fits.getheader(filename)
@@ -495,7 +497,7 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
                 print ('Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1')
 
         # Load detected sources in astropy table
-        detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'psf_chi2', 'model_chi2', 'FWHM', 'FWHMPSF', 'flag_psf', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
+        detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'psf_chi2', 'model_chi2', 'FWHM', 'FWHMPSF', 'flag_psf', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'], format='commented_header')
         if detected_sources:
             detected_sources['quadrant'] = [quadrant]*len(detected_sources)
             # Do not need it as the astrometric calibration is performed on each quadrant now.
