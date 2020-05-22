@@ -8,12 +8,12 @@ from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 import numpy as np
-from registration import registration
-from ps1_survey import ps1_grid, prepare_PS1_sub
-from utils import get_phot_cat, mkdir_p
+from gmadet.registration import registration
+from gmadet.ps1_survey import ps1_grid, prepare_PS1_sub
+from gmadet.utils import get_phot_cat, mkdir_p
 import hjson
-from psfex import psfex
-from mosaic import create_mosaic
+from gmadet.psfex import psfex
+from gmadet.mosaic import create_mosaic
 
 def get_corner_coords(filename):
     """ Compute the RA, Dec coordinates at the corner of one image"""

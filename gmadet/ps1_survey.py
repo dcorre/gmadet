@@ -10,8 +10,8 @@ import numpy as np
 from astropy.table import Table, vstack
 from shapely.geometry import Polygon
 
-from utils import rm_p, mkdir_p, load_config
-from astrometry import scamp
+from gmadet.utils import rm_p, mkdir_p, load_config
+from gmadet.astrometry import scamp
 
 def get_crpix(proj_crpix1,proj_crpix2, Xcell, Ycell, x, y):
     """Compute CRPIX1 and CRPIX2 for cell based on the CRPIX values of the projcell """
@@ -83,6 +83,21 @@ def ps1_cell_coord(im_corner_coords, projcell_id, Xcell, Ycell, projcell_ra_cent
             pix_im_coord = np.array([im_corner_coords[0], im_corner_coords[1]]).T
             pix_cell_coord = np.array([corner_coords[0], corner_coords[1]]).T
 
+            # Check for cells having RA around below and above 0 degrees
+            cell_RAs = pix_cell_coord[:,0]
+            cell_RA_max = np.max(cell_RAs)
+            flag = False
+            # if one corner has distance more than 350 degrees
+            # to highest RA, add 360 to it
+            # and to the image RA corners
+            # So that intersect with shapely still make sense
+            for i, cell_RA in enumerate(cell_RAs):
+                if cell_RA_max-cell_RA>350:
+                    flag = True
+                    pix_cell_coord[i,0]+=360
+            if flag:
+                pix_im_coord[:,0]+=360
+
             im_poly = Polygon([tuple(co) for co in pix_im_coord])
             cell_poly = Polygon([tuple(co) for co in pix_cell_coord])
 
@@ -127,13 +142,13 @@ def ps1_grid(im_corner_coords):
     all_zones_id = np.arange(ps1grid[mask]['ZONE'][0],ps1grid[mask]['ZONE'][-1]+1)
     
     #print (all_zones_id)
-    projcell_idx_list = []
     all_cells = []
 
     # Loop over the different zones
     for zone in all_zones_id:
         mask = ps1grid['ZONE'] == zone
         idx_bkp = -1
+        projcell_idx_list = []
         for ra in [ra_min, ra_max]:
             
             # Get the cells covering the input ra
@@ -143,8 +158,18 @@ def ps1_grid(im_corner_coords):
             if projcell_idx != idx_bkp:
                 projcell_idx_list.append(projcell_idx)
             idx_bkp = projcell_idx
-    
-        total_proj_cell_idx = np.arange(projcell_idx_list[0],projcell_idx_list[-1]+1)
+        # Check the 0 - 360 transition
+        # Assume that an image can not have a FoV larger than 60 degrees 
+        # Need to do it dependng on the image in the future 
+        if ra_max - ra_min < 300:
+            total_proj_cell_idx = np.arange(projcell_idx_list[0],projcell_idx_list[-1]+1)
+        else:
+            # Image overlapping the 0 - 360 region
+            total_proj_cell_idx = np.arange(ps1grid[mask]['PROJCELL'], projcell_idx_list[0]+1)
+            list_proj_cell_end = np.arange(projcell_idx_list[-1],
+                                           ps1grid[ps1grid['ZONE']==zone+1]['PROJCELL'])
+            total_proj_cell_idx = np.append(total_proj_cell_idx, list_proj_cell_end)
+
         for cell_id in total_proj_cell_idx:
             diff_projcell_idx = cell_id - float(ps1grid[mask]['PROJCELL'])
             ra_center_projcell = diff_projcell_idx * 360 / float(ps1grid[mask]['NBAND'])

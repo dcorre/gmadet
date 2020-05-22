@@ -279,41 +279,47 @@ def select_good_stars(filelist,limiting_mag_err,soft,edge_cut=32,sigma=1,subFile
         elif soft == 'sextractor':
             sources = ascii.read(folder + filename2 + '_SourcesDet.cat', format='sextractor')
             mv_p(folder + filename2 + '_SourcesDet.cat',folder + filename2 + '_SourcesDetnoFilter.cat')
-            # Remove sources too close to the imge edges
-            header = fits.getheader(folder + filename2 + fileext)
-            imsize = [int(header['NAXIS1']), int(header['NAXIS2'])]
-            mask_edge = (sources['X_IMAGE'] > edge_cut) & \
-                        (sources['Y_IMAGE'] > edge_cut) & \
-                        (sources['X_IMAGE'] < imsize[1] - edge_cut) & \
-                        (sources['Y_IMAGE'] < imsize[0] - edge_cut)
+            # only if there is at least one detection
+            if sources:
+                # Remove sources too close to the imge edges
+                header = fits.getheader(folder + filename2 + fileext)
+                imsize = [int(header['NAXIS1']), int(header['NAXIS2'])]
+                mask_edge = (sources['X_IMAGE'] > edge_cut) & \
+                            (sources['Y_IMAGE'] > edge_cut) & \
+                            (sources['X_IMAGE'] < imsize[1] - edge_cut) & \
+                            (sources['Y_IMAGE'] < imsize[0] - edge_cut)
 
-            """
-            # Remove sources that are likely cosmic rays
-            # Compute flux ratio as total_flux / nb_pixels for each source
-            # Compute the median and std for sources with 10 < nb_pixels < 100
-            # Higher than 10 to discard cosmics
-            # Smaller than 100 to discard saturated sources
-            # Remove sources with nb_pixels < 10 and fluxratio > fluxratio_med + fluxratio_std
-            flux = sources['FLUX_AUTO']
-            nbpix = sources['ISOAREA_IMAGE']
-            fluxratio = flux / nbpix
-            # Compute the median and std on the original image only
-            # This assumes that the substracted image follows the original image in the for loop
-            if '_sub' not in filename2:
-                mask = (nbpix > 10) & (nbpix < 100)
-                fluxratio_med = np.median(fluxratio[mask])
-                fluxratio_std = np.std(fluxratio[mask])
+                """
+                # Remove sources that are likely cosmic rays
+                # Compute flux ratio as total_flux / nb_pixels for each source
+                # Compute the median and std for sources with 10 < nb_pixels < 100
+                # Higher than 10 to discard cosmics
+                # Smaller than 100 to discard saturated sources
+                # Remove sources with nb_pixels < 10 and fluxratio > fluxratio_med + fluxratio_std
+                flux = sources['FLUX_AUTO']
+                nbpix = sources['ISOAREA_IMAGE']
+                fluxratio = flux / nbpix
+                # Compute the median and std on the original image only
+                # This assumes that the substracted image follows the original image in the for loop
+                if '_sub' not in filename2:
+                    mask = (nbpix > 10) & (nbpix < 100)
+                    fluxratio_med = np.median(fluxratio[mask])
+                    fluxratio_std = np.std(fluxratio[mask])
 
-            mask_cosmics = (nbpix < 10) & (fluxratio > fluxratio_med + sigma * fluxratio_std)
-            mask_tot = np.bitwise_and(mask_edge, np.invert(mask_cosmics))
-            """
+                mask_cosmics = (nbpix < 10) & (fluxratio > fluxratio_med + sigma * fluxratio_std)
+                mask_tot = np.bitwise_and(mask_edge, np.invert(mask_cosmics))
+                """
 
-            # Remove sources too close to the edges
-            #sources_filt = sources[mask_edge]
-            # Flag sources too close to the edges
-            edge_flag = np.array(['N'] * len(sources))
-            edge_flag[~mask_edge] = 'Y'
-            sources['edge'] = edge_flag
+                # Remove sources too close to the edges
+                #sources_filt = sources[mask_edge]
+                # Flag sources too close to the edges
+                # Only if there is at least one detection
+                edge_flag = np.array(['N'] * len(sources))
+                edge_flag[~mask_edge] = 'Y'
+                sources['edge'] = edge_flag
+            else:
+                # Add something to make script not crashing
+                sources['edge'] = []
             sources.write(folder + filename2 + '_SourcesDet.cat',format='ascii.commented_header', overwrite=True)
 
 
@@ -388,10 +394,17 @@ def convert_xy_radec(filelist, soft='sextractor', subFiles=None):
  
         elif soft == 'sextractor':
             sources = ascii.read(folder + filename2 + '_SourcesDet.cat')
-            header = fits.getheader(filename)
-            w = wcs.WCS(header)
-            ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 1)
-            filenames = [filename] * len(ra)
+            # If there is at least one detection
+            if sources:
+                header = fits.getheader(filename)
+                w = wcs.WCS(header)
+                ra, dec = w.wcs_pix2world(sources['X_IMAGE'], sources['Y_IMAGE'], 1)
+
+                filenames = [filename] * len(ra)
+            else:
+                ra = []
+                dec = []
+                filenames = []
             data = Table([sources['X_IMAGE'],  sources['Y_IMAGE'], ra,dec, sources['MAG_AUTO'], sources['MAGERR_AUTO'], sources['edge'], sources['CHI2_PSF'], sources['CHI2_MODEL'], sources['FWHM_IMAGE'], sources['FWHMPSF_IMAGE'], sources['FLAGS_MODEL'], filenames], names=['Xpos', 'Ypos', 'RA', 'DEC', 'Mag_inst', 'Magerr_inst', 'edge', 'psf_chi2', 'model_chi2', 'FWHM', 'FWHMPSF', 'flag_psf', 'filenames'])
         
         # Flag to identify substraction image
@@ -483,29 +496,32 @@ def crosscheck_with_catalogues(image_table, radius, catalogs=['I/345/gaia2', 'II
 
         # Load detected sources in astropy table
         detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'edge', 'psf_chi2', 'model_chi2', 'FWHM', 'FWHMPSF', 'flag_psf', 'filenames', 'FlagSub', 'OriginalIma', 'RefIma'])
-        #detected_sources = ascii.read(magfilewcs)
-        #detected_sources = ascii.read(magfilewcs, names=['Xpos','Ypos','_RAJ2000','_DEJ2000', 'mag_inst', 'mag_inst_err', 'filenames'])
-        detected_sources['quadrant'] = [quadrant]*len(detected_sources)
-        # Do not need it as the astrometric calibration is performed on each quadrant now.
-        """
-        # Transform X_pos and Y_pos to original image in case it was split
-        header2 = fits.getheader(filename)
-        Naxis1 = float(header2['NAXIS1'])
-        Naxis2 = float(header2['NAXIS2'])
-        Naxis11 = int(Naxis1/Nb_cuts[0])
-        Naxis22 = int(Naxis2/Nb_cuts[1])
-        if Nb_cuts == (1,1):
-            quad = None
-            index_i = 0
-            index_j = 0
+        if detected_sources:
+            detected_sources['quadrant'] = [quadrant]*len(detected_sources)
+            # Do not need it as the astrometric calibration is performed on each quadrant now.
+            """
+            # Transform X_pos and Y_pos to original image in case it was split
+            header2 = fits.getheader(filename)
+            Naxis1 = float(header2['NAXIS1'])
+            Naxis2 = float(header2['NAXIS2'])
+            Naxis11 = int(Naxis1/Nb_cuts[0])
+            Naxis22 = int(Naxis2/Nb_cuts[1])
+            if Nb_cuts == (1,1):
+                quad = None
+                index_i = 0
+                index_j = 0
+            else:
+                quad, index_i, index_j = image_table['quadrant'][i].split('_')
+                quad = quad[1:]
+            detected_sources['Xpos'] = detected_sources['Xpos'] + Naxis22 * int(index_j)
+            detected_sources['Ypos'] = detected_sources['Ypos'] + Naxis11 * int(index_i)
+            """
+            detected_sources['Xpos_quad'] = detected_sources['Xpos']
+            detected_sources['Ypos_quad'] = detected_sources['Ypos']
         else:
-            quad, index_i, index_j = image_table['quadrant'][i].split('_')
-            quad = quad[1:]
-        detected_sources['Xpos'] = detected_sources['Xpos'] + Naxis22 * int(index_j)
-        detected_sources['Ypos'] = detected_sources['Ypos'] + Naxis11 * int(index_i)
-        """
-        detected_sources['Xpos_quad'] = detected_sources['Xpos'] 
-        detected_sources['Ypos_quad'] = detected_sources['Ypos'] 
+            detected_sources['quadrant'] = []
+            detected_sources['Xpos_quad'] = []
+            detected_sources['Ypos_quad'] = []
         if i == 0:
             detected_sources_tot = deepcopy(detected_sources)
         else:

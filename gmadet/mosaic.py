@@ -6,8 +6,8 @@
 import shutil, subprocess
 import numpy as np
 from astropy.io import fits
-from astrometry import scamp
-from utils import rm_p
+from gmadet.astrometry import scamp
+from gmadet.utils import rm_p
 
 def create_mosaic(file_list, inputimage, outputDir, outName,
                   config, useweight=False, verbose='NORMAL',

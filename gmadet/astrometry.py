@@ -6,7 +6,7 @@
 import subprocess, sys, os
 import numpy as np
 from astropy.io import fits
-from utils import mv_p, mkdir_p, cp_p
+from gmadet.utils import mv_p, mkdir_p, cp_p
 import xmltodict
 
 def clean_tmp_files(filename, soft='scamp'):

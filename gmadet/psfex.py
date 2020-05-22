@@ -6,7 +6,7 @@
 import errno, glob, os, shutil, subprocess, sys
 import numpy as np
 from astropy.io import fits
-from utils import rm_p, mv_p, mkdir_p
+from gmadet.utils import rm_p, mv_p, mkdir_p
 import xmltodict
 
 def psfex(filename, config, useweight=False,

@@ -8,9 +8,9 @@ from astropy import wcs
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.table import Table
-from utils import rm_p, mkdir_p 
 from copy import deepcopy
-from astrometry import scamp
+from gmadet.utils import rm_p, mkdir_p 
+from gmadet.astrometry import scamp
 
 def registration(filelist, config, resultDir='', useweight=False, gain=1, normalise_exp=True, verbose='NORMAL'):
     """Register images"""
