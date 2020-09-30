@@ -223,8 +223,8 @@ FWHMPSF_WORLD            FWHM of the local PSF model (world units)              
 #DELTAPSF_B1950           Declination of the fitted PSF (B1950)                     [deg]
 #FLUX_PSF                 Flux from PSF-fitting                                     [count]
 #FLUXERR_PSF              RMS flux error for PSF-fitting                            [count]
-#MAG_PSF                  Magnitude from PSF-fitting                                [mag]
-#MAGERR_PSF               RMS magnitude error from PSF-fitting                      [mag]
+MAG_PSF                  Magnitude from PSF-fitting                                [mag]
+MAGERR_PSF               RMS magnitude error from PSF-fitting                      [mag]
 #NITER_PSF                Number of iterations for PSF-fitting                     
 CHI2_PSF                 Reduced chi2 from PSF-fitting                            
 #ERRX2PSF_IMAGE           Variance of PSF position along x                          [pixel**2]
@@ -252,13 +252,13 @@ CHI2_PSF                 Reduced chi2 from PSF-fitting
 #VECTOR_MODEL             Model-fitting coefficients                               
 #VECTOR_MODELERR          Model-fitting coefficient uncertainties                  
 #MATRIX_MODELERR          Model-fitting covariance matrix                          
-CHI2_MODEL               Reduced Chi2 of the fit                                  
-FLAGS_MODEL              Model-fitting flags                                      
+#CHI2_MODEL               Reduced Chi2 of the fit                                  
+#FLAGS_MODEL              Model-fitting flags                                      
 #NITER_MODEL              Number of iterations for model-fitting                   
 #FLUX_MODEL               Flux from model-fitting                                   [count]
 #FLUXERR_MODEL            RMS error on model-fitting flux                           [count]
-MAG_MODEL                Magnitude from model-fitting                              [mag]
-MAGERR_MODEL             RMS error on model-fitting magnitude                      [mag]
+#MAG_MODEL                Magnitude from model-fitting                              [mag]
+#MAGERR_MODEL             RMS error on model-fitting magnitude                      [mag]
 #FLUX_HYBRID              Hybrid flux from model-fitting                            [count]
 #FLUXERR_HYBRID           RMS error on hybrid flux                                  [count]
 #MAG_HYBRID               Hybrid magnitude from model-fitting                       [mag]

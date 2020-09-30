@@ -26,8 +26,8 @@ If you are using a Docker, run it first:
 
     sudo docker run -v $(pwd)/gmadet/:/home/newuser/gmadet/ --rm -it gmadet:1.0
 
-If the command $(pwd) does not work on your computer, just write the whole to the gmadet/gmadet/ repository on your computer.
-
+If the command $(pwd) does not work on your computer, just write the whole path to the gmadet/ repository on your computer.
+Once inside the docker, the first thing to do is to install gmadet, by typing python setup.py install. This must be done each time as it is not saved hen exiting the docker image.
 
 Define test images 
 ^^^^^^^^^^^^^^^^^^
@@ -90,7 +90,7 @@ You can plot some histograms to check the distribution of magnitudes for the dif
 
 .. code-block:: console
 
-    python checksim.py --path cnn/data/sim/yourtelescopeID/images/ --telescope yourtelescopeID --training  --radius 2
+    python checksim.py --path cnn/data/sim/yourtelescopeID/images/  --radius 2
 
 Classify true and false candidates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

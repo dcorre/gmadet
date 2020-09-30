@@ -1,13 +1,20 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import subprocess, sys, os
+import subprocess
+import sys
+import os
 import numpy as np
 from astropy.io import fits
 from lacosmic import lacosmic
-from utils import cp_p
+from gmadet.utils import cp_p
 
-def run_lacosmic(filename, FWHM, flim=2, sigma=5, outLevel=1):
+
+# Can try to automatise the contrast value with the estimated PSF FWHM
+# Not used at the moment.
+
+def run_lacosmic(filename, FWHM, contrast=5, cr_threshold=5,
+                 neighbor_threshold=5.0, maxiter=4, outLevel=1):
     """Run lacosmic to remove cosmic rays from the input image"""
 
     imagelist = np.atleast_1d(filename)
@@ -15,40 +22,48 @@ def run_lacosmic(filename, FWHM, flim=2, sigma=5, outLevel=1):
     for i, ima in enumerate(imagelist):
         path, filename_ext = os.path.split(ima)
         if path:
-            folder = path + '/'
+            folder = path + "/"
         else:
-            folder = ''
+            folder = ""
 
-        filename2 = filename_ext.split('.')[0]
+        filename2 = filename_ext.split(".")[0]
 
-        # Make copy of original image
+        #  Make copy of original image
         if outLevel == 2:
-            cp_p(ima, folder+filename2+'_CR_notcleaned.fits')
+            cp_p(ima, folder + filename2 + "_CR_notcleaned.fits")
 
         hdulist = fits.open(ima)
         hdr = hdulist[0].header
         try:
-            gain = hdr['GAIN']
-        except:
+            gain = hdr["GAIN"]
+        except BaseException:
             gain = 1
         try:
-            RN = hdr['RN']
-        except:
+            RN = hdr["RN"]
+        except BaseException:
             RN = 10
 
+        """
         if FWHM[i] > 2:
-            flim = 2
+            contrast = 2
         else:
-            flim = 5
+            contrast = contrast
+        """
         data = np.asarray(hdulist[0].data, dtype=float)
-        lacosmic_res = lacosmic(data,flim,sigma,sigma,effective_gain=gain,readnoise=RN)
+        lacosmic_res = lacosmic(
+            data, contrast, cr_threshold, neighbor_threshold,
+            effective_gain=gain, readnoise=RN, maxiter=maxiter
+        )
 
-        # Create image cleaned from cosmic rays
+        #  Create image cleaned from cosmic rays
         hdulist[0].data = lacosmic_res[0]
         hdulist.writeto(ima, overwrite=True)
 
         if outLevel == 2:
-            # Create mask of cosmic rays
-            hdulist[0].data = np.asarray(lacosmic_res[1],dtype=int)
-            hdulist.writeto(folder+filename2+'_CRmask.fits', overwrite=True)
-
+            #  Create mask of cosmic rays
+            hdulist[0].data = np.asarray(lacosmic_res[1], dtype=int)
+            hdulist.writeto(
+                folder +
+                filename2 +
+                "_CRmask.fits",
+                overwrite=True)

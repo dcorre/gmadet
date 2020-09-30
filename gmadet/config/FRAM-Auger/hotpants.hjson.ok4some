@@ -1,0 +1,67 @@
+{
+# Config file for running hotpants
+
+# toconvolve: force convolution on (t)emplate or (i)mage
+c: t
+
+# normalize: normalize to (t)emplate, (i)mage, or (u)nconvolved, default: t
+n: i
+
+# Kernel, ngauss degree0 sigma0 .. degreeN sigmaN
+# ngauss = number of gaussians which compose kernel, default: 3
+# degree = degree of polynomial associated with gaussian, default: 6 4 2
+# sigma  = width of gaussian, default: 0.70 1.50 3.00
+# N = 0 .. ngauss - 1
+#ng: 3 6 0.70 4 1.50 2 3.00
+ng: 3 2 0.90 2 2 2 5.00
+#ng: auto
+
+# xregion: number of image regions in x dimension, default: 1
+nrx: 1
+
+# yregion: number of image regions in y dimension, default: 1
+nry: 1
+
+# xstamp: number of each region's stamps in x dimension, default: 10
+nsx: 20
+
+# ystamp: number of each region's stamps in y dimension, default: 10
+nsy: 20
+
+# kernelorder: spatial order of kernel variation within region, default: 2
+
+ko: 0
+# bgorder: spatial order of background variation within region, default: 1
+bgo: 1
+
+# rkernel: convolution kernel half width, default: 10
+r: 10
+#r: auto
+
+# radius: half width substamp to extract around each centroid, default: 15
+rss: 20
+#rss: auto
+
+# fitthresh: RMS threshold for good centroid in kernel fit, default: 20.0
+ft: 20.0
+
+# statsig: threshold for sigma clipping statistics, default: 3
+ssig: 3
+
+# kerfracmask: fraction of abs(kernel) sum for ok pixel, default: 0.990
+kfm: 0.99
+
+# badkernelsig: high sigma rejection for bad stamps in kernel fit, default: 2.0
+ks: 2.0
+
+# fill: value for invalid (bad) pixels, default: 1.0e-30
+fi: 1.0e-30
+
+# spread: Ditto output mask, negative = no diffim masking, default: 1.0
+mous: 1
+
+# verbosity: level of verbosity, 0-2, default: 1
+v: 1
+
+
+}

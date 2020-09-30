@@ -11,8 +11,14 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=6.0', 'numpy', 'astropy', 'matplotlib',
-                'pandas', 'astroquery', 'astroML']
+requirements = [
+        'Click>=6.0',
+        'numpy',
+        'astropy',
+        'matplotlib',
+        'pandas',
+        'astroquery',
+        'astroML']
 
 setup_requirements = ['pytest-runner', ]
 
@@ -20,33 +26,47 @@ test_requirements = ['pytest', ]
 
 setup(
     author="David Corre",
-    author_email='corre@lal.in2p3.fr',
+    author_email='david.corre.fr@gmail.com',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
+        'Development Status :: 4 - Beta',
+        'Topic :: Scientific/Engineering :: Astronomy',
+        'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
     description="Tools to help identification of transients for Grandma network",
     entry_points={
         'console_scripts': [
-            'gmadet=gmadet.cli:main',
+            'gmadet-run = gmadet.cli.run_gmadet:main',
+            'gmadet-astrometry = gmadet.cli.astrometry:main',
+            'gmadet-stacking = gmadet.cli.stacking:main',
+            'gmadet-psf = gmadet.cli.psf:main',
+            'gmadet-subBkg = gmadet.cli.subBkg:main',
+            'gmadet-cosmics = gmadet.cli.cosmics:main',
+            'gmadet-sim = gmadet.cli.sim:main',
+            'gmadet-cutouts = gmadet.cli.make_cutouts:main',
+            'gmadet-checksim = gmadet.cli.checksim:main',
+            'gmadet-cnn_convert = gmadet.cli.cnn_convert:main',
+            'gmadet-cnn_train = gmadet.cli.cnn_train:main',
+            'gmadet-cnn_infer = gmadet.cli.cnn_infer:main',
+            'gmadet-cnn_checkinfer = gmadet.cli.cnn_checkinfer:main',
         ],
     },
     install_requires=requirements,
     license="MIT license",
-    long_description=readme + '\n\n' + history,
+    long_description=readme,
+    long_description_content_type='text/markdown',
     include_package_data=True,
-    keywords='gmadet',
+    keywords=['gmadet', 'transients', 'detection pipeline', 'astronomy',
+              'image substraction', 'CNN'],
     name='gmadet',
-    packages=find_packages(include=['gmadet']),
+    #packages=find_packages(include=['gmadet']),
+    packages=find_packages(),
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,

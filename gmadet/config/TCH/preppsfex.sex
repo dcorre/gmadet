@@ -7,7 +7,7 @@
  
 CATALOG_NAME     preppsfex.cat   # Catalog filename
 CATALOG_TYPE     FITS_LDAC      # FITS_LDAC format
-PARAMETERS_NAME  prepsfex.param # name of the file containing catalog contents
+PARAMETERS_NAME  preppsfex.param # name of the file containing catalog contents
  
 #------------------------------- Extraction ----------------------------------
  

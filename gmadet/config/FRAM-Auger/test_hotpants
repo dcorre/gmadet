@@ -1,0 +1,24 @@
+Best configuration so far is 
+
+bko:1 when background substracted
+ko:0 as it is quite stable over a PS1 image
+
+the number of stamps seem to be quite important setting nsx,y=10 works better on most image (less over substraction) but crashes lamentably on some others part of the image.
+Setting nsx,y=20 avoid the crash but at the cost of more oversubstraction in the other part of the image.
+
+Regarding the kernel, setting auto works relatively well.
+
+sigma PS1 varies from 0.62 to 0.69
+
+sigma FRAM varies from 1.77 to 2.33
+
+kernel match varies from 1.65 to 2.24
+
+Does not affect much the result, default returns correct results
+
+Change to 3 polynoms of order 2 seem to be better. 
+
+
+For one case need to set nsx,y from 10 to 20
+
+For another cas need to set last sigma of the kernel from 3 (if default) to 5

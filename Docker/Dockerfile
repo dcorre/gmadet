@@ -14,30 +14,29 @@ ENV USR newuser
 # Set up working directory
 WORKDIR /home
 
-# Install updates to base image
-RUN \
-  apt-get update -y \
-  && apt-get install -y 
-
-# Install requirements
-RUN \
-  apt-get install unzip wget curl git build-essential gfortran autoconf libtool libfftw3-dev libplplot-dev vim -y \ 
-  && apt-get install libatlas3-base libatlas-base-dev libcurl4-openssl-dev -y \
-  && apt-get autoremove -y \
-  && apt-get clean -y 
-
 # Create new user
 RUN useradd -ms /bin/bash ${USR}
 
-# Download cfitsio
-RUN \ 
-   curl -OL -m 3600 http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz \
+ARG SCAMP_version
+ARG SWARP_version
+ARG Sextractor_version
+ARG PSFEX_version
+# Install updates to base image, install packages, and remove from cache
+# Create astromatic folder, and install all needed astromatic software and hotpants
+# First download and build cfitsio and the cdsclient used by SCAMP
+# Install all python packages. numpy 1.19.0 is the latest dependency compatible with tensorflow 2.3.1
+# All done in one line to limit docker size
+RUN  \
+   apt-get update \
+   && apt-get install software-properties-common -y \ 
+   && add-apt-repository ppa:deadsnakes/ppa -y \ 
+   && apt-get update \
+   && apt-get install -y --no-install-recommends wget curl vim build-essential ca-certificates libtool libatlas3-base libatlas-base-dev libplplot-dev libfftw3-dev libcurl4-openssl-dev autoconf automake git unzip gfortran python3.7 python3.7-dev python3-pip \
+   && rm -rf /var/lib/apt/lists/* \
+   && curl -OL -m 3600 http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz \
    && tar zxf cfitsio_latest.tar.gz \
-   && rm -f cfitsio_latest.tar.gz
-
-# Build cfitsio
-RUN \
-   cd cfitsio-* \
+   && rm -f cfitsio_latest.tar.gz \
+   && cd cfitsio-* \
    && ./configure \
    && make \
    && make fpack \
@@ -45,72 +44,70 @@ RUN \
    && make install \
    && cp fpack funpack /usr/local/bin/ \
    && cp fitsio*.h longnam.h /usr/local/include/ \
-   && cp libcfitsio.* /usr/lib/
-
-# Create astromatic folder
-RUN \
-   mkdir astromatic
-
-# Download and build cdsclient used by SCAMP
-RUN \
-   curl -OL -m 3600 http://cdsarc.u-strasbg.fr/ftp/pub/sw/cdsclient.tar.gz \
+   && cp libcfitsio.* /usr/lib/ \
+   && cd .. \
+   && curl -OL -m 3600 http://cdsarc.u-strasbg.fr/ftp/pub/sw/cdsclient.tar.gz \
    && tar xfz cdsclient.tar.gz \
    && rm -f cdsclient.tar.gz \
    && cd cdsclient-* \
    && ./configure \
    && make \
-   && make install
-
-# Downloads and build astromatic softwares
-ARG SCAMP_version
-ARG SWARP_version
-ARG Sextractor_version
-ARG PSFEX_version
-RUN \
-   curl -m 3600 -L -o astromatic/psfex_$PSFEX_version.zip https://github.com/astromatic/psfex/archive/$PSFEX_version.zip \
+   && make install \
+   && cd .. \
+   && mkdir astromatic \
+   && curl -m 3600 -L -o astromatic/psfex_$PSFEX_version.zip https://github.com/astromatic/psfex/archive/$PSFEX_version.zip \
    && unzip -q astromatic/psfex_$PSFEX_version.zip -d astromatic/ \
    && rm -f astromatic/psfex_$PSFEX_version.zip \
    && cd astromatic/psfex-* \
    && sh autogen.sh \
    && ./configure \
    && make \
-   && make install
-
-RUN \
-   curl -m 7200 -L -o astromatic/scamp_$SCAMP_version.zip https://github.com/astromatic/scamp/archive/$SCAMP_version.zip \
+   && make install \
+   && cd ../.. \
+   && curl -m 7200 -L -o astromatic/scamp_$SCAMP_version.zip https://github.com/astromatic/scamp/archive/$SCAMP_version.zip \
    && unzip -q astromatic/scamp_$SCAMP_version.zip -d astromatic/ \
    && rm -f astromatic/scamp_$SCAMP_version.zip \
    && cd astromatic/scamp-* \
    && sh autogen.sh \
    && ./configure \
    && make \
-   && make install
-
-RUN \
-   curl -m 3600 -L -o astromatic/sextractor_$Sextractor_version.zip https://github.com/astromatic/sextractor/archive/$Sextractor_version.zip \
+   && make install \
+   && cd ../.. \
+   && curl -m 3600 -L -o astromatic/sextractor_$Sextractor_version.zip https://github.com/astromatic/sextractor/archive/$Sextractor_version.zip \
    && unzip -q astromatic/sextractor_$Sextractor_version.zip -d astromatic/ \
    && rm -f astromatic/sextractor_$Sextractor_version.zip \
    && cd astromatic/sextractor-* \
    && sh autogen.sh \
    && ./configure \
    && make \
-   && make install
-
-RUN \
-   curl -m 7200 -L -o astromatic/swarp_$SWARP_version.zip https://github.com/astromatic/swarp/archive/$SWARP_version.zip \
+   && make install \
+   && cd ../.. \
+   && curl -m 7200 -L -o astromatic/swarp_$SWARP_version.zip https://github.com/astromatic/swarp/archive/$SWARP_version.zip \
    && unzip -q astromatic/swarp_$SWARP_version.zip -d astromatic/ \
    && rm -f astromatic/swarp_$SWARP_version.zip \ 
    && cd astromatic/swarp-* \
    && ./configure \
    && make \
-   && make install
-
-# Clone and build hotpants
-RUN \
-   git clone https://github.com/acbecker/hotpants.git \
+   && make install \
+   && cd ../.. \
+   && git clone https://github.com/acbecker/hotpants.git \
    && cd hotpants \
    && make \
-   && cp hotpants /usr/local/bin/
+   && cp hotpants /usr/local/bin/ \
+   && cd .. \
+   && rm -fr astromatic hotpants cfitsio-* cdsclient-* \ 
+   && python3.7 -m pip install --upgrade pip \
+   && python3.7 -m pip install -U setuptools cmake \
+   && python3.7 -m pip install -U scikit-build  \
+   && python3.7 -m pip install -U numpy scipy matplotlib astropy pandas shapely requests h5py scikit-image lacosmic hjson voevent-parse xmltodict astroML photutils keras keras-vis tensorflow cython regions  opencv-python-headless --use-feature=2020-resolver \
+   && python3.7 -m pip install --pre astroquery  \
+   && rm -fr /home/newuser/.cache/pip \
+   && rm -fr /root/.cache/pip \
+   && rm -fr /root/.cache/* \
+   && rm -fr /tmp/* \
+   && apt-get autoremove --purge -y
+   #&& apt-get purge -y gfortran gfortran-7 git-man libgfortran-7-dev libgfortran4 
+
 
 # switch ownership
 # (all commands are root until a USER command changes that)
@@ -120,26 +117,12 @@ USER ${USR}
 WORKDIR /home/${USR}
 
 # change ownership from root to USR:
-RUN chown -R ${USR}:${USR}  /home/${USR}
-
 # Create directory to link on volume with host machine
-RUN \
-   mkdir /home/${USR}/gmadet/
+RUN chown -R ${USR}:${USR}  /home/${USR} \
+   && mkdir /home/${USR}/gmadet/
 
-# Install python libraries through miniconda
-ENV PATH="/home/${USR}/miniconda3/bin:$PATH"
-RUN \
-   curl -m 7200 -OL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \ 
-   && bash Miniconda3-latest-Linux-x86_64.sh -b \
-   && rm -f Miniconda3-latest-Linux-x86_64.sh 
-
-# Install python libraries
-RUN \
-   conda install python=3 numpy scipy matplotlib astropy pandas shapely requests h5py sphinx sphinx_rtd_theme scikit-image 
-
-RUN \ 
-   pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis opencv-python tensorflow \
-   && pip install --pre astroquery
+# Add local bin to PATH
+ENV PATH="/home/${USR}/.local/bin:$PATH"
 
 # Change working directory to gmadet
 WORKDIR /home/${USR}/gmadet

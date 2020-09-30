@@ -15,7 +15,7 @@ DETECT_MINAREA   4              # minimum number of pixels above threshold
 DETECT_THRESH    5              # a fairly conservative threshold
 ANALYSIS_THRESH  5              # idem
  
-FILTER           Y              # apply filter for detection ("Y" or "N")?
+FILTER           N              # apply filter for detection ("Y" or "N")?
 FILTER_NAME      config/conv_kernels/default.conv   # name of the file containing the filter
  
 #-------------------------------- WEIGHTing ----------------------------------

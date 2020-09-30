@@ -1,0 +1,22 @@
+works fine with 20200114030631-074-RA.fits image
+
+hotpants -inim data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2.fits -tmplim data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1617_088_stk_r_unconv_reg_2.fits -outim data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2_sub_test4.fits -omi data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2_sub_mask.fits -il -10 -iu 374.9984447547001 -tl -10 -tu 1672592.3661006 -tuk 1672592.3661006 -iuk 374.9984447547001 -ig 1.0 -tg 1.0 -v 1 -tmi data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1617_088_stk_r_unconv_mask_reg_2.fits -c t -n i -ng 3 2 1.5 2 2.5 2 6.00 -nrx 1 -nry 1 -nsx 10 -nsy 10 -ko 1 -bgo 1 -r 10 -rss 25 -ft 20 -ssig 3 -kfm 0.99 -ks 2 -fi 1e-30 -mous 1 -v 1
+
+hotpants -inim data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2.fits -tmplim data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1617_088_stk_r_unconv_reg_2.fits -outim data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2_sub_test5.fits -omi data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2_sub_mask.fits -il -10 -iu 374.9984447547001 -tl -10 -tu 1672592.3661006 -tuk 1672592.3661006 -iuk 374.9984447547001 -ig 1.0 -tg 1.0 -v 1 -tmi data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1617_088_stk_r_unconv_mask_reg_2.fits -c t -n i -ng 3 2 0.7 2 1.5 2 3.00 -nrx 1 -nry 1 -nsx 10 -nsy 10 -ko 1 -bgo 1 -r 10 -rss 25 -ft 20 -ssig 3 -kfm 0.99 -ks 2 -fi 1e-30 -mous 1 -v 1
+
+hotpants -inim data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2.fits -tmplim data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1617_088_stk_r_unconv_reg_2.fits -outim data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2_sub_test6.fits -omi data/FRAM/FRAM-CTA/gmadet_results/substraction/20200114030631-074-RA_reg_2_sub_mask.fits -il -10 -iu 374.9984447547001 -tl -10 -tu 1672592.3661006 -tuk 1672592.3661006 -iuk 374.9984447547001 -ig 1.0 -tg 1.0 -v 1 -tmi data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1617_088_stk_r_unconv_mask_reg_2.fits -c t -n i -ng 3 2 0.7 2 1.5 2 3.00 -nrx 1 -nry 1 -nsx 10 -nsy 10 -ko 2 -bgo 1 -r 10 -rss 25 -ft 20 -ssig 3 -kfm 0.99 -ks 2 -fi 1e-30 -mous 1 -v 1
+
+Main thing is -rss 25 and -ko 2 or 1 
+
+Above does not work with 20191217191537-483-RA.fits
+Need to decrese -r and -rss 
+auto: -r 7 -rss 14
+hotpants -inim data/FRAM/FRAM-CTA/gmadet_results/substraction/20191217191537-483-RA_reg_1.fits -tmplim data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1920_090_stk_r_unconv_reg_1.fits -outim data/FRAM/FRAM-CTA/gmadet_results/substraction/20191217191537-483-RA_reg_1_sub_test2.fits -omi data/FRAM/FRAM-CTA/gmadet_results/substraction/20191217191537-483-RA_reg_1_sub_mask.fits -il -10 -iu 374.998750922175 -tl -10 -tu 1675856.0077488 -tuk 1675856.0077488 -iuk 374.998750922175 -ig 1.0 -tg 1.0 -v 1 -tmi data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1920_090_stk_r_unconv_mask_reg_1.fits -c t -n i -ng 3 6 0.7 4 1.5 2 3.0 -nrx 1 -nry 1 -nsx 10 -nsy 10 -ko 1 -bgo 1 -r 5 -rss 15 -ft 20 -ssig 3 -kfm 0.99 -ks 2 -fi 1e-30 -mous 1 -v 1
+
+
+hotpants -inim data/FRAM/FRAM-CTA/gmadet_results/substraction/20191217191537-483-RA_reg_1.fits -tmplim data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1920_090_stk_r_unconv_reg_1.fits -outim data/FRAM/FRAM-CTA/gmadet_results/substraction/20191217191537-483-RA_reg_1_sub_test1.fits -omi data/FRAM/FRAM-CTA/gmadet_results/substraction/20191217191537-483-RA_reg_1_sub_mask.fits -il -10 -iu 374.998750922175 -tl -10 -tu 1675856.0077488 -tuk 1675856.0077488 -iuk 374.998750922175 -ig 1.0 -tg 1.0 -v 1 -tmi data/FRAM/FRAM-CTA/gmadet_results/substraction/rings_v3_skycell_1920_090_stk_r_unconv_mask_reg_1.fits -c t -n i -ng 3 2 0.55 2 1.10 2 2.21 -nrx 1 -nry 1 -nsx 10 -nsy 10 -ko 0 -bgo 0 -r 15 -rss 20 -ft 20 -ssig 3 -kfm 0.99 -ks 2 -fi 1e-30 -mous 1 -v 1
+
+http://sro.sussex.ac.uk/id/eprint/61736/1/10-1088-0004-6256-150-6-172.pdf.pdf
+
+https://www.cambridge.org/core/services/aop-cambridge-core/content/view/S1323358017000339
+

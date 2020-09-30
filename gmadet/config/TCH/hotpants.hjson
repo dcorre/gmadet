@@ -13,6 +13,7 @@ n: i
 # sigma  = width of gaussian, default: 0.70 1.50 3.00
 # N = 0 .. ngauss - 1
 ng: 3 6 0.70 4 1.50 2 3.00
+#ng: auto
 
 # xregion: number of image regions in x dimension, default: 1
 nrx: 1
@@ -21,25 +22,27 @@ nrx: 1
 nry: 1
 
 # xstamp: number of each region's stamps in x dimension, default: 10
-nsx: 10
+nsx: 20
 
 # ystamp: number of each region's stamps in y dimension, default: 10
-nsy: 10
+nsy: 20
 
 # kernelorder: spatial order of kernel variation within region, default: 2
-ko: 2
+ko: 0
 
 # bgorder: spatial order of background variation within region, default: 1
-bgo: 1
+bgo: 0
 
 # rkernel: convolution kernel half width, default: 10
 r: 10
+#r: auto
 
 # radius: half width substamp to extract around each centroid, default: 15
-rss: 20
+rss: 15
+#rss: auto
 
 # fitthresh: RMS threshold for good centroid in kernel fit, default: 20.0
-ft: 10.0
+ft: 20.0
 
 # statsig: threshold for sigma clipping statistics, default: 3
 ssig: 3
