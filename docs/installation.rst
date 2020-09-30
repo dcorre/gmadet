@@ -45,14 +45,14 @@ Installation with Docker
 
 The usage of a Docker allows to build an OS environment on your machine and thus avoid compatibility problems when running the code under Linux, Mac or Windows. If you have not Docker installed on your machine install it first.   
 
-* Install the Docker desktop for your OS: https://docs.docker.com/
+* Install the Docker desktop for your OS: https://docs.docker.com/get-docker/
 
 * To run Docker without appending sudo, type:
 
 .. code-block:: console
    
-   sudo groupadd docker
-   sudo usermod -aG docker $USER
+   $ sudo groupadd docker
+   $ sudo usermod -aG docker $USER
 
 Log out and log back in so that your group membership is re-evaluated. For more information see https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user.
 
@@ -60,7 +60,7 @@ You can test that Docker is installed correctly and can be run without sudo:
 
 .. code-block:: console
 
-   docker run hello-world
+   $ docker run hello-world
 
 
 Download the gmadet Docker image
@@ -70,13 +70,13 @@ To retrieve the Docker image:
 
 .. code-block:: console
 
-   docker pull dcorre/gmadet
+   $ docker pull dcorre/gmadet
 
 Check that it appears in the list of images:
 
 .. code-block:: console
 
-   docker images
+   $ docker images
 
 
 Installation without Docker
@@ -86,7 +86,7 @@ I advise to create a virtual environment to avoid messing with different python 
 
 Install conda: https://docs.conda.io/en/latest/miniconda.html
 
-You can also install everything with pip of course.
+You can also install everything with pip if you prefer not to use conda.
 
 Python 3 environment:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
