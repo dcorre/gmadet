@@ -10,4 +10,3 @@ Development Lead
 Contributors
 ------------
 
-* Martin Blazek <alf@iaa.es>
