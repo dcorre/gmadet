@@ -10,6 +10,7 @@ Welcome to gmadet's documentation!
    information
    examples
    machine_learning
+   outputs
    modules
    contributing
    authors
