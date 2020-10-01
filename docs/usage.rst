@@ -55,7 +55,7 @@ To specify which telescope must be used, you will provide the alias of the teles
 Executables
 ^^^^^^^^^^^
 
-All the scripts can be run with executable beginning with "gamdet-". Then you can provide the options through arguments from the command line, for instance type ``gmadet-astrometry -h`` to know the expected arguments for the executable performing astrometry calibration. Below the list of executables:
+All the scripts can be run with executable beginning with "gamdet-". Then you can provide the options through arguments from the command line, for instance type ``gmadet-astrometry -h`` to know the expected arguments for the executable performing astrometry calibration. Below the list of executables (use the ``-h`` options to see the expected arguments):
 
 * **gmadet-astrometry**: perform astrometry usig SCAMP. 
 
@@ -63,11 +63,31 @@ All the scripts can be run with executable beginning with "gamdet-". Then you ca
 
 * **gmadet-stacking**: Stack images using SWarp.
 
-* **gmadet-subBkg**: Substract background using the some of the routines of `photutils <https://photutils.readthedocs.io/en/stable/background.html>`.
+* **gmadet-subBkg**: Substract background using the some of the routines of `photutils_`.
 
-* **gmadet-cosmics**: Remove cosmics rays using `L.A. Cosmic algorithm <https://lacosmic.readthedocs.io/en/latest/>`.
+* **gmadet-cosmics**: Remove cosmics rays using `L.A. Cosmic algorithm_`.
 
+* **gmadet-run**: Main executable allowing to do all the taks described above, plus perform image substraction, crossmatch candidates with existing catalogs, perform photometric calibration. Can also apply a trained CNN model to classify transients. Results can be automatically reported to a database.
 
+Executables related to the Convolutional Neural Network usage:
+
+* **gmadet-sim**: Simulate point-like sources in images using the PSF of each image (or part of image)
+ computing with PSFEx.
+
+* **gmadet-cutouts**: Create image cutouts centered on the position of candidates.
+
+* **gmadet-checksim**: Do some plots to visualise distribution of simulated sources for instance.
+
+* **gmadet-cnn_convert**: Convert the candidates cutouts (classified as true/false events) into a single datacube with the format expected by the CNN algorithm.
+
+* **gmadet-cnn_train**: Train the CNN algorithm with the created datacube using Keras.
+
+* **gmadet-cnn_infer**: Apply a trained CNN model on a set of candidates cutouts to assign a probability of being a true or false event.
+
+* **gmadet-cnn_checkinfer**: Do some plots to visualise the CNN training. Useful for chosing the probability threshold that will be used to classify a candidate as true or false event.
+
+.. _photutils: https://photutils.readthedocs.io/en/stable/background.html
+.. _L.A. Cosmic algorithm: https://lacosmic.readthedocs.io/en/latest/
 
 Functionalities
 ---------------
