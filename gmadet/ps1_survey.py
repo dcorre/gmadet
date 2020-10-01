@@ -307,7 +307,7 @@ def download_ps1_cells(cell_table, band, config, ps1Dir,
                             local_cell_file, ps1Dir, ps1RescaledDir, band
                         )
                         #  Perform astrometric calibration on each cell
-                        config_ps1 = load_config("PS1")
+                        config_ps1 = load_config("PS1", "default")
                         scamp(
                             ps1RescaledDir + local_cell_file,
                             config_ps1,
