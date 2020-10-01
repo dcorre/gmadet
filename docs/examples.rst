@@ -114,7 +114,8 @@ Replace:
 For all images in ``data/`` this will perform:
 
 * Astrometric calibration with SCAMP using GAIA DR2 by default.   
-* Find sources using SExtractor using a threshold of 4.   
+* Find sources using SExtractor using a threshold of 4.  
+* PSFEx is sued to estimate the PSF FWHM.    
 * Crossmatch all sources with catalogs (GAIA DR2, PS1 DR1, GSC, USNO-B1) within 3 pixels. Xmatch is used to do the crossmatch with online queries.   
 * Crossmatch solar moving objects using SkyBoT.   
 
@@ -136,6 +137,7 @@ Replace:
 For all images in ``data/`` this will perform:
 
 * Astrometric calibration with SCAMP using GAIA DR2 by default.   
+* PSFEx is sued to estimate the PSF FWHM.    
 * If not already present in ``gmadet/ps1Dir/``, download PS1 archive stack images matching your image field of view. Then rescale the images to a linear scale and store them in ``gmadet/ps1RescaledDir/``.   
 * Perform an image substraction using hotpants. The ``--ps1_method individual`` means that the substraction will be performed using each PS1 images separately. All subimages are combined in a substracted mosaic image at the end of the process.   
 * Find sources using SExtractor on the substracted mosaic image using a threshold of 4.   
