@@ -132,21 +132,6 @@ Replace:
 * ``MODELNAME`` with the name of the model that will be created.
 
 
-You can visualise the results with some plots that will help to assess the probability threshold to apply.
-
-.. code-block:: console
-
-    gmadet-cnn_checkinfer --path_plots PATH_PLOTS --path_crossmatch PATH_CROSSMATCH --path_infer PATH_INFER 
-
-Replace:
-
-* ``PATH_PLOTS`` with the path where you want to store the plots.
-* ``PATH_CROSSMATCH`` with the path where the crossmatch.dat is stored.
-* ``PATH_INFER`` with the path where the infer_results.dat is stored.
-
-
-Type ``gmadet-cnn_checkinfer -h`` to see the other optional arguments.
-
 Apply a trained model on candidates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -163,7 +148,9 @@ Replace:
 
 It will results a file ``infer_results.dat`` in the ``PATH_CUTOUTS`` containing the probability that a source is a false (column: label0) or true (column: label1). You can then aplly a threshold on these probability to keep only some candidates.
 
-To assess the threshold you can run the ``gmadet-cnn_infer`` on the same images you used for the training.
+To assess the threshold you can run the ``gmadet-cnn_infer`` on the same images you used for the training. Combine the cutouts in the ``true`` and ``false`` folder into one common folder and run ``gmadet-cnn_infer`` on these cutout.
+You can also perform a new simulation, run gmadet on them, extract the cutouts and apply the model you trained during the first simulation to have more representative results.
+Ideally these training should be done on a few tens of images with a total of a few tens or hundred of thousands true transients.
 
 Then you can visualise the results with some plots that will help to assess the probability threshold to apply.
 
