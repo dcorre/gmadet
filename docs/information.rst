@@ -115,9 +115,39 @@ Astrometric calibration
 The astrometric calibration is performed using SCAMP that requires an initial astrometric solution. Otherwise it can take a long time to run, and will most likely fails. The kept header keywords described above should be sufficient for SCAMP to converge rapidly.
 
 Configuration files
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
-You can find the description of the parameters used by the astromatic software and hotpants here:
+Overview
+^^^^^^^^
+
+For each telescope, you have the following configuration files:
+
+* **sourcesdet.sex**: configuration file for SExtractor.
+
+* **sourcesdet.param**: select the output parameters returned by SExtractor.
+
+* **scamp.conf**: configuration file for SCAMP.
+
+* **prepscamp.sex**: configuration of SExtractor for computing input catalog sources for SCAMP.
+
+* **prepscamp.param**: select the output parameters returned by SExtractor for running SCAMP afterwards.
+
+* **psfex.conf**: configuration file for PSFEx.
+
+* **preppsfex.sex**: configuration of SExtractor for computing input catalog sources for PSFEx.
+
+* **preppsfex.param**: select the output parameters returned by SExtractor for running PSFEx afterwards.
+
+* **hotpants.hjson**: configuration file for hotpants.
+
+
+You need to edit only the ``*.conf`` files and the ``hotpants.hjson``.
+
+
+Description of parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can find a complete description of the parameters used by the astromatic software and hotpants here:
 
 * SExtractor:  https://sextractor.readthedocs.io/en/latest/ and http://www.astromatic.net/software/sextractor
 * SWarp: http://www.astromatic.net/software/swarp
@@ -148,3 +178,4 @@ It is important to note that the following parameter will be overwritten by the 
 * ``VERBOSE_TYPE``: overwritten by the ``--verbose`` argument of different executables.
 
 For PSFEx, if you have a large field of view or non negligible spatial variation of the PSF, ``PSFVAR_NSNAP`` parameter controls how many PSF per axis you want to compute.
+
