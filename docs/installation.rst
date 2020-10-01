@@ -27,7 +27,7 @@ The sources for gmadet can be downloaded from the `Github repo`_.
 
 .. code-block:: console
 
-    $ git clone git://github.com/dcorre/gmadet
+    git clone git://github.com/dcorre/gmadet
 
 * Or download:
 
@@ -35,7 +35,7 @@ The sources for gmadet can be downloaded from the `Github repo`_.
 
 .. code-block:: console
 
-    $ curl  -OL https://github.com/dcorre/gmadet/tarball/master
+    curl  -OL https://github.com/dcorre/gmadet/tarball/master
 
 Cloning the project allows to retrieve easily future code updates. If you downloaded the projet, you will need to download it again to retrieve future updates.
 
@@ -51,8 +51,8 @@ The usage of a Docker allows to build an OS environment on your machine and thus
 
 .. code-block:: console
    
-   $ sudo groupadd docker
-   $ sudo usermod -aG docker $USER
+   sudo groupadd docker
+   sudo usermod -aG docker $USER
 
 Log out and log back in so that your group membership is re-evaluated. For more information see https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user.
 
@@ -60,7 +60,7 @@ You can test that Docker is installed correctly and can be run without sudo:
 
 .. code-block:: console
 
-   $ docker run hello-world
+   docker run hello-world
 
 
 Download the gmadet Docker image
@@ -70,13 +70,13 @@ To retrieve the Docker image:
 
 .. code-block:: console
 
-   $ docker pull dcorre/gmadet
+   docker pull dcorre/gmadet
 
 Check that it appears in the list of images:
 
 .. code-block:: console
 
-   $ docker images
+   docker images
 
 
 Installation without Docker
@@ -93,7 +93,7 @@ Python 3 environment:
 
 .. code-block:: console
  
-    $ conda create -n gmadet python=3 numpy scipy matplotlib astropy pandas shapely requests h5py scikit-image
+    conda create -n gmadet python=3 numpy scipy matplotlib astropy pandas shapely requests h5py scikit-image
 
 
 Activate the environment:
@@ -101,7 +101,7 @@ Activate the environment:
 
 .. code-block:: console
  
-    $ conda activate gmadet 
+    conda activate gmadet 
 
 
 Install other libraries
@@ -111,8 +111,8 @@ Once you have activated the environment, install the packages that are not avail
 
 .. code-block:: console
  
-    $ python3 -m pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis tensorflow cython regions  opencv-python-headless
-    $ python3 -m pip install --pre astroquery
+    python3 -m pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis tensorflow cython regions  opencv-python-headless
+    python3 -m pip install --pre astroquery
 
 Install C dependencies:
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -138,7 +138,7 @@ Run the Docker image:
 
 .. code-block:: console
 
-   $ docker run -v /your_path_to_gmadet/:/home/newuser/gmadet/ -v /path_to_your_data/:/home/newuser/data/ --rm -it dcorre/gmadet
+   docker run -v /your_path_to_gmadet/:/home/newuser/gmadet/ -v /path_to_your_data/:/home/newuser/data/ --rm -it dcorre/gmadet
 
 This means that you run interactively in a bash terminal the Docker image named dcorre/gmadet.
 The -v option means that you mount a volume in the Docker pointing to a directory on your computer. This allows to exchange data between the Docker and your machine. The first volume is pointing to the gmadet directory on your machine (the directory where the setup.py is). The second volume is pointing to the directory containing your images on your machine. For both cases, you need to edit the path before the ``:``.
@@ -149,7 +149,7 @@ Install gmadet inside the Docker image.
 
 .. code-block:: console
 
-   $ python3.7 setup.py develop --user
+   python3.7 setup.py develop --user
 
 You will need to do it each time you run the Docker image, as everything is lost when you exit it (except the files created/edited in the mounted volumes).
 
@@ -163,7 +163,7 @@ To test if gmadet is running normally:
 
 .. code-block:: console
 
-    gmadet-run --path_data gmadet/data_test/ATLAS18qqn-S001-R001-C001-SDSS_g.fits --FWHM psfex --telescope IRIS --doAstrometry scamp --doSub ps1
+   gmadet-run --path_data gmadet/data_test/ATLAS18qqn-S001-R001-C001-SDSS_g.fits --FWHM psfex --telescope IRIS --doAstrometry scamp --doSub ps1
 
 It can take some times as it will download some Pan-STARRS archive image to perform the substraction. If it ran well you will see the last line starting with "Cleaning up output files for ...".
 A folder gmadet_results/ has been created in gmadet/data_test/ with a bunch of files that will be described later on.

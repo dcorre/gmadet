@@ -9,7 +9,7 @@ If you are using the Docker image you need to run it first.
 
 .. code-block:: console
 
-   $ docker run -v /your_path_to_gmadet/:/home/newuser/gmadet/ -v /path_to_your_data/:/home/newuser/data/ --rm -it dcorre/gmadet
+   docker run -v /your_path_to_gmadet/:/home/newuser/gmadet/ -v /path_to_your_data/:/home/newuser/data/ --rm -it dcorre/gmadet
 
 Replace:
 
@@ -21,7 +21,7 @@ Then you need to install ``gmadet`` inside the docker image:
 
 .. code-block:: console
 
-   $ python3.7 setup.py develop --user && cd ..
+   python3.7 setup.py develop --user && cd ..
 
 This must be done each time you run the Docker image.
 
@@ -31,7 +31,7 @@ Astrometric calibration
 
 .. code-block:: console
 
-   $ gmadet-astrometry --path_data data/ --telescope your-telescope-alias
+   gmadet-astrometry --path_data data/ --telescope your-telescope-alias
 
 Replace:
 
@@ -49,7 +49,7 @@ Compute PSF
 
 .. code-block:: console
 
-   $ gmadet-psf  --path_data data/ --telescope your-telescope-alias
+   gmadet-psf  --path_data data/ --telescope your-telescope-alias
 
 Replace:
 
@@ -66,7 +66,7 @@ Stacking
 
 .. code-block:: console
 
-   $ gmadet-stacking --path_data data/ --radius RADIUS --deltaT DELTAT
+   gmadet-stacking --path_data data/ --radius RADIUS --deltaT DELTAT
 
 Replace:
 
@@ -81,7 +81,7 @@ Substracting background
 
 .. code-block:: console
 
-   $ gmadet-subBkg --path_data data/ 
+   gmadet-subBkg --path_data data/ 
 
 This will substract the background of all images in ``data/`` using the same method as SExtractor by default. Type ``gmadet-subBkg -h`` to see the other arguments you might want to change. The results are stored in ``gmadet_subBkg/``.
 
@@ -91,7 +91,7 @@ Remove cosmics
 
 .. code-block:: console
 
-   $ gmadet-cosmics --path_data data/
+   gmadet-cosmics --path_data data/
 
 This will remove cosmic rays using the L.A. Cosmic algorithm. Results are stored in ``gmadet_remove_cosmics/``.
 
@@ -105,7 +105,7 @@ Run gmadet without image substraction
 
 .. code-block:: console
 
-   $ gmadet-run --path_data data/ --FWHM psfex --telescope your-telescope-alias --doAstrometry scamp radius_crossmatch 3 --threshold 4
+   gmadet-run --path_data data/ --FWHM psfex --telescope your-telescope-alias --doAstrometry scamp --radius_crossmatch 3 --threshold 4
 
 Replace:
 
@@ -120,14 +120,14 @@ For all images in ``data/`` this will perform:
 
 Type ``gmadet-run -h`` to see the other arguments you might want to change. You can add backgroung subtraction, removal of cosmics for instance.
 
-Results are stored in ``gamdet_results/``.
+Results are stored in ``gmadet_results/``.
 
 Run gmadet with image substraction using PS1 image reference
 ------------------------------------------------------------
 
 .. code-block:: console
 
-   $ gmadet-run --path_data data/ --FWHM psfex --telescope your-telescope-alias --doAstrometry scamp radius_crossmatch 3 --threshold 4 --doSub ps1 --ps1_method individual
+   gmadet-run --path_data data/ --FWHM psfex --telescope your-telescope-alias --doAstrometry scamp --radius_crossmatch 3 --threshold 4 --doSub ps1 --ps1_method individual
 
 Replace:
 
@@ -145,7 +145,7 @@ For all images in ``data/`` this will perform:
 Type ``gmadet-run -h`` to see the other arguments you might want to change. You can add backgroung sub
 traction, removal of cosmics for instance.
 
-Results are stored in ``gamdet_results/``. Result of substraction in ``gamdet_results/substraction/``.
+Results are stored in ``gmadet_results/``. Result of substraction in ``gmadet_results/substraction/``.
 
 
 **IMPORTANT**: PS1 survey is limited to -30 degrees in declination, so can only be used above.
