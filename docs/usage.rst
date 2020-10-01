@@ -57,22 +57,23 @@ Executables
 
 All the scripts can be run with executable beginning with "gamdet-". Then you can provide the options through arguments from the command line, for instance type ``gmadet-astrometry -h`` to know the expected arguments for the executable performing astrometry calibration. Below the list of executables (use the ``-h`` options to see the expected arguments):
 
+Main executables:
+
 * **gmadet-astrometry**: perform astrometry usig SCAMP. 
 
 * **gmadet-psf**: Compute the PSF using PSFEx.
 
 * **gmadet-stacking**: Stack images using SWarp.
 
-* **gmadet-subBkg**: Substract background using the some of the routines of `photutils_`.
+* **gmadet-subBkg**: Substract background using the some of the routines of `photutils`_.
 
-* **gmadet-cosmics**: Remove cosmics rays using `L.A. Cosmic algorithm_`.
+* **gmadet-cosmics**: Remove cosmics rays using `L.A. Cosmic algorithm`_.
 
 * **gmadet-run**: Main executable allowing to do all the taks described above, plus perform image substraction, crossmatch candidates with existing catalogs, perform photometric calibration. Can also apply a trained CNN model to classify transients. Results can be automatically reported to a database.
 
 Executables related to the Convolutional Neural Network usage:
 
-* **gmadet-sim**: Simulate point-like sources in images using the PSF of each image (or part of image)
- computing with PSFEx.
+* **gmadet-sim**: Simulate point-like sources in images using the PSF of each image (or part of image) computing with PSFEx.
 
 * **gmadet-cutouts**: Create image cutouts centered on the position of candidates.
 
@@ -89,5 +90,97 @@ Executables related to the Convolutional Neural Network usage:
 .. _photutils: https://photutils.readthedocs.io/en/stable/background.html
 .. _L.A. Cosmic algorithm: https://lacosmic.readthedocs.io/en/latest/
 
-Functionalities
----------------
+Important information
+---------------------
+
+Image header
+^^^^^^^^^^^^
+
+As the headers can be heterogeneous, the code will only keep standard keywords and remove all the others. The kept keywords are:
+
+* SIMPLE
+* BITPIX
+* NAXIS
+* NAXIS1
+* NAXIS2
+* EXTEND
+* DATE-OBS
+* TELESCOP
+* INSTRUME
+* OBJECT
+* EXPTIME
+* FILTER
+* GAIN
+* SATURATE
+* EQUINOX
+* EPOCH
+* RADESYS
+* CTYPE1
+* CTYPE2
+* CUNIT1
+* CUNIT2
+* CRVAL1
+* CRVAL2
+* CRPIX1
+* CRPIX2
+* CD1_1
+* CD1_2
+* CD2_1
+* CD2_2
+* CDELT1
+* CDELT2
+* CROTA1
+* CROTA2
+* BSCALE
+* BZERO
+* BUNIT
+* AIRMASS
+* END
+
+
+Check their definition `here`_
+
+.. _here: https://heasarc.gsfc.nasa.gov/docs/fcg/standard_dict.html
+
+To update the list of keyword, need to edit ``gmadet/sanitise.py``.
+
+
+Astrometric calibration
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The astrometric calibration is performed using SCAMP that requires an initial astrometric solution. Otherwise it can take a long time to run, and will most likely fails. The kept header keywords described above should be sufficient for SCAMP to converge rapidly.
+
+Configuration files
+^^^^^^^^^^^^^^^^^^^
+
+You can find the description of the parameters used by the astromatic software and hotpants here:
+
+* SExtractor:  https://sextractor.readthedocs.io/en/latest/ and http://www.astromatic.net/software/sextractor
+* SWarp: http://www.astromatic.net/software/swarp
+* PSFEx: https://psfex.readthedocs.io/en/latest/ and http://www.astromatic.net/software/psfex
+* SCAMP: https://scamp.readthedocs.io/en/latest/ and http://www.astromatic.net/software/scamp
+* hotpants: https://github.com/acbecker/hotpants
+
+The default configuration can work reasonably well. 
+
+It is important to note that the following parameter will be overwritten by the command line arguments:
+
+**SExtractor:**
+
+* ``DETECT_THRESH``: overwritten by the ``--threshold`` argument of ``gmadet-run``.
+* ``FILTER_NAME``: overwritten by the ``--convFilter`` argument of ``gmadet-run`` and other executables.
+* ``SEEING_FWHM``: overwritten by the ``--FWHM`` argument (either a float or the value returned by PSFEx)
+* ``VERBOSE_TYPE``: overwritten by the ``--verbose`` argument of different executables.
+* ``PARAMETERS_NAME``, ``CHECKIMAGE_TYPE``, ``CHECKIMAGE_NAME``, ``CATALOG_NAME``, ``PSF_NAME`` are also overwritten in the process.
+
+**SCAMP:**
+
+* ``FILTER_NAME``: overwritten by the ``--convFilter`` argument.
+* ``VERBOSE_TYPE``: overwritten by the ``--verbose`` argument of different executables.
+* ``PARAMETERS_NAME``, ``-ASTREF_BAND``, ``CHECKPLOT_DEV``, ``CHECKPLOT_NAME``, ``CHECKPLOT_TYPE`` are also overwritten in the process.
+
+**PSFEx**:
+
+* ``VERBOSE_TYPE``: overwritten by the ``--verbose`` argument of different executables.
+
+For PSFEx, if you have a large field of view or non negligible spatial variation of the PSF, ``PSFVAR_NSNAP`` parameter controls how many PSF per axis you want to compute.
