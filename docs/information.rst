@@ -107,6 +107,7 @@ Check their definition `here`_
 
 To update the list of keyword, need to edit ``gmadet/sanitise.py``.
 
+This header sanitising is only performed when the astrometric calibration is required.
 
 Astrometric calibration
 ^^^^^^^^^^^^^^^^^^^^^^^
