@@ -29,6 +29,13 @@ The sources for gmadet can be downloaded from the `Github repo`_.
 
     git clone git://github.com/dcorre/gmadet
 
+Note that you will need to update the project regularly to check for updates. Ideally each time you want to use it, type the following command to search for updates:
+
+.. code-block:: console
+
+    git pull origin master
+
+
 * Or download:
 
   Simply download this `tarball`_. Or through the console: 
