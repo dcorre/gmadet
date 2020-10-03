@@ -80,9 +80,21 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
     # Don't forget to close
     pool.close()
     pool.join()
-
-    crossmatch = vstack(results)
-
+    
+    # If one table is empty and one returns something,
+    # there will be a conflict type, str vs something.
+    # So keep only the one with data
+    res2keep = []
+    c = 0
+    for i in range(len(results)):
+        if len(results[i]) > 0:
+            res2keep.append(results[i])
+            c += 1
+    # If all are empty select the first not to crash the code
+    if c == 0:
+        res2keep.append(results[0])
+    
+    crossmatch = vstack(res2keep)
     return crossmatch
 
 
