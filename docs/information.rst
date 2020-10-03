@@ -141,7 +141,7 @@ For each telescope, you have the following configuration files:
 * **hotpants.hjson**: configuration file for hotpants.
 
 
-You need to edit only the ``*.conf`` files and the ``hotpants.hjson``.
+You need to edit mostly ``sourcesdet.sex`` and the ``hotpants.hjson``, but you can also tune PSFEx and SCAMP by editing the ``.conf`` files. There is no need to change the other ones.
 
 
 Description of parameters
