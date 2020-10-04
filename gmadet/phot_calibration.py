@@ -10,13 +10,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import warnings
 
-from gmadet.catalogues import run_xmatch
+from gmadet.crossmatch import run_xmatch
 from gmadet.utils import get_phot_cat, filter_catalog_data
 from gmadet.phot_conversion import *
 
 from astropy.io import ascii, fits
 from astropy import units as u
-from astropy.table import vstack, Table, Column
+from astropy.table import vstack, Table, Column, join
 from astropy.stats import sigma_clip
 
 from copy import deepcopy
@@ -24,7 +24,7 @@ from copy import deepcopy
 warnings.simplefilter(action="ignore")
 
 
-def crossmatch(detected_sources, radius, pixScale, catalog):
+def crossmatch(detected_sources, radius, pixScale, catalog, nb_threads=4):
     """
     Crossmatch the output file of Sextractor / pyRAF
     Remove duplicate source during crossmatch
@@ -41,27 +41,22 @@ def crossmatch(detected_sources, radius, pixScale, catalog):
     mask = detected_sources["edge"] == "N"
 
     # Run xmatch to crossmatch detected sources with available catalog
-    crossmatch = run_xmatch(
-        detected_sources[mask],
-        catalog,
-        radius * pixScale * 3600)
-    # Initialise flag array. 0: unknown sources / 1: known sources
-    flag = np.zeros(len(crossmatch))
-    # Do not consider duplicates
-    referenced_star_idx = np.unique(crossmatch["idx"])
-    # Consider only closest crossmatch if multiple association.
-    crossmatch["id"] = np.arange(len(crossmatch))
-    closest_id = []
-    for idx in referenced_star_idx:
-        mask = crossmatch["idx"] == idx
-        closest_id.append(crossmatch[mask]["id"][0])
-    # Set flag indexes to 1 for detected sources associated to a star
-    flag[closest_id] = 1
-    # ref_sources is an astropy table containing a single crossmatch
-    # for detected sources. Sources not crossmatched are not included.
-    # It is used for photometric calibration purpose.
-    ref_sources = crossmatch[flag == 1]
+    # reduce size of the input catalog to its minimum
+    cat = deepcopy(detected_sources["_RAJ2000", "_DEJ2000", "idx"])
 
+    crossmatch = run_xmatch(
+        cat[mask],
+        catalog,
+        radius * pixScale * 3600,
+        nb_threads)
+    # Do not consider duplicates
+    # Consider only closest crossmatch if multiple association.
+    # Assume that the first occurence is the closest one.
+    _, referenced_star_idx = np.unique(crossmatch["idx"],
+                                       return_index=True)
+    ref_sources = crossmatch[referenced_star_idx]
+    #keep_idx = np.isin(detected_sources['idx'], ref_sources['idx'])
+    ref_sources = join(ref_sources, detected_sources, join_type='left')
     return ref_sources
 
 
@@ -105,7 +100,7 @@ def conv_mag_sys(data, band, catalog):
                 jansky = np.zeros(len(data))
                 mag_err = np.zeros(len(data))
                 for filt in bands:
-                    data2 = data = gaia2SDSS(filt, data)
+                    data2 = gaia2SDSS(filt, data)
                     jansky = jansky + 3631 * \
                         10 ** (-0.4 * (data2["%s_SDSSMag" % filt]))
                     # Add error in quadrature. Might be too simple

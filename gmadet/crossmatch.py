@@ -3,7 +3,7 @@
 
 """
 Scripts to perform crossmatch with astronomical catalogs
-and with solar moving objects
+and with solar moving objects.
 
 """
 import os
@@ -17,9 +17,9 @@ from astroquery import xmatch
 from astroquery.imcce import Skybot
 from astroML.crossmatch import crossmatch_angular
 from copy import deepcopy
+import multiprocessing as mp
 
-
-def run_xmatch(coordinates, catalog, radius):
+def _run_xmatch(coordinates, catalog, radius):
     """
     Perform cross-match with a catalog using the CDS XMatch
     parameters: coordinates, catalog, radius:
@@ -38,6 +38,7 @@ def run_xmatch(coordinates, catalog, radius):
     Panstarrs DR1: II/349/ps1
     """
     xmatch.XMatch.TIMEOUT = 3600
+
     matched_stars = xmatch.XMatch.query(
         coordinates,
         cat2="vizier:%s" % catalog,
@@ -48,10 +49,58 @@ def run_xmatch(coordinates, catalog, radius):
 
     return matched_stars
 
+def run_xmatch(coordinates, catalog, radius, nb_threads):
+    """Run xmatch in parallel"""
+
+    catalog_list = []
+    idx_stop = []
+    Ncat = len(coordinates)
+    Ncut = int(Ncat / nb_threads)
+    for i in range(nb_threads):
+        if i == 0:
+            catalog_list.append(coordinates[i * Ncut : (i+1) * Ncut])
+            idx_stop.append((i+1) * Ncut)
+        elif i > 0 and i < nb_threads-1:
+            catalog_list.append(coordinates[i * Ncut : (i+1) * Ncut])
+            idx_stop.append((i+1) * Ncut)
+        elif i == nb_threads-1:
+            catalog_list.append(coordinates[i * Ncut : Ncat])
+            idx_stop.append(Ncat)
+        if idx_stop[-1] >= Ncat:
+            break
+    pool = mp.Pool(nb_threads)
+    # call apply_async() without callback
+    result_objects = [pool.apply_async(_run_xmatch,
+                                args=(cat, catalog, radius))
+                          for cat in catalog_list]
+
+    # result_objects is a list of pool.ApplyResult objects
+    results = [r.get() for r in result_objects]
+
+    # Don't forget to close
+    pool.close()
+    pool.join()
+
+    # If one table is empty and one returns something,
+    # there will be a conflict type, str vs something.
+    # So keep only the one with data
+    res2keep = []
+    c = 0
+    for i in range(len(results)):
+        if len(results[i]) > 0:
+            res2keep.append(results[i])
+            c += 1
+    # If all are empty select the first not to crash the code
+    if c == 0:
+        res2keep.append(results[0])
+
+    crossmatch = vstack(res2keep)
+    return crossmatch
+
 
 def catalogs(image_table, radius,
              catalogs=["I/345/gaia2", "II/349/ps1", "I/271/out", "I/284/out"],
-             Nb_cuts=(1, 1), subFiles=None):
+             Nb_cuts=(1, 1), subFiles=None, nb_threads=4):
     """
     Input file is *.magwcs and the output is the list of the stars *.oc
     which were not identified in the catalogue
@@ -179,7 +228,9 @@ def catalogs(image_table, radius,
     detected_sources_tot["Match"] = ["N"] * len(detected_sources_tot)
 
     #  Initialise candidates with all detected sources
-    candidates = deepcopy(detected_sources_tot)
+    #candidates = deepcopy(detected_sources_tot)
+    candidates = deepcopy(detected_sources_tot["_RAJ2000", "_DEJ2000",
+                                               "idx", "Match", "FlagSub"])
     # candidates.write('test0.dat', format='ascii.commented_header', overwrite=True)
     print("\nCrossmatching sources with catalogs.")
     print(
@@ -192,7 +243,8 @@ def catalogs(image_table, radius,
         print(catalog, len(candidates[mask_matched]))
         # Use Xmatch to crossmatch with catalog
         crossmatch = run_xmatch(
-            candidates[mask_matched], catalog, radius * pixScale * 3600
+            candidates[mask_matched], catalog,
+            radius * pixScale * 3600, nb_threads
         )
 
         # crossmatch.write('test.dat', format='ascii.commented_header', overwrite=True)
@@ -227,30 +279,38 @@ def catalogs(image_table, radius,
         if len(candidates[mask_matched]) == 0:
             break
 
+    # Flag sources without any match in catalogs
+    idx_no_match = np.isin(detected_sources_tot['idx'],
+                           candidates['idx'][mask_matched])
+    #candidates = deepcopy(detected_sources_tot[keep_idx])
+    # Add the Match flag in original table data
+    detected_sources_tot['Match'] = candidates['Match']
+
     #  Get filename
     _filename = np.unique(_filename_list)[0]
     # Write candidates file.
     # If substraction was performed, split transients into specific files
     if subFiles is not None:
-        mask = (candidates["FlagSub"] == "Y") & (mask_matched)
-        candidates[mask].write(
+        mask = (detected_sources_tot["FlagSub"] == "Y") & idx_no_match
+        detected_sources_tot[mask].write(
             os.path.splitext(_filename)[0] + "_sub.oc",
             format="ascii.commented_header",
             overwrite=True,
         )
-        oc = candidates[mask]["_RAJ2000", "_DEJ2000"]
+        oc = detected_sources_tot[mask]["_RAJ2000", "_DEJ2000"]
         oc.write(
             os.path.splitext(_filename)[0] + "_sub.oc_RADEC",
             format="ascii.commented_header",
             overwrite=True,
         )
 
-    mask = (candidates["FlagSub"] == "N") & (mask_matched)
-    candidates[mask].write(
+
+    mask = (detected_sources_tot["FlagSub"] == "N") & idx_no_match
+    detected_sources_tot[mask].write(
         _filename,
         format="ascii.commented_header",
         overwrite=True)
-    oc = candidates[mask]["_RAJ2000", "_DEJ2000"]
+    oc = detected_sources_tot[mask]["_RAJ2000", "_DEJ2000"]
     oc.write(
         os.path.splitext(_filename)[0] + ".oc_RADEC",
         format="ascii.commented_header",
@@ -258,8 +318,9 @@ def catalogs(image_table, radius,
     )
 
     #  Also write a file with all the sources detected to know
-    candidates.write(
+    detected_sources_tot.write(
         os.path.splitext(_filename)[0] + ".alldetections",
+        _filename.split(".")[0] + ".alldetections",
         format="ascii.commented_header",
         overwrite=True,
     )
@@ -267,7 +328,7 @@ def catalogs(image_table, radius,
     # oc=candidates['Xpos', 'Ypos']
     # oc.write(magfilewcs+'4',format='ascii.commented_header', overwrite=True)
 
-    return candidates
+    return detected_sources_tot
 
 
 def skybot(ra_deg, dec_deg, date, radius, Texp):

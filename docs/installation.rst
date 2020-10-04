@@ -44,7 +44,7 @@ Note that you will need to update the project regularly to check for updates. Id
 
     curl  -OL https://github.com/dcorre/gmadet/tarball/master
 
-Cloning the project allows to retrieve easily future code updates. If you downloaded the projet, you will need to download it again to retrieve future updates.
+Cloning the project allows to retrieve easily future code updates. If you downloaded the project, you will need to download it again to retrieve future updates.
 
 
 Installation with Docker
