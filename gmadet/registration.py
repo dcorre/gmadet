@@ -82,7 +82,7 @@ def registration(filelist, config, resultDir="", useweight=False,
             else:
                 subBackground = "Y"
             path, filename_ext = os.path.split(ima)
-            epoch = resultDir + filename_ext.split(".")[0] + "_reg_%s" % i
+            epoch = resultDir + os.path.splitext(filename_ext)[0] + "_reg_%s" % i
             outFiles.append(epoch + ".fits")
             # Copy the common header in the .head file
             # So that it is read by sawrp for each image

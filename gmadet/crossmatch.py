@@ -82,10 +82,7 @@ def catalogs(image_table, radius,
         else:
             folder = ""
         #  Get rid of the extension to keep only the name
-        filename2 = filename_ext.split(".")[0]
-        extension = ""
-        for ext in filename_ext.split(".")[1:]:
-            extension = extension + "." + ext
+        filename2,extension = os.path.splitext(filename_ext)
 
         magfilewcs = folder + filename2 + ".magwcs"
 
@@ -97,7 +94,7 @@ def catalogs(image_table, radius,
             original_name = folder + split_file[0]
             for name in split_file[1].split("_")[1:]:
                 original_name = original_name + "_" + name
-            original_name = original_name.split(".")[0]
+            original_name = os.path.splitext(original_name)[0]
             quadrant = split_file[1].split("_")[0]
             """
             if len(split_file[-1]) == 2:
@@ -237,13 +234,13 @@ def catalogs(image_table, radius,
     if subFiles is not None:
         mask = (candidates["FlagSub"] == "Y") & (mask_matched)
         candidates[mask].write(
-            _filename.split(".")[0] + "_sub.oc",
+            os.path.splitext(_filename)[0] + "_sub.oc",
             format="ascii.commented_header",
             overwrite=True,
         )
         oc = candidates[mask]["_RAJ2000", "_DEJ2000"]
         oc.write(
-            _filename.split(".")[0] + "_sub.oc_RADEC",
+            os.path.splitext(_filename)[0] + "_sub.oc_RADEC",
             format="ascii.commented_header",
             overwrite=True,
         )
@@ -255,14 +252,14 @@ def catalogs(image_table, radius,
         overwrite=True)
     oc = candidates[mask]["_RAJ2000", "_DEJ2000"]
     oc.write(
-        _filename.split(".")[0] + ".oc_RADEC",
+        os.path.splitext(_filename)[0] + ".oc_RADEC",
         format="ascii.commented_header",
         overwrite=True,
     )
 
     #  Also write a file with all the sources detected to know
     candidates.write(
-        _filename.split(".")[0] + ".alldetections",
+        os.path.splitext(_filename)[0] + ".alldetections",
         format="ascii.commented_header",
         overwrite=True,
     )

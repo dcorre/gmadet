@@ -79,8 +79,8 @@ def getpath():
 def getTel():
     """Get the list of all telescopes"""
     path_gmadet = getpath()
-    telList = [name for name in os.listdir(path_gmadet+"/config") 
-               if os.path.isdir(path_gmadet+"/config/"+name) and 
+    telList = [name for name in os.listdir(path_gmadet+"/config")
+               if os.path.isdir(path_gmadet+"/config/"+name) and
                name != 'conv_kernels']
     return telList
 
@@ -214,10 +214,7 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
     else:
         folder = ""
 
-    filename2 = filename_ext.split(".")[0]
-    extension = ""
-    for ext in filename_ext.split(".")[1:]:
-        extension = extension + "." + ext
+    filename2,extension = os.path.splitext(filename_ext)
 
     quadrant_list = []
     quadrant_ID = []

@@ -239,10 +239,7 @@ def phot_calib(candidates_list, telescope, radius=3,
             folder = ""
 
         #  Get rid of the extension to keep only the name
-        fname2 = fname_ext.split(".")[0]
-        extension = ""
-        for ext in fname_ext.split(".")[1:]:
-            extension = extension + "." + ext
+        fname2,extension = os.path.splitext(fname_ext)
 
         # Get pixel scale in degrees
         header = fits.getheader(key[0])

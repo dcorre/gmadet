@@ -345,7 +345,7 @@ def stacking(path_data, radius, deltaT, useweight=False,
         mv_p(path_stacks,
              path_stacks[:-1] + '_' + time1.strftime("%Y%m%d-%H%M%S"))
     mkdir_p(path_stacks)
-    
+
     path_lists = path_data + "fieldlists/"
 
     useweight = bool(useweight)
