@@ -320,7 +320,6 @@ def catalogs(image_table, radius,
     #  Also write a file with all the sources detected to know
     detected_sources_tot.write(
         os.path.splitext(_filename)[0] + ".alldetections",
-        _filename.split(".")[0] + ".alldetections",
         format="ascii.commented_header",
         overwrite=True,
     )
