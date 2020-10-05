@@ -31,7 +31,7 @@ nsy: 10
 
 # kernelorder: spatial order of kernel variation within region, default: 2
 
-ko: 0
+ko: 2
 # bgorder: spatial order of background variation within region, default: 1
 bgo: 1
 
