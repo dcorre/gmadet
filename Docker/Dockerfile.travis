@@ -111,15 +111,15 @@ RUN  \
 
 # switch ownership
 # (all commands are root until a USER command changes that)
-USER ${USR}
+#USER ${USR}
 
 # Set the working directory
 WORKDIR /home/${USR}
 
 # change ownership from root to USR:
 # Create directory to link on volume with host machine
-RUN chown -R ${USR}:${USR}  /home/${USR} \
-   && mkdir /home/${USR}/gmadet/
+#RUN chown -R ${USR}:${USR}  /home/${USR} \
+RUN mkdir /home/${USR}/gmadet/
 
 # Copy local gmadet version inside docker image
 COPY . ./gmadet/
@@ -129,6 +129,9 @@ ENV PATH="/home/${USR}/.local/bin:$PATH"
 
 # Change working directory to gmadet
 WORKDIR /home/${USR}/gmadet
+
+# Install gmadet
+RUN python3.7 -m pip install -e .
 
 # define entrypoint which is the default executable at launch
 ENTRYPOINT ["bash"]
