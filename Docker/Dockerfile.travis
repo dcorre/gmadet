@@ -131,7 +131,7 @@ ENV PATH="/home/${USR}/.local/bin:$PATH"
 WORKDIR /home/${USR}/gmadet
 
 # Install gmadet
-RUN python3.7 -m pip install -e .
+#RUN python3.7 -m pip install -e .
 
 # define entrypoint which is the default executable at launch
 ENTRYPOINT ["bash"]
