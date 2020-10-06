@@ -9,13 +9,10 @@ FROM ubuntu:18.04
 LABEL maintainer="David Corre <david.corre.fr@gmail.com>"
 
 # Create a variable corresponding to the name of the new user that will be created inside the Docker.
-ENV USR newuser
+ENV USR user
 
 # Set up working directory
 WORKDIR /home
-
-# Create new user
-RUN useradd -ms /bin/bash ${USR}
 
 ARG SCAMP_version
 ARG SWARP_version
@@ -108,12 +105,15 @@ RUN  \
    && apt-get autoremove --purge -y
    #&& apt-get purge -y gfortran gfortran-7 git-man libgfortran-7-dev libgfortran4 
 
-# Set the working directory
-WORKDIR /home/${USR}
+# Create new user
+RUN useradd -ms /bin/bash ${USR}
 
 # switch ownership
 # (all commands are root until a USER command changes that)
 USER ${USR}
+
+# Set the working directory
+WORKDIR /home/${USR}
 
 # change ownership from root to USR:
 # Create directory to link on volume with host machine
@@ -126,11 +126,13 @@ COPY . ./gmadet/
 # Change working directory to gmadet
 WORKDIR /home/${USR}/gmadet
 
-# Install gmadet
-RUN python3.7 setup.py develop --user 
-
 # Add local bin to PATH
 ENV PATH="/home/${USR}/.local/bin:$PATH"
+
+# Install gmadet. Does not work apparently.
+# Can not find gmadet 
+# But executing this command inside the docker works well...
+# RUN python3.7 setup.py develop --user 
 
 # define entrypoint which is the default executable at launch
 ENTRYPOINT ["bash"]
