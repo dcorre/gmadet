@@ -110,7 +110,8 @@ RUN useradd -ms /bin/bash ${USR}
 
 # switch ownership
 # (all commands are root until a USER command changes that)
-USER ${USR}
+# Deactivate, will need to investigate why permission get denied on Travis.
+# USER ${USR}
 
 # Set the working directory
 WORKDIR /home/${USR}
