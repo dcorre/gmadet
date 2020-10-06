@@ -1,29 +1,31 @@
+---
 # Config file for automatic testing at travis-ci.org
 
-language: python
-python:
-  - 3.6
-  - 3.5
-  - 3.4
-  - 2.7
+sudo: required
 
-# Command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install: pip install -U tox-travis
+language: minimal
 
-# Command to run tests, e.g. python setup.py test
-script: tox
+os:
+  - linux
 
-# Assuming you have installed the travis-ci CLI tool, after you
-# create the Github repo and add it to Travis, run the
-# following command to finish PyPI deployment setup:
-# $ travis encrypt --add deploy.password
-deploy:
-  provider: pypi
-  distributions: sdist bdist_wheel
-  user: dcorre
-  password:
-    secure: PLEASE_REPLACE_ME
-  on:
-    tags: true
-    repo: dcorre/gmadet
-    python: 3.6
+services:
+  - docker
+
+# bail-out early for failures
+fast_finish: true
+
+before_install:
+  #- git pull dcorre/gmadet:travis
+  - docker build -t gmadet:travis -f Docker/Dockerfile.travis . || exit 1;
+
+script:
+  # run tests
+  - docker run -v $(pwd)/:/home/newuser/gmadet/ gmadet:travis -c 'python3.7 setup.py test' || exit 1;
+cache:
+  directories:
+  - $HOME/.cache/pip
+  - $HOME/build/.cache/pip
+
+# perform coverage
+after_success:
+  - codecov
