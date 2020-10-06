@@ -10,12 +10,14 @@ services:
   - docker
 
 before_install:
+  - sudo groupadd docker
+  - sudo usermod -aG docker $USER 
   #- git pull dcorre/gmadet:travis
-  - sudo docker build -t gmadet:travis -f Docker/Dockerfile.travis . || exit 1;
+  - docker build -t gmadet:travis -f Docker/Dockerfile.travis . || exit 1;
 
 script:
   # run tests
-  - sudo docker run -v $(pwd):/home/newuser/gmadet/ gmadet:travis -c 'python3.7 setup.py develop --user; pytest tests' || exit 1;
+  - docker run -v $(pwd):/home/newuser/gmadet/ gmadet:travis -c 'python3.7 setup.py develop --user; pytest tests' || exit 1;
 cache:
   directories:
   - $HOME/.cache/pip
