@@ -15,10 +15,10 @@ from gmadet.utils import rm_p, mkdir_p
 from gmadet.astrometry import scamp
 
 
-def registration(filelist, config, resultDir="", useweight=False,
-                 gain=1, normalise_exp=True, verbose="NORMAL"):
+def registration(filelist, config, resultDir="", reference=None,
+                 useweight=False,gain=1, normalise_exp=True,
+                 verbose="NORMAL"):
     """Register images"""
-
     #  Initialise lists used for creating output astropy table
     inim_list = []
     refim_list = []
@@ -63,7 +63,8 @@ def registration(filelist, config, resultDir="", useweight=False,
                 # '-VERBOSE_TYPE', verbose] + imalists)
                 "-VERBOSE_TYPE", verbose,
             ]
-            + [inim]
+            #+ [inim]
+            + [refim]
         )
         # Some keywords manipulation using sed
         subprocess.call(
@@ -77,110 +78,120 @@ def registration(filelist, config, resultDir="", useweight=False,
         outFiles = []
         # Run swarp to perform the registration on each image in filelist
         for j, ima in enumerate(files):
+
+            path, filename_ext = os.path.split(ima)
+            epoch = resultDir + filename_ext.split(".")[0] + "_reg_%s" % i
+            outFiles.append(epoch + ".fits")
+
             if "mask" in ima:
                 subBackground = "N"
             else:
                 subBackground = "Y"
-            path, filename_ext = os.path.split(ima)
-            epoch = resultDir + filename_ext.split(".")[0] + "_reg_%s" % i
-            outFiles.append(epoch + ".fits")
+
+            # use weight for PS1 image
+            if reference == 'ps1' and 'rings_v3_skycell' in ima and \
+                    'mask' not in ima:
+                #weight_type = "MAP_WEIGHT"
+                #weight_type = "MAP_VARIANCE"
+                weight_type = "MAP_RMS"
+                weight_type = "NONE"
+
+                weight_name = path + '/' + filename_ext.split(".")[0] + \
+                        ".weight.fits"
+            else:
+                weight_type = "NONE"
+                weight_name = path + '/' + filename_ext.split(".")[0] + \
+                        ".weight.fits"
+
             # Copy the common header in the .head file
             # So that it is read by sawrp for each image
             shutil.copy(point + ".head", epoch + ".head")
-            if useweight:
-                subprocess.call(
-                    [
-                        "swarp",
-                        "-IMAGEOUT_NAME", epoch + ".fits",
-                        "-WEIGHTOUT_NAME", epoch + ".weight.fits",
-                        "-VERBOSE_TYPE", verbose,
-                        "-GAIN_DEFAULT", str(gain),
-                    ]
-                    + [ima]
-                )
-            else:
-                # Use bilinear to avoid artefact, but worst for
-                # noise so would need to check in more details.
-                subprocess.call(
-                    [
-                        "swarp",
-                        "-IMAGEOUT_NAME", epoch + ".fits",
-                        # '-GAIN_DEFAULT', str(gain),
-                        "-FSCALE_KEYWORD", "NONE",
-                        "-FSCALE_DEFAULT", "1, 1",
-                        "-SUBTRACT_BACK", subBackground,
-                        "-COMBINE", "Y",
-                        "-BACK_SIZE", "128",
-                        "-BACK_FILTERSIZE", "3",
-                        "-RESAMPLE", "Y",
-                        "-PIXELSCALE_TYPE", "MANUAL",
-                        "-PIXEL_SCALE", str(pixScale),
-                        # '-CENTER', '%s, %s' % (header['CRVAL1'],
-                        #                         header['CRVAL2']),
-                        # '-RESAMPLING_TYPE', 'LANCZOS3',
-                        "-RESAMPLING_TYPE", "BILINEAR",
-                        # '-RESAMPLING_TYPE', 'NEAREST',
-                        "-OVERSAMPLING", "0",
-                        "-COMBINE_TYPE", "MEDIAN",
-                        "-VERBOSE_TYPE", verbose,
-                        "-COPY_KEYWORDS", "FILTER",
-                    ]
-                    + [ima]
-                )
+            
+            # Use bilinear to avoid artefact, but worst for
+            # noise so would need to check in more details.
+            subprocess.call(
+                [
+                    "swarp",
+                    "-IMAGEOUT_NAME", epoch + ".fits",
+                    "-WEIGHT_TYPE", weight_type,
+                    "-WEIGHT_IMAGE", weight_name,
+                    "-WEIGHTOUT_NAME", '.weight.fits',
+                    # Arbitrary threshold. 
+                    # Pixels at the edsge after resampling are 0 so
+                    # it is enough here
+                    "-WEIGHT_THRESH", "0.1",
+                    "-RESCALE_WEIGHTS", "N",
+                    # '-GAIN_DEFAULT', str(gain),
+                    "-FSCALE_KEYWORD", "NONE",
+                    "-FSCALE_DEFAULT", "1, 1",
+                    "-SUBTRACT_BACK", subBackground,
+                    "-COMBINE", "Y",
+                    "-COMBINE_TYPE", "MEDIAN",
+                    "-BACK_SIZE", "128",
+                    "-BACK_FILTERSIZE", "3",
+                    "-RESAMPLE", "Y",
+                    "-RESAMPLE_DIR", resultDir,
+                    "-RESAMPLE_SUFFIX", '_test.fits',
+                    "-PIXELSCALE_TYPE", "MANUAL",
+                    "-PIXEL_SCALE", str(pixScale),
+                    # '-CENTER', '%s, %s' % (header['CRVAL1'],
+                    #                         header['CRVAL2']),
+                    # '-RESAMPLING_TYPE', 'LANCZOS3',
+                    "-RESAMPLING_TYPE", "BILINEAR",
+                    # '-RESAMPLING_TYPE', 'NEAREST',
+                    "-OVERSAMPLING", "0",
+                    "-VERBOSE_TYPE", verbose,
+                    "-COPY_KEYWORDS", "FILTER",
+                ]
+                + [ima]
+            )
 
             # replace borders with NaNs in ref image if there are
             # any that are == 0,
             # hdulist=fits.open(epoch + '.fits')
             # hdulist[0].data[hdulist[0].data==0]=np.nan
             # hdulist.writeto(epoch + '.fits',overwrite=True)
-
+            
             rm_p(epoch + ".head")
         rm_p(point + ".head")
         rm_p("register.list")
         rm_p("coadd.weight.fits")
+        rm_p('swarp.xml')
 
         inim_regist = outFiles[0]
         refim_regist = outFiles[1]
         maskim_regist = outFiles[2]
 
-        # Set specific value for mask image
-        hdulist = fits.open(inim_regist)
+        # Rescale flux to 1s
+        # In the future can try to rescale flux of ref image 
+        # to match input image.
         if normalise_exp:
-            hdulist[0].data = hdulist[0].data / hdulist[0].header["EXPTIME"]
-            try:
-                hdulist[0].header["SATURATE"] = (
-                    hdulist[0].header["SATURATE"] /
-                    hdulist[0].header["EXPTIME"]
-                )
-            except BaseException:
-                pass
-            hdulist[0].header["EXPTIME"] = 1
-        # 1e-30 is the default value of bad pixels for hotpants
-        hdulist[0].data[hdulist[0].data == 0] = 1e-30
-        # hdulist[0].data[hdulist[0].data != 1e-30] /= 20
-        hdulist.writeto(inim_regist, overwrite=True)
+            rescale_flux(inim_regist)
+            rescale_flux(refim_regist)
 
-        hdulist = fits.open(refim_regist)
-        if normalise_exp:
-            hdulist[0].data = hdulist[0].data / hdulist[0].header["EXPTIME"]
-            try:
-                hdulist[0].header["SATURATE"] = (
-                    hdulist[0].header["SATURATE"] /
-                    hdulist[0].header["EXPTIME"]
-                )
-            except BaseException:
-                pass
-            hdulist[0].header["EXPTIME"] = 1
+        # Set masked pixels to same value
+        mask_pix = flag_bad_pixels(inim_regist,
+                                   mask_ref=maskim_regist,
+                                   value=1e-30)
+        # Update mask map
+        _ = flag_bad_pixels(maskim_regist, value=1e8, mask_map=mask_pix)
+        # Apply mask on ref data
+        _ = flag_bad_pixels(refim_regist, mask_ref=maskim_regist, value=1e-30)
 
-        # 1e-30 is the default value of bad pixels for hotpants
-        hdulist[0].data[hdulist[0].data == 0] = 1e-30
-        # hdulist[0].data[hdulist[0].data != 1e-30] /= 20
-        hdulist.writeto(refim_regist, overwrite=True)
+        print ('Remove bad pixels on the edge.')
+        # Take only part of image with data
+        # This will decrease image size and speed up the substraction
+        # Might also avoid probelm with masked values, depending on how 
+        # good they are deal with in hotpants.
+        limits = keep_useful_area(inim_regist, image_ref=refim_regist)    
+        _ = keep_useful_area(maskim_regist, limits_force=limits)
 
-        hdulist = fits.open(maskim_regist)
-        hdulist[0].data[hdulist[0].data != 0] = 1e8
-        hdulist.writeto(maskim_regist, overwrite=True)
+        # Perform a second time, as the edge are not straight, we can still
+        # remove some pixels after the first cut.
+        limits = keep_useful_area(inim_regist, image_ref=refim_regist)
+        _ = keep_useful_area(maskim_regist, limits_force=limits)
 
+        # Get info to tune hotpants parameters
         filelist_regist = [inim_regist, refim_regist, maskim_regist]
         hotpants_info = get_hotpants_info(filelist_regist, config, verbose)
 
@@ -223,27 +234,132 @@ def registration(filelist, config, resultDir="", useweight=False,
     )
     return info
 
+def flag_bad_pixels(image, mask_ref=None, value=1e-30, mask_map=None):
+    """
+    Set masked pixels to same value, to homogeneise.
+    1e-30 is the value used by hotpants to ignore pixels.
+    """
+    hdulist1 = fits.open(image)
+
+    if mask_map is not None:
+        # Apply an additional mask map to data
+        hdulist1[0].data[mask_map] = value
+
+    if mask_ref is not None:
+        hdulist2 = fits.open(mask_ref)
+        mask = hdulist2[0].data != 0.0
+        hdulist2.close()
+
+    if value == 1e-30:
+        # Used to flag bad pixels in science and ref images by hotpants
+        # Can actually be around the 1e-30 if resampled have been
+        # done iwith weight on science image.
+        hdulist1[0].data[hdulist1[0].data == 0] = value
+        # Flag bad pixels from the mask
+        if mask_ref is not None:
+            hdulist1[0].data[mask] = value
+    else:
+        # For the mask map, pixels with high values are ignored.
+        # 0 means they are not masked, i.e. good.
+        hdulist1[0].data[hdulist1[0].data != 0] = value
+
+    output_mask = hdulist1[0].data == value
+    hdulist1.writeto(image, overwrite=True)
+
+    return output_mask
+
+
+def rescale_flux(image):
+    """
+    Rescale flux scale to 1s.
+    In the future can also compute the flux factor scaling to match science 
+    and input image flux scale.
+    """
+
+    # Normalise pixel flux to 1s.
+    hdulist = fits.open(image)
+    hdulist[0].data = hdulist[0].data / hdulist[0].header["EXPTIME"]
+    # Try to update headers that are affected by this change.
+    # RN and DC standing for Read Noise and Dark Current are currently
+    # not kept during sanitising of the header. Need to update it.
+    keywords=['SATURATE', 'RN', 'DC']
+    for key in keywords:
+        try:
+            hdulist[0].header[key] = (
+                hdulist[0].header[key] /
+                hdulist[0].header["EXPTIME"]
+            )
+        except BaseException:
+            pass
+    # Set Exposure time to 1s from now on.
+    hdulist[0].header["EXPTIME"] = 1
+    hdulist.writeto(image, overwrite=True)
+
+
+def keep_useful_area(image, image_ref=None, limits_force=None):
+    """Keep only part of image with non masked pixels"""
+    hdulist1 = fits.open(image)
+    if image_ref is not None:
+        hdulist2 = fits.open(image_ref)
+
+    if limits_force is None:
+        ymin_im, xmin_im = np.min(np.where(hdulist1[0].data > 1e-30), axis=1)
+        ymax_im, xmax_im = np.max(np.where(hdulist1[0].data > 1e-30), axis=1)
+
+        if image_ref is None:
+            # Do it on a single image
+            xmin = xmin_im
+            xmax = xmax_im
+            ymin = ymin_im
+            ymax = ymax_im
+
+        else:
+            ymin_ref, xmin_ref = np.min(np.where(hdulist2[0].data > 1e-30), axis=1)
+            ymax_ref, xmax_ref = np.max(np.where(hdulist2[0].data > 1e-30), axis=1)
+           
+            xmin = np.max([xmin_ref, xmin_im])
+            xmax = np.min([xmax_ref, xmax_im])
+            ymin = np.max([ymin_ref, ymin_im])
+            ymax = np.min([ymax_ref, ymax_im])
+
+    else:
+        xmin, xmax, ymin, ymax = limits_force
+    hdulist1[0].data = hdulist1[0].data[ymin:ymax, xmin:xmax]
+
+    # Need to update center position info in header
+    # Not CRVAL ?? Need to check
+    xcenter1, ycenter1 = (hdulist1[0].header["CRPIX1"],
+                          hdulist1[0].header["CRPIX2"])
+
+    xcenter, ycenter = int(xcenter1 - xmin) + 1, int(ycenter1 - ymin) + 1
+    hdulist1[0].header["CRPIX1"] = xcenter
+    hdulist1[0].header["CRPIX2"] = ycenter
+
+    hdulist1.writeto(image, overwrite=True)
+
+    if image_ref is not None:
+        hdulist2[0].data = hdulist2[0].data[ymin:ymax, xmin:xmax]
+
+        # Need to update center position info in header
+        xcenter1, ycenter1 = (hdulist2[0].header["CRPIX1"],
+                              hdulist2[0].header["CRPIX2"])
+
+        xcenter, ycenter = int(xcenter1 - xmin) + 1, int(ycenter1 - ymin) + 1
+        hdulist2[0].header["CRPIX1"] = xcenter
+        hdulist2[0].header["CRPIX2"] = ycenter
+
+        hdulist2.writeto(image_ref, overwrite=True)
+
+    return [xmin, xmax, ymin, ymax]
+
 
 def get_hotpants_info(filelist, config, verbose):
     """Get some information for tuning hotpants
     """
-
     # Get the min and max pix with non 0 values
     # to delimate the new frame
     imdata, imheader = fits.getdata(filelist[0], header=True)
     refdata, refheader = fits.getdata(filelist[1], header=True)
-    ymin1, xmin1 = np.min(np.where(imdata > 1e-30), axis=1)
-    ymax1, xmax1 = np.max(np.where(imdata > 1e-30), axis=1)
-    ymin2, xmin2 = np.min(np.where(refdata > 1e-30), axis=1)
-    ymax2, xmax2 = np.max(np.where(refdata > 1e-30), axis=1)
-
-    #  Take only non 1e-30 values
-    #  Even if it removes some part of the image on the edges.
-    #  Hotpants works better like this
-    xmin = np.max([xmin1, xmin2])
-    xmax = np.min([xmax1, xmax2])
-    ymin = np.max([ymin1, ymin2])
-    ymax = np.min([ymax1, ymax2])
 
     inmin = -10  # np.nanmin(imdata)
     try:
@@ -272,62 +388,13 @@ def get_hotpants_info(filelist, config, verbose):
     if refgain == 0 or refgain > 10:
         refgain = 1.0
 
-    # replace borders with NaNs in ref image if there are
-    # any that are == 0,
-    hdulist = fits.open(filelist[0])
-    xcenter1, ycenter1 = (hdulist[0].header["CRPIX1"],
-                          hdulist[0].header["CRPIX2"])
-    hdulist[0].data = hdulist[0].data[ymin:ymax, xmin:xmax]
-
-    xcenter, ycenter = int(xcenter1 - xmin) + 1, int(ycenter1 - ymin) + 1
-    hdulist[0].header["CRPIX1"] = xcenter
-    hdulist[0].header["CRPIX2"] = ycenter
-    # print (np.min(hdulist[0].data))
-    inimmed = np.median(hdulist[0].data)
-    inimmax = np.max(hdulist[0].data)
-    inimmin = np.min(hdulist[0].data)
-    hdulist.writeto(filelist[0], overwrite=True)
-    # perform astrometric calibration after cutting image on input image only
-    # This astrometric solution will be shared with the reference file and
-    # resulting substracted image where sources are analysed.
-    # scamp(filelist[0], config, useweight=False,
-    #       CheckPlot=False, verbose=verbose)
-
-    hdulist = fits.open(filelist[1])
-    xcenter1, ycenter1 = (hdulist[0].header["CRPIX1"],
-                          hdulist[0].header["CRPIX2"])
-    newimg = hdulist[0].data[ymin:ymax, xmin:xmax]
-    # set max pixel value to 65000
-    factor = np.max(newimg)
-    hdulist[0].data = newimg  # /200#/factor*10000
-    # hdulist[0].data[hdulist[0].data == 0] = 1e-30
-
-    xcenter, ycenter = int(xcenter1 - xmin) + 1, int(ycenter1 - ymin) + 1
-    hdulist[0].header["CRPIX1"] = xcenter
-    hdulist[0].header["CRPIX2"] = ycenter
-
-    # hdulist[0].data=hdulist[0].data *1000
-    # hdulist[0].header['GAIN']=5.0
-    # print (np.min(hdulist[0].data))
-    # refmed=np.median(hdulist[0].data)
-    # refmax=np.max(hdulist[0].data)
-    # refmin=np.min(hdulist[0].data)
-    hdulist.writeto(filelist[1], overwrite=True)
-
-    if len(filelist) == 3:
-
-        hdulist = fits.open(filelist[2])
-        xcenter1, ycenter1 = (hdulist[0].header["CRPIX1"],
-                              hdulist[0].header["CRPIX2"])
-        newdata = hdulist[0].data[ymin:ymax, xmin:xmax]
-        newdata[newdata != 0] = 1e8
-        hdulist[0].data = newdata
-
-        xcenter, ycenter = int(xcenter1 - xmin) + 1, int(ycenter1 - ymin) + 1
-        hdulist[0].header["CRPIX1"] = xcenter
-        hdulist[0].header["CRPIX2"] = ycenter
-        hdulist.writeto(filelist[2], overwrite=True)
-
+    # Not needed anymore since using the weight output of swarp.
+    # That flags correctly the pixels at the edge after the resampling.
+    xmin = None
+    ymin = None
+    xmax = None
+    ymax = None
+    
     return [[xmin, xmax, ymin, ymax], [
         inmin, inmax, refmin, refmax], [imgain, refgain]]
 
