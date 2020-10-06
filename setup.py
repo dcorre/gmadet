@@ -12,17 +12,38 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-        'Click>=6.0',
         'numpy',
         'astropy',
         'matplotlib',
         'pandas',
         'astroquery',
-        'astroML']
+        'astroML',
+        'cython',
+        'Sphinx',
+        'twine',
+        'scipy',
+        'pandas',
+        'shapely',
+        'requests',
+        'h5py',
+        'scikit-image',
+        'lacosmic',
+        'hjson',
+        'voevent-parse',
+        'xmltodict',
+        'astroML',
+        'photutils',
+        'keras',
+        'keras-vis',
+        'tensorflow',
+        'regions',
+        'opencv-python-headless',
+        'astroquery',
+       ]
+setup_requirements = ['pytest-runner', 'flake8', 'bumpversion', 'wheel', 'twine',]
 
-setup_requirements = ['pytest-runner', ]
-
-test_requirements = ['pytest', ]
+test_requirements = ['pytest', 'pytest-cov', 'pytest-console-scripts',
+                     'pytest-html', 'watchdog']
 
 setup(
     author="David Corre",

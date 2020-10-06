@@ -20,7 +20,6 @@ from gmadet.psfex import psfex
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-
 def main():
 
     path_gmadet = getpath()
