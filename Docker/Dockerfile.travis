@@ -111,7 +111,7 @@ RUN  \
 # switch ownership
 # (all commands are root until a USER command changes that)
 # Deactivate, will need to investigate why permission get denied on Travis.
-# USER ${USR}
+USER ${USR}
 
 # Set the working directory
 WORKDIR /home/${USR}
