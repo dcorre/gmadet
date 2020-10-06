@@ -9,10 +9,13 @@ FROM ubuntu:18.04
 LABEL maintainer="David Corre <david.corre.fr@gmail.com>"
 
 # Create a variable corresponding to the name of the new user that will be created inside the Docker.
-ENV USR user
+ENV USR newuser
 
 # Set up working directory
 WORKDIR /home
+
+# Create new user
+RUN useradd -ms /bin/bash ${USR}
 
 ARG SCAMP_version
 ARG SWARP_version
@@ -105,9 +108,6 @@ RUN  \
    && apt-get autoremove --purge -y
    #&& apt-get purge -y gfortran gfortran-7 git-man libgfortran-7-dev libgfortran4 
 
-# Create new user
-RUN useradd -ms /bin/bash ${USR}
-
 # switch ownership
 # (all commands are root until a USER command changes that)
 # Deactivate, will need to investigate why permission get denied on Travis.
@@ -118,17 +118,17 @@ WORKDIR /home/${USR}
 
 # change ownership from root to USR:
 # Create directory to link on volume with host machine
-# RUN chown -R ${USR}:${USR}  /home/${USR} \
-RUN mkdir /home/${USR}/gmadet/
+RUN chown -R ${USR}:${USR}  /home/${USR} \
+    && mkdir /home/${USR}/gmadet/
 
 # Copy local gmadet version inside docker image
 COPY . ./gmadet/
 
-# Change working directory to gmadet
-WORKDIR /home/${USR}/gmadet
-
 # Add local bin to PATH
 ENV PATH="/home/${USR}/.local/bin:$PATH"
+
+# Change working directory to gmadet
+WORKDIR /home/${USR}/gmadet
 
 # Install gmadet. Does not work apparently.
 # Can not find gmadet 
