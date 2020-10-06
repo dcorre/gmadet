@@ -361,25 +361,22 @@ def main():
             soft=args.soft,
             subFiles=substracted_files
         )
-        total_candidates = catalogs(
+        total_sources, candidates = catalogs(
             image_table,
             args.radius_crossmatch,
             Nb_cuts=Nb_cuts,
             subFiles=substracted_files,
         )
-        # moving_objects(args.filename, total_candidates)
+        #moving_objects(image_table["filenames"], candidates)
 
-        #total_candidates = ascii.read('total_candidates.dat')
         total_candidates_calib = phot_calib(
-            total_candidates,
+            total_sources,
             args.telescope,
             radius=args.radius_crossmatch,
             doPlot=True,
             subFiles=substracted_files,
         )
 
-        # total_candidates_calib = ascii.read(
-        #    'Test_sendDB/gmadet_results/jul1919-010r_sh_tot_cand2.dat')
 
         #  If both arguments VOE_path and owncloud_path are provided
         #  Send candidates to database

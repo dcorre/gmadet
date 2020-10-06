@@ -160,10 +160,10 @@ def catalogs(image_table, radius,
         # Get pixel scale in degrees
         try:
             pixScale = abs(header["CDELT1"])
-        except Exception:
+        except BaseException:
             try:
                 pixScale = abs(header["CD1_1"])
-            except Exception:
+            except BaseException:
                 print(
                     "Pixel scale could not be found in fits header.\n Expected keyword: CDELT1, _DELT1 or CD1_1"
                 )
@@ -233,10 +233,10 @@ def catalogs(image_table, radius,
     #  Initialise candidates with all detected sources
     #candidates = deepcopy(detected_sources_tot)
     # Only consider sources in substracted images if substraction was performed:
-    if subfiles is not None:
+    if subFiles is not None:
         mask_sub = detected_sources_tot['FlagSub'] == 'Y'
     else:
-        mask_sub = np.ones(len(detected_sources_toti), dtype=bool)
+        mask_sub = np.ones(len(detected_sources_tot), dtype=bool)
 
     candidates = deepcopy(
             detected_sources_tot["_RAJ2000", "_DEJ2000",
@@ -330,30 +330,32 @@ def catalogs(image_table, radius,
         overwrite=True,
     )
 
+    detected_sources_tot[mask].write(
+        _filename.split("_reg_")[0] + ".candidates",
+        format="ascii.commented_header",
+        overwrite=True,
+    )
+
     # oc=candidates['Xpos', 'Ypos']
     # oc.write(magfilewcs+'4',format='ascii.commented_header', overwrite=True)
 
-    return detected_sources_tot
+    return detected_sources_tot, detected_sources_tot[mask]
 
 
-def skybot(ra_deg, dec_deg, date, radius, Texp):
+def skybot(ra_deg, dec_deg, date, radius, Texp, position_error=120):
     """
     query SkyBoT catalog using astroquery.skybot to search for moving objects
     parameters: ra_deg, dec_deg, date, Texp, radius:
                 ra_deg, dec_deg: RA and DEC in degrees astropy.units
-                date: date of observation (UTC)
+                date: date of observation (Julian days)
                 Texp: exposure time in astropy.unit
-                radius in arcsecond
+                position_error Maximum positional error for targets to be queried 
+                  (in arcsecond)
     returns: astropy.table object
     """
-    #  if present, substitue T by a whitespace
-    if "T" in date:
-        date = date.replace("T", " ")
-
     field = SkyCoord(ra_deg, dec_deg)
-    epoch = Time(str(date), format="iso")
     moving_objects_list = Skybot.cone_search(
-        field, radius, epoch, position_error=120 * u.arcsecond
+        field, radius, date, position_error=position_error * u.arcsecond
     )
 
     #  Add RA, DEC at end of exposure
@@ -369,7 +371,9 @@ def skybot(ra_deg, dec_deg, date, radius, Texp):
         moving_objects_list["DEC"],
         frame="icrs")
     c2 = SkyCoord(
-        moving_objects_list["RA_Tend"], moving_objects_list["DEC_Tend"], frame="icrs"
+        moving_objects_list["RA_Tend"],
+        moving_objects_list["DEC_Tend"],
+        frame="icrs"
     )
     sep = c1.separation(c2)
     moving_objects_list["RADEC_sep"] = sep
@@ -392,8 +396,6 @@ def crossmatch_skybot(sources, moving_objects, radius=5):
 
     NOT WORKING WITH PYTHON2.7, seems ok WITH PYTHON3
     """
-    # sources=ascii.read('/home/corre/codes/Tests/%s.fits.oc' % filename)
-    # moving_objects=ascii.read('/home/corre/codes/gmadet/gmadet/moving_objects.dat')
     cat1 = np.empty((len(sources), 2), dtype=np.float64)
     cat2 = np.empty((len(moving_objects), 2), dtype=np.float64)
     cat1[:, 0] = sources["_RAJ2000"]
@@ -403,20 +405,17 @@ def crossmatch_skybot(sources, moving_objects, radius=5):
     cat2[:, 1] = moving_objects["DEC"]
     dist, ind = crossmatch_angular(cat1, cat2, radius / 3600)
     match = ~np.isinf(dist)
-    # print (match)
     dist_match = dist[match]
     #  Convert in arcseconds
     dist_match *= 3600
-    # print (dist_match)
     if dist_match:
         mov_match = sources[ind[np.unique(match)]]
-        print(mov_match)
     candidates = sources[match == False]
 
     return candidates
 
 
-def moving_objects(filelist):
+def moving_objects(filelist, candidates):
     """
     Crossmatch the list of candidates with moving objects using SkyBoT
 
@@ -425,11 +424,20 @@ def moving_objects(filelist):
         header = fits.getheader(filename)
         ra_deg = float(header["CRVAL1"]) * u.deg
         dec_deg = float(header["CRVAL2"]) * u.deg
-        date = header["DATE-GPS"]
+        try:
+            date = time.Time(hdr["DATE-OBS"], format="fits")
+            # convert in GPS time 
+            date_JD = date.jd
+        except BaseException:
+            print(
+                "No keyword is found for the date of observation.\n"
+                "Expected keyword: `DATE-OBS`"
+            )
+        # Should be adpated to image field of view.
         radius = 2 * u.deg
         Texp = float(header["exposure"]) * u.second
 
-        moving_objects = skybot(ra_deg, dec_deg, date, radius, Texp)
+        moving_objects = skybot(ra_deg, dec_deg, date_JD, radius, Texp)
 
         moving_objects.write(
             "moving_objects.dat", format="ascii.commented_header", overwrite=True
