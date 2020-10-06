@@ -108,9 +108,9 @@ RUN  \
    && apt-get autoremove --purge -y
    #&& apt-get purge -y gfortran gfortran-7 git-man libgfortran-7-dev libgfortran4 
 
+
 # switch ownership
 # (all commands are root until a USER command changes that)
-# Deactivate, will need to investigate why permission get denied on Travis.
 USER ${USR}
 
 # Set the working directory
@@ -119,7 +119,7 @@ WORKDIR /home/${USR}
 # change ownership from root to USR:
 # Create directory to link on volume with host machine
 RUN chown -R ${USR}:${USR}  /home/${USR} \
-    && mkdir /home/${USR}/gmadet/
+   && mkdir /home/${USR}/gmadet/
 
 # Copy local gmadet version inside docker image
 COPY . ./gmadet/
@@ -129,11 +129,6 @@ ENV PATH="/home/${USR}/.local/bin:$PATH"
 
 # Change working directory to gmadet
 WORKDIR /home/${USR}/gmadet
-
-# Install gmadet. Does not work apparently.
-# Can not find gmadet 
-# But executing this command inside the docker works well...
-# RUN python3.7 setup.py develop --user 
 
 # define entrypoint which is the default executable at launch
 ENTRYPOINT ["bash"]
