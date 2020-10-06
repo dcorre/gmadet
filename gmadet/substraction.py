@@ -34,7 +34,8 @@ def get_corner_coords(filename):
 
 
 def substraction(filenames, reference, config, soft="hotpants",
-                 method="individual", verbose="NORMAL", outLevel=1):
+                 method="individual", doMosaic=False, 
+                 verbose="NORMAL", outLevel=1):
     """Substract a reference image to the input image"""
 
     imagelist = np.atleast_1d(filenames)
@@ -73,7 +74,8 @@ def substraction(filenames, reference, config, soft="hotpants",
                 method=method
             )
             regis_info = registration(
-                subfiles, config, resultDir=resultDir, verbose=verbose
+                subfiles, config, resultDir=resultDir, reference=reference,
+                verbose=verbose
             )
 
             if soft == "hotpants":
@@ -81,8 +83,8 @@ def substraction(filenames, reference, config, soft="hotpants",
 
         #  create a mosaic of al substracted images when
         # ps1_method=='individual'
-        if method == "individual":
-
+        #  Mosaic for substracted files
+        if method == "individual" and doMosaic:
             subfiles = np.array(subFiles)
             #  Mosaic for input file
             sublist = [i for i in subfiles[:, 0]]
@@ -106,12 +108,15 @@ def substraction(filenames, reference, config, soft="hotpants",
                 verbose=verbose
             )
             #  Mosaic for mask applied to substracted files
+            # Actually there is no need
+            
             sublist = [i for i in subfiles[:, 3]]
             outName = filename.split(".")[0] + "_mosaic_sub_mask"
             create_mosaic(
                 sublist, ima, resultDir, outName, config=config,
                 verbose=verbose
             )
+            
 
     #  Delete files if necessary, mainly to save space disk
     #  Problem when deleting files, they will appear in output files but
@@ -173,6 +178,9 @@ def hotpants(regis_info, config, verbose="QUIET"):
                 flag_bad = False
         except BaseException:
             flag_bad = True
+
+        flag_bad = False
+
         if flag_bad:
             print("bad substraction")
             #  try again increasing the sigma of third polynomial for the
