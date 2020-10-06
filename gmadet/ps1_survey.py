@@ -152,8 +152,8 @@ def zone_PS1(ps1grid, cellID):
 
     if cellID < ps1grid["PROJCELL"][0] or \
             cellID > ps1grid["PROJCELL"][-1]:
-        errmsg = 'Cell ID %s is outside the expected range: [%d-%d]' % 
-                (ps1grid["PROJCELL"][0], ps1grid["PROJCELL"][-1])
+        errmsg = 'Cell ID %d is outside the expected range: [%d-%d]' % \
+                (cellID, ps1grid["PROJCELL"][0], ps1grid["PROJCELL"][-1])
         raise BaseException(errmsg)
 
     # If last zone, it contains only one cell so easy
