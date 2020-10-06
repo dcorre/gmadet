@@ -9,16 +9,13 @@ os:
 services:
   - docker
 
-# bail-out early for failures
-fast_finish: true
-
 before_install:
   #- git pull dcorre/gmadet:travis
-  - docker build -t gmadet:travis -f Docker/Dockerfile.travis . || exit 1;
+  - sudo docker build -t gmadet:travis -f Docker/Dockerfile.travis . || exit 1;
 
 script:
   # run tests
-  - docker run -v $(pwd):/home/newuser/gmadet/ gmadet:travis -c 'python3.7 setup.py develop --user; pytest tests' || exit 1;
+  - sudo docker run -v $(pwd):/home/newuser/gmadet/ gmadet:travis -c 'python3.7 setup.py develop --user; pytest tests' || exit 1;
 cache:
   directories:
   - $HOME/.cache/pip
