@@ -195,17 +195,26 @@ def main():
     )
 
     parser.add_argument(
+        "--doMosaic",
+        dest="doMosaic",
+        action="store_true",
+        help="Whether to combine the individual frames into a common mosaic "
+             "when `ps1_method` is set to `individual`. (Default: not set)",
+    )
+
+    parser.add_argument(
         "--Remove_cosmics",
         dest="Remove_cosmics",
         action="store_true",
-        help="Whether to remove cosmic rays using lacosmic.",
+        help="Whether to remove cosmic rays using lacosmic. "
+             " (Default: not set)",
     )
 
     parser.add_argument(
         "--sub_bkg",
         dest="sub_bkg",
         action="store_true",
-        help="Whether to substract background.",
+        help="Whether to substract background. (Default: not set)",
     )
 
     parser.add_argument(
@@ -322,7 +331,7 @@ def main():
                 config,
                 soft="hotpants",
                 method=args.ps1_method,
-                doMosaic=False,
+                doMosaic=args.doMosaic,
                 verbose=args.verbose,
                 outLevel=args.outLevel,
             )
