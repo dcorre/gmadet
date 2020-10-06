@@ -10,7 +10,6 @@ services:
   - docker
 
 before_install:
-  - sudo groupadd docker
   - sudo usermod -aG docker $USER 
   #- git pull dcorre/gmadet:travis
   - docker build -t gmadet:travis -f Docker/Dockerfile.travis . || exit 1;
