@@ -118,9 +118,9 @@ def catalogs(image_table, radius,
 
     if subFiles is not None:
         subfiles = np.array(subFiles)
-        # filelist = [im for im in subfiles[:, 0]]
+        filelist = [im for im in subfiles[:, 0]]
         # Rather take the original data as the registartion introduces artefact
-        filelist = [im for im in image_table["filenames"]]
+        # filelist = [im for im in image_table["filenames"]]
         filelist.extend([im for im in subfiles[:, 2]])
     else:
         filelist = image_table["filenames"]
@@ -232,8 +232,16 @@ def catalogs(image_table, radius,
 
     #  Initialise candidates with all detected sources
     #candidates = deepcopy(detected_sources_tot)
-    candidates = deepcopy(detected_sources_tot["_RAJ2000", "_DEJ2000",
-                                               "idx", "Match", "FlagSub"])
+    # Only consider sources in substracted images if substraction was performed:
+    if subfiles is not None:
+        mask_sub = detected_sources_tot['FlagSub'] == 'Y'
+    else:
+        mask_sub = np.ones(len(detected_sources_toti), dtype=bool)
+
+    candidates = deepcopy(
+            detected_sources_tot["_RAJ2000", "_DEJ2000",
+                "idx", "Match", "FlagSub"][mask_sub])
+
     # candidates.write('test0.dat', format='ascii.commented_header', overwrite=True)
     print("\nCrossmatching sources with catalogs.")
     print(
@@ -254,7 +262,7 @@ def catalogs(image_table, radius,
         # Do not consider duplicates
         #  Meaning that if there are several sources
         #  we consider it as a crossmatch
-        referenced_star_idx = np.unique(crossmatch["idx"])
+        _, referenced_star_idx = np.unique(crossmatch["idx"], return_index=True)
 
         candidates["Match"][referenced_star_idx] = "Y"
 
@@ -265,13 +273,7 @@ def catalogs(image_table, radius,
             mask = (candidates["FlagSub"] == "Y") & (mask_matched)
             mask2 = candidates["FlagSub"] == "Y"
             print(
-                "%d/%d candidates left in substracted image after crossmatching with %s"
-                % (len(candidates[mask]), len(candidates[mask2]), cat_dict[catalog])
-            )
-            mask = (candidates["FlagSub"] == "N") & (mask_matched)
-            mask2 = np.invert(mask2)
-            print(
-                "%d/%d candidates left in original image (without substraction) after crossmatching with %s"
+                "%d/%d candidates left in substracted images after crossmatching with %s"
                 % (len(candidates[mask]), len(candidates[mask2]), cat_dict[catalog])
             )
         else:
@@ -287,7 +289,7 @@ def catalogs(image_table, radius,
                            candidates['idx'][mask_matched])
     #candidates = deepcopy(detected_sources_tot[keep_idx])
     # Add the Match flag in original table data
-    detected_sources_tot['Match'] = candidates['Match']
+    detected_sources_tot['Match'][~idx_no_match] = "Y"
 
     #  Get filename
     _filename = np.unique(_filename_list)[0]
@@ -307,22 +309,23 @@ def catalogs(image_table, radius,
             overwrite=True,
         )
 
+    else:
+        mask = idx_no_match
+        detected_sources_tot[mask].write(
+            _filename,
+            format="ascii.commented_header",
+            overwrite=True)
+        oc = detected_sources_tot[mask]["_RAJ2000", "_DEJ2000"]
+        oc.write(
+            _filename.split(".")[0] + ".oc_RADEC",
+            format="ascii.commented_header",
+            overwrite=True,
+        )
 
-    mask = (detected_sources_tot["FlagSub"] == "N") & idx_no_match
-    detected_sources_tot[mask].write(
-        _filename,
-        format="ascii.commented_header",
-        overwrite=True)
-    oc = detected_sources_tot[mask]["_RAJ2000", "_DEJ2000"]
-    oc.write(
-        _filename.split(".")[0] + ".oc_RADEC",
-        format="ascii.commented_header",
-        overwrite=True,
-    )
-
-    #  Also write a file with all the sources detected to know
+    #  Also write a file with all the sources detected
+    #  Use original input name (i.e. remove the _reg suffix.
     detected_sources_tot.write(
-        _filename.split(".")[0] + ".alldetections",
+        _filename.split("_reg_")[0] + ".alldetections",
         format="ascii.commented_header",
         overwrite=True,
     )

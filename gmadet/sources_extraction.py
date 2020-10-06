@@ -28,22 +28,33 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
     if subFiles:
         subFiles = np.array(subFiles)
 
+        """
         # No mask on iput data
-        # mask = ['None'] * len(subFiles[:, 0])
         mask = ["None"] * len(filelist)
         mask.extend([im for im in subFiles[:, 3]])
-        # weight_type = ['NONE'] * len(subFiles[:, 0])
         weight_type = ["NONE"] * len(filelist)
         weight_type.extend(["MAP_WEIGHT"] * len(mask))
 
         psfs = [im.split(".")[0] + ".psf" for im in filelist]
         #  assume we take the psf of the original file
         psfs.extend([psfs[0]] * len(subFiles[:, 2]))
-        # filelist = [im for im in subFiles[:, 0]]
         # Rather take the original before registration as it introduces
-        # artefact
+        # artefact. Note: there is a crossmatch before calibration so no pb.
         filelist = [im for im in filelist]
+        """
+        # No mask on iput data
+        mask = ['None'] * len(subFiles[:, 0])
+        mask.extend([im for im in subFiles[:, 3]])
+        weight_type = ['NONE'] * len(subFiles[:, 0])
+        weight_type.extend(["MAP_WEIGHT"] * len(mask))
+        psfs = [im.split(".")[0] + ".psf" for im in filelist]
+        # Assume PSF is same for the input image cutouts
+        # as it will take time to recompute it.
+        psfs.extend([psfs[0]] * (len(subFiles[:, 0])-1))
+        #  assume we take the psf of the original file for substracted im.
+        psfs.extend([psfs[0]] * len(subFiles[:, 2]))
 
+        filelist = [im for im in subFiles[:, 0]]
         filelist.extend([im for im in subFiles[:, 2]])
         # Duplicate FWHM list
         # FWHM_list.extend(FWHM_list)
@@ -60,7 +71,6 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
             folder = path + "/"
         else:
             folder = ""
-
         #  Get rid of the extension to keep only the name
         filename2 = filename_ext.split(".")[0]
         if outLevel == 2:
@@ -102,11 +112,11 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
 
 def filter_sources(filelist, soft, edge_cut=32, sigma=1, subFiles=None):
     # if substraction have been performed
-    # Run sextractor on input image to get photometry calibrated and
-    # on substracted image to get interesting sources
     if subFiles:
-        subFiles = np.array(subFiles)
-        # filelist = [im for im in subFiles[:, 0]]
+        subfiles = np.array(subFiles)
+        filelist = [im for im in subfiles[:, 0]]
+        filelist.extend([im for im in subfiles[:, 2]])
+        """
         # Rather take the original before registration as it introduces
         # artefact
         original_filelist = list(filelist)
@@ -119,13 +129,13 @@ def filter_sources(filelist, soft, edge_cut=32, sigma=1, subFiles=None):
         subfiles = np.array(subFiles)
         filelist = [im for im in filelist]
         filelist.extend([im for im in subfiles[:, 2]])
+        """
     for filename in filelist:
         path, filename_ext = os.path.split(filename)
         if path:
             folder = path + "/"
         else:
             folder = ""
-
         #  Get rid of the extension to keep only the name
         filename2 = filename_ext.split(".")[0]
         fileext = "." + filename_ext.split(".")[1]
@@ -146,8 +156,8 @@ def filter_sources(filelist, soft, edge_cut=32, sigma=1, subFiles=None):
                 mask_edge = (
                     (sources["X_IMAGE"] > edge_cut)
                     & (sources["Y_IMAGE"] > edge_cut)
-                    & (sources["X_IMAGE"] < imsize[1] - edge_cut)
-                    & (sources["Y_IMAGE"] < imsize[0] - edge_cut)
+                    & (sources["X_IMAGE"] < imsize[0] - edge_cut)
+                    & (sources["Y_IMAGE"] < imsize[1] - edge_cut)
                 )
 
                 """
@@ -199,29 +209,19 @@ def convert_xy_radec(filelist, soft="sextractor", subFiles=None):
     Input is the *.magfiltered file from select_good_stars() function
     Output is the *.magwcs file
     """
-    """
-        subFiles = np.array(subFiles)
-
-        # No mask on iput data
-        #mask = ['None'] * len(subFiles[:, 0])
-        mask = ['None'] * len(filelist)
-        print (len(subFiles[:, 0]))
-        mask.extend([im for im in subFiles[:, 3]])
-        #weight_type = ['NONE'] * len(subFiles[:, 0])
-        weight_type = ['NONE'] * len(filelist)
-        weight_type.extend(['MAP_WEIGHT'] * len(mask))
-
-        #filelist = [im for im in subFiles[:, 0]]
-        # Rather take the original before registration as it
-        # introduces artefact
-        filelist = [im for im in filelist]
-        filelist.extend([im for im in subFiles[:, 2]])
-        # Duplicate FWHM list
-        #FWHM_list.extend(FWHM_list)
-        FWHM_list = np.ravel([[i]*len(filelist) for i in FWHM_list])
-"""
     # If substraction has been performed
     if subFiles:
+        subfiles = np.array(subFiles)
+        original_filelist = [im for im in subfiles[:, 0]]
+        original_filelist.extend([im for im in original_filelist] * 2)
+
+        reference_filelist = ["None"] * len(subfiles[:, 0])
+        reference_filelist.extend([im for im in subfiles[:, 1]])
+
+        filelist = [im for im in subfiles[:, 0]]
+        filelist.extend([im for im in subfiles[:, 2]])
+        
+        """
         original_filelist = list(filelist)
         original_filelist.extend([im for im in filelist] * len(subFiles))
         subfiles = np.array(subFiles)
@@ -232,6 +232,7 @@ def convert_xy_radec(filelist, soft="sextractor", subFiles=None):
         # artefact
         filelist = [im for im in filelist]
         filelist.extend([im for im in subfiles[:, 2]])
+        """
     else:
         original_filelist = filelist
         reference_filelist = ["None"] * len(filelist)

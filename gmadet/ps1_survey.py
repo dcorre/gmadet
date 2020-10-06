@@ -103,7 +103,6 @@ def ps1_cell_coord(im_corner_coords, projcell_id, Xcell, Ycell,
                 projcell_ra_center,
                 projcell_dec_center,
             )
-            # print (projcell_id,y,x, corner_coords)
             #  Check whether one cell is contained in the input image
             pix_im_coord = np.array(
                 [im_corner_coords[0], im_corner_coords[1]]).T
@@ -113,12 +112,13 @@ def ps1_cell_coord(im_corner_coords, projcell_id, Xcell, Ycell,
             cell_RAs = pix_cell_coord[:, 0]
             cell_RA_max = np.max(cell_RAs)
             flag = False
-            #  if one corner has distance more than 350 degrees
+            #  if one corner has distance more than 300 degrees
             #  to highest RA, add 360 to it
             #  and to the image RA corners
             #  So that intersect with shapely still make sense
+            # Might need to change for very large field of view.
             for i, cell_RA in enumerate(cell_RAs):
-                if cell_RA_max - cell_RA > 350:
+                if cell_RA_max - cell_RA > 300:
                     flag = True
                     pix_cell_coord[i, 0] += 360
             if flag:
@@ -126,7 +126,6 @@ def ps1_cell_coord(im_corner_coords, projcell_id, Xcell, Ycell,
 
             im_poly = Polygon([tuple(co) for co in pix_im_coord])
             cell_poly = Polygon([tuple(co) for co in pix_cell_coord])
-
             # print (polygon_im.contains(cell_corner_coords, w))
             if im_poly.intersects(cell_poly):
                 projcell_id_list.append(projcell_id)
@@ -148,6 +147,25 @@ def ps1_cell_coord(im_corner_coords, projcell_id, Xcell, Ycell,
     )
     return overlap_cells
 
+def zone_PS1(ps1grid, cellID):
+    """Returns the ZONE in which a cellID is."""
+
+    if cellID < ps1grid["PROJCELL"][0] or \
+            cellID > ps1grid["PROJCELL"][-1]:
+        errmsg = 'Cell ID %s is outside the expected range: [%d-%d]' % 
+                (ps1grid["PROJCELL"][0], ps1grid["PROJCELL"][-1])
+        raise BaseException(errmsg)
+
+    # If last zone, it contains only one cell so easy
+    if cellID == 2643:
+        zone = 45
+
+    for i in range(len(ps1grid) - 1):
+        if ps1grid["PROJCELL"][i] <= cellID and \
+                ps1grid["PROJCELL"][i+1] > cellID:
+            zone = ps1grid["ZONE"][i]
+
+    return zone
 
 def ps1_grid(im_corner_coords):
     """
@@ -170,17 +188,13 @@ def ps1_grid(im_corner_coords):
     dec_max = np.max(im_corner_coords[1], axis=0)
 
     ps1grid = Table.read(path_gmadet + "/ps1_survey/ps1grid.fits", hdu=1)
-
     #  Get the min and max declination zones
     mask = ((ps1grid["DEC_MIN"] < dec_min) & (ps1grid["DEC_MAX"] > dec_min)) | (
         (ps1grid["DEC_MIN"] < dec_max) & (ps1grid["DEC_MAX"] > dec_max)
     )
-
     # Get all declinations zones
     all_zones_id = np.arange(
         ps1grid[mask]["ZONE"][0], ps1grid[mask]["ZONE"][-1] + 1)
-
-    # print (all_zones_id)
     all_cells = []
 
     # Loop over the different zones
@@ -189,14 +203,12 @@ def ps1_grid(im_corner_coords):
         idx_bkp = -1
         projcell_idx_list = []
         for ra in [ra_min, ra_max]:
-
             #  Get the cells covering the input ra
             closet_projcell_idx = (
                 float(ps1grid[mask]["PROJCELL"])
                 + ra * float(ps1grid[mask]["NBAND"]) / 360
             )
             projcell_idx = int(np.rint(closet_projcell_idx))
-
             if projcell_idx != idx_bkp:
                 projcell_idx_list.append(projcell_idx)
             idx_bkp = projcell_idx
@@ -220,6 +232,7 @@ def ps1_grid(im_corner_coords):
                 total_proj_cell_idx, list_proj_cell_end)
 
         for cell_id in total_proj_cell_idx:
+            mask = ps1grid["ZONE"] == zone_PS1(ps1grid, cell_id)
             diff_projcell_idx = cell_id - float(ps1grid[mask]["PROJCELL"])
             ra_center_projcell = diff_projcell_idx * \
                 360 / float(ps1grid[mask]["NBAND"])
@@ -240,7 +253,6 @@ def ps1_grid(im_corner_coords):
         all_cells = all_cells[0]
     else:
         all_cells = vstack([tab for tab in all_cells])
-
     return all_cells
 
 
@@ -296,28 +308,43 @@ def download_ps1_cells(cell_table, band, config, ps1Dir,
                         "File %s was not downloaded or found on the server." %
                         Link)
 
+            new_filename = local_cell_file.replace(
+                    '.fits', '_%s.fits' % config['telescope']
+            )
             if aux == "":
                 # Check if targeted file was downloaded to continue
                 if os.path.isfile(FileNameFitsPath):
-                    if os.path.isfile(ps1RescaledDir + local_cell_file):
-                        pass
+                    if os.path.isfile(ps1RescaledDir + new_filename):
+                       pass
                     else:
                         #  Rescale to physical flux
                         linear_rescale_ps1(
                             local_cell_file, ps1Dir, ps1RescaledDir, band
                         )
+                        resample_ps1(local_cell_file,
+                                     ps1RescaledDir,
+                                     config)
                         #  Perform astrometric calibration on each cell
                         config_ps1 = load_config("PS1", "default")
                         scamp(
-                            ps1RescaledDir + local_cell_file,
+                            ps1RescaledDir + new_filename,
                             config_ps1,
                             accuracy=0.1,
                             itermax=3,
                             band=band,
                             verbose="QUIET",
                         )
-
-            file_list.append(ps1RescaledDir + local_cell_file)
+            else:
+                if os.path.isfile(ps1RescaledDir + new_filename):
+                    pass
+                else:
+                    resample_ps1(local_cell_file,
+                                 ps1RescaledDir,
+                                 config)
+                    # No need to run scamp, pixels are already aligned with
+                    # PS1 image which had correct wcs. 
+            # new_filename contains the telescope alias.
+            file_list.append(ps1RescaledDir + new_filename)
     return file_list
 
 
@@ -332,6 +359,13 @@ def prepare_PS1_sub(ps1_cell_table, band, inputimage,
         folder = path + "/"
     else:
         folder = ""
+
+    # Get pixelscale from input science image
+    # And add it to config dictionary
+    header = fits.getheader(inputimage)
+    pixScale = [abs(float(header["CDELT1"])) * 3600,
+                abs(float(header["CDELT2"])) * 3600]
+    config['pixScale'] = pixScale
 
     ps1Dir = path_gmadet + "/ps1Dir/"
     if not os.path.isdir(ps1Dir):
@@ -364,7 +398,6 @@ def prepare_PS1_sub(ps1_cell_table, band, inputimage,
             ref = ps1files[i]
             mask = ps1files[i + 1]
             subfiles.append([inputimage, ref, mask])
-
     return subfiles
 
 
@@ -459,6 +492,77 @@ def linear_rescale_ps1(filename, inputDir, outputDir,
 
     return True
 
+def resample_ps1(filename, inputDir, config, useweight=False,
+                 verbose="NORMAL"):
+    """Resample PS1 image to the telescope resolution"""
+    pixScale = config['pixScale'][0]
+
+    basename = filename.split(".")[0]
+    if useweight:
+        subprocess.call(
+            [
+             "swarp",
+             inputDir+filename,
+             "-IMAGEOUT_NAME", inputDIr + basename + \
+                         '_%s' % config['telescope'] + ".fits",
+             "-WEIGHTOUT_NAME", inputDIr + epoch + \
+                         '_%s' % config['telescope'] + ".weight.fits",
+             "-VERBOSE_TYPE", verbose,
+            ]
+        )
+    else:
+        # Use bilinear to avoid artefact, but worst for
+        # noise so would need to check in more details.
+        subprocess.call(
+           [
+            "swarp",
+            inputDir+filename,
+            "-IMAGEOUT_NAME", inputDir + basename + \
+                       '_%s' % config['telescope'] + ".fits",
+            # '-GAIN_DEFAULT', str(gain),
+            "-FSCALE_KEYWORD", "NONE",
+            "-FSCALE_DEFAULT", "1, 1",
+            "-SUBTRACT_BACK", "N",
+            "-COMBINE", "N",
+            "-BACK_SIZE", "128",
+            "-BACK_FILTERSIZE", "3",
+            "-RESAMPLE", "Y",
+            "-RESAMPLE_DIR", inputDir,
+            "-RESAMPLE_SUFFIX", '_%s.fits' % config['telescope'],
+            "-PIXELSCALE_TYPE", "MANUAL",
+            "-PIXEL_SCALE", str(pixScale),
+            # '-CENTER', '%s, %s' % (header['CRVAL1'],
+            #                         header['CRVAL2']),
+            # '-RESAMPLING_TYPE', 'LANCZOS3',
+            "-RESAMPLING_TYPE", "BILINEAR",
+            # '-RESAMPLING_TYPE', 'NEAREST',
+            "-OVERSAMPLING", "0",
+            "-COMBINE_TYPE", "MEDIAN",
+            "-VERBOSE_TYPE", verbose,
+            "-COPY_KEYWORDS", "FILTER, EXPTIME, SATURATE",
+           ]
+        )
+    rm_p('swarp.xml')
+    rm_p("coadd.weight.fits")
+    rm_p(inputDir+filename)
+
+    
+    if 'mask' in basename:
+        # Add the new pixels created on the edge after resampling to
+        # the mask
+        hdulist1 = fits.open(inputDir + basename + \
+                '_%s' % config['telescope'] + ".weight.fits")
+        zero_pix = hdulist1[0].data == 0
+        hdulist1.close()
+
+        outName = inputDir + basename + \
+                '_%s' % config['telescope'] + ".fits"
+        hdulist2 = fits.open(outName)
+        # Put high value
+        hdulist2[0].data[zero_pix] = 1e8
+        hdulist2.writeto(outName, overwrite=True)
+
+    return True
 
 def create_ps1_mosaic(file_list, inputimage, outputDir, config,
                       band, useweight=False, verbose="NORMAL"):

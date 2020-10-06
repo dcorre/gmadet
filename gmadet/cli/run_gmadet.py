@@ -322,6 +322,7 @@ def main():
                 config,
                 soft="hotpants",
                 method=args.ps1_method,
+                doMosaic=False,
                 verbose=args.verbose,
                 outLevel=args.outLevel,
             )
@@ -359,7 +360,7 @@ def main():
         )
         # moving_objects(args.filename, total_candidates)
 
-        # total_candidates = ascii.read('total_candidates.dat')
+        #total_candidates = ascii.read('total_candidates.dat')
         total_candidates_calib = phot_calib(
             total_candidates,
             args.telescope,
