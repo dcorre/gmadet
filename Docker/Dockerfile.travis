@@ -118,8 +118,8 @@ WORKDIR /home/${USR}
 
 # change ownership from root to USR:
 # Create directory to link on volume with host machine
-RUN chown -R ${USR}:${USR}  /home/${USR} \
-   && mkdir /home/${USR}/gmadet/
+# RUN chown -R ${USR}:${USR}  /home/${USR} \
+RUN mkdir /home/${USR}/gmadet/
 
 # Copy local gmadet version inside docker image
 COPY . ./gmadet/
