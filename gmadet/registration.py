@@ -80,7 +80,8 @@ def registration(filelist, config, resultDir="", reference=None,
         for j, ima in enumerate(files):
 
             path, filename_ext = os.path.split(ima)
-            epoch = resultDir + filename_ext.split(".")[0] + "_reg_%s" % i
+            epoch = resultDir + os.path.splitext(filename_ext)[0] + \
+                    "_reg_%s" % i
             outFiles.append(epoch + ".fits")
 
             if "mask" in ima:
@@ -96,11 +97,13 @@ def registration(filelist, config, resultDir="", reference=None,
                 weight_type = "MAP_RMS"
                 weight_type = "NONE"
 
-                weight_name = path + '/' + filename_ext.split(".")[0] + \
+                weight_name = path + '/' + \
+                        os.path.splitext(filename_ext)[0] + \
                         ".weight.fits"
             else:
                 weight_type = "NONE"
-                weight_name = path + '/' + filename_ext.split(".")[0] + \
+                weight_name = path + '/' + \
+                        os.path.splitext(filename_ext)[0] + \
                         ".weight.fits"
 
             # Copy the common header in the .head file

@@ -88,21 +88,21 @@ def substraction(filenames, reference, config, soft="hotpants",
             subfiles = np.array(subFiles)
             #  Mosaic for input file
             sublist = [i for i in subfiles[:, 0]]
-            outName = filename.split(".")[0] + "_mosaic"
+            outName = os.path.splitext(filename)[0] + "_mosaic"
             create_mosaic(
                 sublist, ima, resultDir, outName, config=config,
                 verbose=verbose
             )
             #  Mosaic for ps1 reference files
             sublist = [i for i in subfiles[:, 1]]
-            outName = filename.split(".")[0] + "_mosaic_ps1"
+            outName = os.path.splitext(filename)[0] + "_mosaic_ps1"
             create_mosaic(
                 sublist, ima, resultDir, outName, config=config,
                 verbose=verbose
             )
             #  Mosaic for substracted files
             sublist = [i for i in subfiles[:, 2]]
-            outName = filename.split(".")[0] + "_mosaic_sub"
+            outName = os.path.splitext(filename)[0] + "_mosaic_sub"
             create_mosaic(
                 sublist, ima, resultDir, outName, config=config,
                 verbose=verbose
@@ -111,7 +111,7 @@ def substraction(filenames, reference, config, soft="hotpants",
             # Actually there is no need
             
             sublist = [i for i in subfiles[:, 3]]
-            outName = filename.split(".")[0] + "_mosaic_sub_mask"
+            outName = os.path.splitext(filename)[0] + "_mosaic_sub_mask"
             create_mosaic(
                 sublist, ima, resultDir, outName, config=config,
                 verbose=verbose
@@ -149,14 +149,14 @@ def hotpants(regis_info, config, verbose="QUIET"):
         else:
             folder = ""
 
-        resfile = inim.split(".")[0] + "_sub.fits"
-        resmask = inim.split(".")[0] + "_sub_mask.fits"
+        resfile = os.path.splitext(inim)[0] + "_sub.fits"
+        resmask = os.path.splitext(inim)[0] + "_sub_mask.fits"
 
         hotpants_cmd = get_hotpants_cmd(
             inim, refim, maskim, resfile, resmask, info, config, verbose,
             run=1
         )
-        hotpants_cmd_file = path + filename.split(".")[0] + "_hotpants.sh"
+        hotpants_cmd_file = path + os.path.splitext(filename)[0] + "_hotpants.sh"
         os.system("echo %s > %s" % (hotpants_cmd, hotpants_cmd_file))
 
         os.system(hotpants_cmd)
@@ -190,7 +190,7 @@ def hotpants(regis_info, config, verbose="QUIET"):
                 run=1
             )
 
-            hotpants_cmd_file = path + filename.split(".")[0] + "_hotpants.sh"
+            hotpants_cmd_file = path + os.path.splitext(filename)[0] + "_hotpants.sh"
             os.system("echo %s > %s" % (hotpants_cmd, hotpants_cmd_file))
             os.system(hotpants_cmd)
             header = fits.getheader(resfile)
@@ -212,7 +212,7 @@ def hotpants(regis_info, config, verbose="QUIET"):
                 )
 
                 hotpants_cmd_file = path + \
-                    filename.split(".")[0] + "_hotpants.sh"
+                    os.path.splitext(filename)[0] + "_hotpants.sh"
                 os.system("echo %s > %s" % (hotpants_cmd, hotpants_cmd_file))
                 os.system(hotpants_cmd)
 
@@ -237,8 +237,8 @@ def get_hotpants_cmd(inim, refim, maskim, resfile, resmask, info,
     else:
         folder = ""
 
-    resfile = inim.split(".")[0] + "_sub.fits"
-    resmask = inim.split(".")[0] + "_sub_mask.fits"
+    resfile = os.path.splitext(inim)[0] + "_sub.fits"
+    resmask = os.path.splitext(inim)[0] + "_sub_mask.fits"
 
     if run == 1:
         fname = config["hotpants"]["conf"]
@@ -265,7 +265,7 @@ def get_hotpants_cmd(inim, refim, maskim, resfile, resmask, info,
         sigma_refim = FWHM_refim / (2 * np.sqrt(2 * np.log(2)))
         #  As decribed here https://github.com/acbecker/hotpants
         kernel_match = np.sqrt(sigma_inim ** 2 - sigma_refim ** 2)
-        kernel_file = path + filename.split(".")[0] + "_kernel.dat"
+        kernel_file = path + os.path.splitext(filename)[0] + "_kernel.dat"
         kernel_txt = "Sigma_ima: %.3f   Sigma_PS1: %.3f    Sigma_kernel: %.3f" % (
             sigma_inim,
             sigma_refim,

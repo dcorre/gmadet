@@ -26,7 +26,7 @@ def run_lacosmic(filename, FWHM, contrast=5, cr_threshold=5,
         else:
             folder = ""
 
-        filename2 = filename_ext.split(".")[0]
+        filename2 = os.path.splitext(filename_ext)[0]
 
         #  Make copy of original image
         if outLevel == 2:

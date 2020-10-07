@@ -277,10 +277,7 @@ def phot_calib(detected_sources, telescope, radius=3,
             folder = ""
 
         #  Get rid of the extension to keep only the name
-        fname2 = fname_ext.split(".")[0]
-        extension = ""
-        for ext in fname_ext.split(".")[1:]:
-            extension = extension + "." + ext
+        fname2,extension = os.path.splitext(fname_ext)
 
         # Get filter and catalog to perform photometric calibration
         band_DB, band_cat, catalog = get_phot_cat(key[0], telescope)
