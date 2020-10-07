@@ -35,7 +35,7 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
         weight_type = ["NONE"] * len(filelist)
         weight_type.extend(["MAP_WEIGHT"] * len(mask))
 
-        psfs = [im.split(".")[0] + ".psf" for im in filelist]
+        psfs = [os.path.splitext(im)[0] + ".psf" for im in filelist]
         #  assume we take the psf of the original file
         psfs.extend([psfs[0]] * len(subFiles[:, 2]))
         # Rather take the original before registration as it introduces
@@ -63,7 +63,7 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
         mask = ["None"] * len(filelist)
         weight_type = ["NONE"] * len(filelist)
 
-        psfs = [im.split(".")[0] + ".psf" for im in filelist]
+        psfs = [os.path.splitext(im)[0] + ".psf" for im in filelist]
 
     for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
@@ -72,7 +72,7 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
         else:
             folder = ""
         #  Get rid of the extension to keep only the name
-        filename2 = filename_ext.split(".")[0]
+        filename2 = os.path.splitext(filename_ext)[0]
         if outLevel == 2:
             checkimage_type = "BACKGROUND, SEGMENTATION"
             checkimage_name = (
@@ -137,8 +137,7 @@ def filter_sources(filelist, soft, edge_cut=32, sigma=1, subFiles=None):
         else:
             folder = ""
         #  Get rid of the extension to keep only the name
-        filename2 = filename_ext.split(".")[0]
-        fileext = "." + filename_ext.split(".")[1]
+        filename2,fileext = os.path.splitext(filename_ext)
 
         if soft == "sextractor":
             sources = ascii.read(
@@ -247,7 +246,7 @@ def convert_xy_radec(filelist, soft="sextractor", subFiles=None):
             folder = ""
 
         #  Get rid of the extension to keep only the name
-        filename2 = filename_ext.split(".")[0]
+        filename2 = os.path.splitext(filename_ext)[0]
 
         magfilewcs = folder + filename2 + ".magwcs"
 

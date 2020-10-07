@@ -382,7 +382,7 @@ def prepare_PS1_sub(ps1_cell_table, band, inputimage,
     subfiles = []
     if method == "mosaic":
         #  Create mosaic file if it does not exist
-        mosaicfile = folder + filenameInput.split(".")[0] + "_ps1_mosaic.fits"
+        mosaicfile = folder + os.path.splitext(filenameInput)[0] + "_ps1_mosaic.fits"
         if os.path.isfile(mosaicfile):
             print(
                 "PS1 mosaic image already exists in this location: %s. If you want to recompute it, delete it."
@@ -462,7 +462,7 @@ def linear_rescale_ps1(filename, inputDir, outputDir,
             #   inputDir+filename.split('.')[0]+'_exp.fits')
             # hdulist[0].data = hdulist[0].data / hdulist_exp[0].data
             hdulist_expwt = fits.open(
-                inputDir + filename.split(".")[0] + "_expwt.fits")
+                inputDir + os.path.splitext(filename)[0] + "_expwt.fits")
             hdulist[0].data = hdulist[0].data / hdulist_expwt[0].data
         hdulist[0].header["EXPTIME"] = 1
     """
@@ -486,7 +486,7 @@ def linear_rescale_ps1(filename, inputDir, outputDir,
     hdulist[0].data[np.isnan(hdulist[0].data)] = 1
     hdulist.writeto(
         outputDir +
-        filename.split(".")[0] +
+        os.path.splitext(filename)[0] +
         "_mask.fits",
         overwrite=True)
 
@@ -576,8 +576,8 @@ def create_ps1_mosaic(file_list, inputimage, outputDir, config,
     np.savetxt("mask.list", mask_list, fmt="%s")
 
     imagefiles = [
-        outputDir + filenameInput.split(".")[0] + "_ps1_mosaic",
-        outputDir + filenameInput.split(".")[0] + "_ps1_mosaic_mask",
+        outputDir + os.path.splitext(filenameInput)[0] + "_ps1_mosaic",
+        outputDir + os.path.splitext(filenameInput)[0] + "_ps1_mosaic_mask",
     ]
 
     # Get pixel scale from input image header

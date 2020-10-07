@@ -54,7 +54,7 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
 
     catalog_list = []
     idx_stop = []
-    Ncat = len(coordinates) 
+    Ncat = len(coordinates)
     Ncut = int(Ncat / nb_threads)
     for i in range(nb_threads):
         if i == 0:
@@ -71,7 +71,7 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
     pool = mp.Pool(nb_threads)
     # call apply_async() without callback
     result_objects = [pool.apply_async(_run_xmatch,
-                                args=(cat, catalog, radius)) 
+                                args=(cat, catalog, radius))
                           for cat in catalog_list]
 
     # result_objects is a list of pool.ApplyResult objects
@@ -80,7 +80,7 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
     # Don't forget to close
     pool.close()
     pool.join()
-    
+
     # If one table is empty and one returns something,
     # there will be a conflict type, str vs something.
     # So keep only the one with data
@@ -93,7 +93,7 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
     # If all are empty select the first not to crash the code
     if c == 0:
         res2keep.append(results[0])
-    
+
     crossmatch = vstack(res2keep)
     return crossmatch
 
@@ -131,10 +131,7 @@ def catalogs(image_table, radius,
         else:
             folder = ""
         #  Get rid of the extension to keep only the name
-        filename2 = filename_ext.split(".")[0]
-        extension = ""
-        for ext in filename_ext.split(".")[1:]:
-            extension = extension + "." + ext
+        filename2,extension = os.path.splitext(filename_ext)
 
         magfilewcs = folder + filename2 + ".magwcs"
 
@@ -146,7 +143,7 @@ def catalogs(image_table, radius,
             original_name = folder + split_file[0]
             for name in split_file[1].split("_")[1:]:
                 original_name = original_name + "_" + name
-            original_name = original_name.split(".")[0]
+            original_name = os.path.splitext(original_name)[0]
             quadrant = split_file[1].split("_")[0]
             """
             if len(split_file[-1]) == 2:
@@ -298,13 +295,13 @@ def catalogs(image_table, radius,
     if subFiles is not None:
         mask = (detected_sources_tot["FlagSub"] == "Y") & idx_no_match
         detected_sources_tot[mask].write(
-            _filename.split(".")[0] + "_sub.oc",
+            os.path.splitext(_filename)[0] + "_sub.oc",
             format="ascii.commented_header",
             overwrite=True,
         )
         oc = detected_sources_tot[mask]["_RAJ2000", "_DEJ2000"]
         oc.write(
-            _filename.split(".")[0] + "_sub.oc_RADEC",
+            os.path.splitext(_filename)[0] + "_sub.oc_RADEC",
             format="ascii.commented_header",
             overwrite=True,
         )
@@ -317,7 +314,7 @@ def catalogs(image_table, radius,
             overwrite=True)
         oc = detected_sources_tot[mask]["_RAJ2000", "_DEJ2000"]
         oc.write(
-            _filename.split(".")[0] + ".oc_RADEC",
+            os.path.splitext(_filename)[0] + ".oc_RADEC",
             format="ascii.commented_header",
             overwrite=True,
         )

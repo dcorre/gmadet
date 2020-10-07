@@ -28,7 +28,7 @@ def sim(datapath, filenames, Ntrans=50, size=48,
         magrange=[14, 22], gain=None, magzp=30):
     """Insert point sources in real images """
 
-    simdir = datapath + "/gmadet_sim/simulation/" 
+    simdir = datapath + "/gmadet_sim/simulation/"
     mkdir_p(simdir)
 
     cutsize = np.array([size, size], dtype=np.int32)
@@ -58,7 +58,7 @@ def sim(datapath, filenames, Ntrans=50, size=48,
             band = str(headi1["FILTER"])
             ima1 = hdusi1[0].data.astype(np.float32)
             hdusp1 = fits.open(
-                filename.split(".")[0] +
+                os.path.splitext(filename)[0] +
                 "_psf.fits",
                 memmap=False)
             headp1 = hdusp1[0].header
@@ -81,7 +81,7 @@ def sim(datapath, filenames, Ntrans=50, size=48,
             pos = np.zeros((Ntrans, 2), dtype=float)
             for j in range(Ntrans):
                 newfile = simdir + \
-                    name.split(".")[0] + "_" + str(counter) + ".fits"
+                    os.path.splitext(name)[0] + "_" + str(counter) + ".fits"
                 filelist.append(newfile)
 
                 filterlist.append(band)
