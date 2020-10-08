@@ -365,26 +365,20 @@ def get_hotpants_info(filelist, config, verbose):
     refdata, refheader = fits.getdata(filelist[1], header=True)
 
     inmin = -10  # np.nanmin(imdata)
-    try:
+    if "SATURATE" in imheader:
         inmax = 0.9 * imheader["SATURATE"]
-    except BaseException:
+    else:
         inmax = 0.9 * np.nanmax(imdata)
+
     refmin = -10  # np.nanmin(refdata)
-    try:
+    if "SATURATE" in refheader:
         refmax = 0.9 * refheader["SATURATE"]
-    except BaseException:
+    else:
         refmax = 0.9 * np.nanmax(refdata)
-    # refmax = np.nanmax(refdata)
 
-    try:
-        imgain = imheader["GAIN"]
-    except BaseException:
-        imgain = 1
+    imgain = imheader.get('GAIN', 1)
+    refgain = refheader.get('GAIN', 1)
 
-    try:
-        refgain = refheader["GAIN"]
-    except BaseException:
-        refgain = 1
     if imgain == 0 or imgain > 10:
         imgain = 1.0
 
