@@ -38,6 +38,7 @@ def main():
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
         required=True,
         type=str,
@@ -55,6 +56,7 @@ def main():
 
     parser.add_argument(
         "--Ntrans",
+        "--num-trans",
         dest="Ntrans",
         required=False,
         type=int,
@@ -75,6 +77,7 @@ def main():
 
     parser.add_argument(
         "--magrange",
+        "--mag-range",
         dest="magrange",
         required=False,
         type=int,
@@ -85,6 +88,7 @@ def main():
 
     parser.add_argument(
         "--ZP",
+        "--zp",
         dest="ZP",
         required=False,
         type=int,
@@ -104,6 +108,7 @@ def main():
 
     parser.add_argument(
         "--doAstrometry",
+        "--do-astrometry",
         dest="doAstrometry",
         required=False,
         default="scamp",
@@ -125,6 +130,7 @@ def main():
 
     parser.add_argument(
         "--itermax",
+        "--iter-max",
         dest="itermax",
         required=False,
         type=float,
@@ -135,6 +141,7 @@ def main():
 
     parser.add_argument(
         "--convFilter",
+        "--conv-filter",
         dest="convFilter",
         required=False,
         default="default",
@@ -157,7 +164,7 @@ def main():
         help="Level of verbose, according to astromatic software. "
              "(Default: NORMAL)",
     )
-    
+
     args = parser.parse_args()
 
     #  Load config files for a given telescope
@@ -171,7 +178,7 @@ def main():
 
     for filename in filenames:
 
-        if args.doAstrometry != "No": 
+        if args.doAstrometry != "No":
             print("Sanitise header and data of %s.\n" % filename)
             sanitise_fits(filename)
             astrometric_calib(
