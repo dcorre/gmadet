@@ -23,4 +23,4 @@ cache:
 
 # perform coverage
 after_success:
-  - codecov -s reports/
+  - bash <(curl -s https://codecov.io/bash) -v -s reports/

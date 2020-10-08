@@ -327,7 +327,7 @@ def PS2Johnson(band, PS_Table):
                 + (PS_Table["e_gmag"] / PS_Table["gmag"]) ** 2
                 + (PS_Table["e_rmag"] / PS_Table["rmag"]) ** 2
             )
-            * PS_Table["VMag"]
+            * PS_Table["BMag"]
         )
 
     return PS_Table
