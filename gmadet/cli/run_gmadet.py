@@ -249,12 +249,12 @@ def main():
 
     Nb_cuts = (args.quadrants, args.quadrants)
 
-    #  Load config files for a given telescope
+    # Load config files for a given telescope
     config = load_config(args.telescope, args.convFilter)
 
     filenames = list_files(args.path_data)
-    #  copy original images
-    #  Create list of the copy images
+    # copy original images
+    # Create list of the copy images
     filenames = make_copy(filenames, args.path_data,
                           outputDir="gmadet_results/")
 
@@ -263,8 +263,8 @@ def main():
         print("Sanitise header and data of %s.\n" % filename)
         sanitise_fits(filename)
 
-        #  Cut image into several quadrants if required
-        #  And create table with filename and quadrant ID
+        # Cut image into several quadrants if required
+        # And create table with filename and quadrant ID
         image_table = cut_image(
             filename,
             config,
@@ -276,7 +276,7 @@ def main():
             print(
                 "Running lacosmic on %s to remove cosmic rays. \n" %
                 filename)
-            #  Clean cosmic rays
+            # Clean cosmic rays
             # Not using FWHM anymore
             FWHM_list = [None] * len(image_table)
             run_lacosmic(
@@ -290,7 +290,7 @@ def main():
             )
 
         if args.sub_bkg:
-            #  Substract background
+            # Substract background
             bkg_estimation(
                 image_table["filenames"],
                 box=(20, 20),
@@ -378,8 +378,8 @@ def main():
         )
 
 
-        #  If both arguments VOE_path and owncloud_path are provided
-        #  Send candidates to database
+        # If both arguments VOE_path and owncloud_path are provided
+        # Send candidates to database
         # Set the tile_id corresponding to your tile by hand at the moment
         if args.VOE_path and args.owncloud_path:
             send_data2DB(
@@ -393,7 +393,7 @@ def main():
                 subFiles=substracted_files,
             )
 
-        #  clean output files
+        # clean output files
         clean_outputs(image_table["filenames"], args.outLevel)
 
 if __name__ == "__main__":
