@@ -497,7 +497,7 @@ def resample_ps1(filename, inputDir, config, useweight=False,
     """Resample PS1 image to the telescope resolution"""
     pixScale = config['pixScale'][0]
 
-    basename = filename.split(".")[0]
+    basename = os.path.splitext(filename)[0]
     if useweight:
         subprocess.call(
             [
