@@ -55,7 +55,12 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
     catalog_list = []
     idx_stop = []
     Ncat = len(coordinates)
+    # Check if there less data than number of threads.
+    if Ncat < nb_threads:
+        nb_threads = 1
+
     Ncut = int(Ncat / nb_threads)
+
     for i in range(nb_threads):
         if i == 0:
             catalog_list.append(coordinates[i * Ncut : (i+1) * Ncut])
