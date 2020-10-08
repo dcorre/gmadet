@@ -265,8 +265,11 @@ def catalogs(image_table, radius,
         #  Meaning that if there are several sources
         #  we consider it as a crossmatch
         _, referenced_star_idx = np.unique(crossmatch["idx"], return_index=True)
-
-        candidates["Match"][referenced_star_idx] = "Y"
+        
+        # First keep only the first occurence to a given idx.
+        crossmatch = crossmatch[referenced_star_idx]
+        # Then apply it the candidates table to flag referenced sources.
+        candidates["Match"][crossmatch['idx']] = "Y"
 
         #  Update Match mask
         mask_matched = candidates["Match"] == "N"
