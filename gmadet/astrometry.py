@@ -23,7 +23,7 @@ import xmltodict
 def clean_tmp_files(filename, soft="scamp"):
     """Clean tempory files created by either astrometry.net or scamp"""
 
-    fileroot = filename.split(".fits")
+    fileroot = os.path.splitext(filename)[0]
     if soft == "astrometrynet":
         os.remove(fileroot[0] + "-indx.xyls")
         os.remove(fileroot[0] + ".axy")

@@ -23,4 +23,4 @@ cache:
 
 # perform coverage
 after_success:
-  - codecov
+  - codecov -s reports/
