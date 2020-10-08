@@ -252,7 +252,7 @@ def catalogs(image_table, radius,
 
     mask_matched = candidates["Match"] == "N"
     for catalog in catalogs:
-        print(catalog, len(candidates[mask_matched], ' sources to crossmatch.'))
+        print(catalog, len(candidates[mask_matched]), ' sources to crossmatch.')
         # Use Xmatch to crossmatch with catalog
         crossmatch = run_xmatch(
             candidates[mask_matched], catalog,
