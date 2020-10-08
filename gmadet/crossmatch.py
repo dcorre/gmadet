@@ -55,7 +55,12 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
     catalog_list = []
     idx_stop = []
     Ncat = len(coordinates)
+    # Check if there less data than number of threads.
+    if Ncat < nb_threads:
+        nb_threads = 1
+
     Ncut = int(Ncat / nb_threads)
+
     for i in range(nb_threads):
         if i == 0:
             catalog_list.append(coordinates[i * Ncut : (i+1) * Ncut])
@@ -222,7 +227,6 @@ def catalogs(image_table, radius,
     detected_sources_tot["_DEJ2000"] *= u.deg
     # Add index for each source
     detected_sources_tot["idx"] = np.arange(len(detected_sources_tot))
-
     #  Add a flag to indicate whether a source is crossmatched with
     #  a referenced source
     detected_sources_tot["Match"] = ["N"] * len(detected_sources_tot)
@@ -248,7 +252,7 @@ def catalogs(image_table, radius,
 
     mask_matched = candidates["Match"] == "N"
     for catalog in catalogs:
-        print(catalog, len(candidates[mask_matched]))
+        print(catalog, len(candidates[mask_matched]), ' sources to crossmatch.')
         # Use Xmatch to crossmatch with catalog
         crossmatch = run_xmatch(
             candidates[mask_matched], catalog,
@@ -260,8 +264,12 @@ def catalogs(image_table, radius,
         #  Meaning that if there are several sources
         #  we consider it as a crossmatch
         _, referenced_star_idx = np.unique(crossmatch["idx"], return_index=True)
-
-        candidates["Match"][referenced_star_idx] = "Y"
+        # First keep only the first occurence to a given idx.
+        crossmatch = crossmatch[referenced_star_idx]
+        idx_match = np.isin(candidates['idx'],
+                            crossmatch['idx'])
+        # Then apply it the candidates table to flag referenced sources.
+        candidates["Match"][idx_match] = "Y"
 
         #  Update Match mask
         mask_matched = candidates["Match"] == "N"
