@@ -47,7 +47,7 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
         mask.extend([im for im in subFiles[:, 3]])
         weight_type = ['NONE'] * len(subFiles[:, 0])
         weight_type.extend(["MAP_WEIGHT"] * len(mask))
-        psfs = [im.split(".")[0] + ".psf" for im in filelist]
+        psfs = [os.path.splitext(im)[0] + ".psf" for im in filelist]
         # Assume PSF is same for the input image cutouts
         # as it will take time to recompute it.
         psfs.extend([psfs[0]] * (len(subFiles[:, 0])-1))
