@@ -34,7 +34,7 @@ Features
 * Image substraction with Pan-STARRS reference images using [hotpants](https://github.com/acbecker/hotpants). PS1 images matching your image FoV are automatically downloaded.
 * Crossmatch of detected sources with Pan-STARRS DR1, GAIA DR2, GSC and USNO-B1 catalogs using the Xmatch algorithm, through [astroquery](https://astroquery.readthedocs.io/en/latest/xmatch/xmatch.html).
 * Crossmatch of detected sources with solar system moving objects using [SkyBot](https://astroquery.readthedocs.io/en/latest/imcce/imcce.html).
-* Detected sources not referenced in any catalog are then classified using a CNN network implemented with [Keras](https://keras.io/, in order to keep only point-like sources).
+* Detected sources not referenced in any catalog are then classified using a CNN network implemented with [Keras](https://keras.io/), in order to keep only point-like sources.
 * Photometric calibration (in AB) using Pan-STARRS DR1, SDSS DR12 or GAIA DR2 based on the zeropoint computed over the whole image.
 * Automatic report of candidates to the database used for O3 using a HTTP POST method.
 
