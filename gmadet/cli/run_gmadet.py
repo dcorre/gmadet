@@ -73,6 +73,7 @@ def main():
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
         required=True,
         type=str,
@@ -81,6 +82,7 @@ def main():
 
     parser.add_argument(
         "--FWHM",
+        "--fwhm",
         dest="FWHM",
         required=True,
         help="Typical telescope FWHM"
@@ -88,6 +90,7 @@ def main():
 
     parser.add_argument(
         "--radius_crossmatch",
+        "--radius-crossmatch",
         dest="radius_crossmatch",
         required=False,
         type=float,
@@ -118,6 +121,7 @@ def main():
 
     parser.add_argument(
         "--convFilter",
+        "--conv-filter",
         dest="convFilter",
         required=False,
         default="default",
@@ -151,6 +155,7 @@ def main():
 
     parser.add_argument(
         "--doAstrometry",
+        "--do-astrometry",
         dest="doAstrometry",
         required=False,
         default="scamp",
@@ -173,6 +178,7 @@ def main():
 
     parser.add_argument(
         "--doSub",
+        "--do-sub",
         dest="doSub",
         required=False,
         type=str,
@@ -183,6 +189,7 @@ def main():
 
     parser.add_argument(
         "--ps1_method",
+        "--ps1-method",
         dest="ps1_method",
         required=False,
         default="mosaic",
@@ -197,6 +204,7 @@ def main():
 
     parser.add_argument(
         "--doMosaic",
+        "--do-mosaic",
         dest="doMosaic",
         action="store_true",
         help="Whether to combine the individual frames into a common mosaic "
@@ -205,6 +213,7 @@ def main():
 
     parser.add_argument(
         "--Remove_cosmics",
+        "--remove-cosmics",
         dest="Remove_cosmics",
         action="store_true",
         help="Whether to remove cosmic rays using lacosmic. "
@@ -213,6 +222,7 @@ def main():
 
     parser.add_argument(
         "--sub_bkg",
+        "--sub-bkg",
         dest="sub_bkg",
         action="store_true",
         help="Whether to substract background. (Default: not set)",
@@ -220,6 +230,7 @@ def main():
 
     parser.add_argument(
         "--output_data_level",
+        "--output-data-level",
         dest="outLevel",
         required=False,
         type=int,
@@ -232,6 +243,7 @@ def main():
 
     parser.add_argument(
         "--owncloud_path",
+        "--owncloud-path",
         dest="owncloud_path",
         required=False,
         type=str,
@@ -240,6 +252,7 @@ def main():
 
     parser.add_argument(
         "--VOE_path",
+        "--voe-path",
         dest="VOE_path",
         required=False,
         type=str,
@@ -247,6 +260,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    print(args)
+    return
 
     Nb_cuts = (args.quadrants, args.quadrants)
 

@@ -27,6 +27,7 @@ def main():
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
         required=True,
         type=str,
@@ -45,6 +46,7 @@ def main():
 
     parser.add_argument(
         "--filter_size",
+        "--filter-size",
         dest="filter_size",
         required=False,
         type=int,
@@ -55,6 +57,7 @@ def main():
 
     parser.add_argument(
         "--bkg_estimator",
+        "--bkg-estimator",
         dest="bkg_estimator",
         required=False,
         type=str,
@@ -65,6 +68,7 @@ def main():
 
     parser.add_argument(
         "--sigma_clip",
+        "--sigma-clip",
         dest="sigma_clip",
         required=False,
         type=float,
@@ -74,6 +78,7 @@ def main():
 
     parser.add_argument(
         "--sigma_lower",
+        "--sigma-lower",
         dest="sigma_lower",
         required=False,
         type=float,
@@ -83,6 +88,7 @@ def main():
 
     parser.add_argument(
         "--sigma_upper",
+        "--sigma-upper",
         dest="sigma_upper",
         required=False,
         type=float,
@@ -92,6 +98,7 @@ def main():
 
     parser.add_argument(
         "--maxiters",
+        "--max-iters",
         dest="maxiters",
         required=False,
         type=int,

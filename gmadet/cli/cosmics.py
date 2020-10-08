@@ -33,6 +33,7 @@ def main():
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
         required=True,
         type=str,
@@ -51,6 +52,7 @@ def main():
 
     parser.add_argument(
         "--cr_threshold",
+        "--cr-threshold",
         dest="cr_threshold",
         required=False,
         default=5.0,
@@ -61,6 +63,7 @@ def main():
 
     parser.add_argument(
         "--neighbor_threshold",
+        "--neighbor-threshold",
         dest="neighbor_threshold",
         required=False,
         default=5.0,
@@ -72,6 +75,7 @@ def main():
 
     parser.add_argument(
         "--maxiter",
+        "--max-iter",
         dest="maxiter",
         required=False,
         default=4,

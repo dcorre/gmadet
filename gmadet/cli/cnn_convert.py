@@ -22,6 +22,7 @@ def main():
 
     parser.add_argument(
         "--path_datacube",
+        "--path-datacube",
         dest="path_datacube",
         required=True,
         type=str,
@@ -38,6 +39,7 @@ def main():
 
     parser.add_argument(
         "--path_cutouts",
+        "--path-cutouts",
         dest="path_cutouts",
         required=True,
         type=str,
