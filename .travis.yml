@@ -23,6 +23,4 @@ cache:
 
 # perform coverage
 after_success:
-  - ls reports/
-  - cat reports/coverage.xml
   - bash <(curl -s https://codecov.io/bash) -v -s reports/
