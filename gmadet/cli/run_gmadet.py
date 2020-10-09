@@ -31,6 +31,7 @@ from gmadet.utils import (
     mv_p,
     mkdir_p,
     make_copy,
+    make_results_dir,
     clean_outputs,
     getpath,
     getTel
@@ -74,9 +75,39 @@ def main():
         "--path_data",
         "--data",
         dest="path_data",
-        required=True,
+        action="append",
+        required=False,
         type=str,
         help="Path to data"
+    )
+
+    parser.add_argument(
+        "--path_results",
+        "--results",
+        dest="path_results",
+        required=False,
+        type=str,
+        default='gmadet_results',
+        help="Base path to store the results. "
+             "(Default: gmadet_results)"
+    )
+
+    parser.add_argument(
+        "--keep-old",
+        "--keep",
+        dest="keep",
+        required=False,
+        action="store_true",
+        help="Keep previous results"
+    )
+
+    parser.add_argument(
+        "--skip-processed",
+        "--skip",
+        dest="skip",
+        required=False,
+        action="store_true",
+        help="Skip already processed files"
     )
 
     parser.add_argument(
@@ -258,23 +289,31 @@ def main():
         help="Path/filename of the VoEvent containing the observation plan.",
     )
 
-    args = parser.parse_args()
+    args,filenames = parser.parse_known_args()
 
-    print(args)
-    return
+    # Combine free-form arguments with path_data into single list of filenames
+    if isinstance(args.path_data, str):
+        filenames = [args.path_data] + filenames
+    elif args.path_data:
+        filenames = list(args.path_data) + filenames
+
+    if not filenames:
+        return
 
     Nb_cuts = (args.quadrants, args.quadrants)
 
     #  Load config files for a given telescope
     config = load_config(args.telescope, args.convFilter)
 
-    filenames = list_files(args.path_data)
-    #  copy original images
-    #  Create list of the copy images
-    filenames = make_copy(filenames, args.path_data,
-                          outputDir="gmadet_results/")
+    filenames = list_files(filenames, exclude=args.path_results)
 
-    for filename in filenames:
+    for raw_filename in filenames:
+        # We should copy images to results dir one by one, while we are processing them
+        filename = make_results_dir(raw_filename, outputDir=args.path_results, keep=args.keep, skip=args.skip)
+
+        if not filename:
+            print("%s is already processed, skipping. \n" % raw_filename)
+            continue
 
         print("Sanitise header and data of %s.\n" % filename)
         sanitise_fits(filename)
