@@ -197,7 +197,7 @@ def main():
 
     parser.add_argument(
         "--doAstrometry",
-        "--do-astrometry",
+        "--astrometry",
         dest="doAstrometry",
         required=False,
         default="scamp",
@@ -220,7 +220,7 @@ def main():
 
     parser.add_argument(
         "--doSub",
-        "--do-sub",
+        "--sub",
         dest="doSub",
         required=False,
         type=str,
@@ -246,7 +246,7 @@ def main():
 
     parser.add_argument(
         "--doMosaic",
-        "--do-mosaic",
+        "--mosaic",
         dest="doMosaic",
         action="store_true",
         help="Whether to combine the individual frames into a common mosaic "
@@ -285,7 +285,7 @@ def main():
 
     parser.add_argument(
         "--owncloud_path",
-        "--owncloud-path",
+        "--owncloud",
         dest="owncloud_path",
         required=False,
         type=str,
@@ -294,7 +294,7 @@ def main():
 
     parser.add_argument(
         "--VOE_path",
-        "--voe-path",
+        "--voe",
         dest="VOE_path",
         required=False,
         type=str,
