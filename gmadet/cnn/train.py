@@ -297,9 +297,6 @@ if __name__ == "__main__":
              "(Default: 0.3)",
     )
 
-
-
-
     args = parser.parse_args()
 
     train(args.telescope, args.cubename, args.modelname,

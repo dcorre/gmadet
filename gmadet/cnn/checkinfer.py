@@ -39,7 +39,7 @@ class SortRes():
                 fwhm_psf.append(row['FWHMPSF'])
                 mag.append(row['mag'])
                 magerr.append(row['magerr'])
-                candID.append(row['candID'])
+                candID.append(row['cand_ID'])
         newtab = self.data1[idx_list]
         newtab['FWHM'] = fwhm
         newtab['FWHMPSF'] = fwhm_psf
@@ -47,7 +47,7 @@ class SortRes():
         newtab['mag2err'] = magerr       
         newtab['label0'] = label0
         newtab['label1'] = label1
-        newtab['candID'] = candID
+        newtab['cand_ID'] = candID
         return newtab
 
     def filter_pos(self, data, RA, Dec, radius):    
