@@ -31,6 +31,7 @@ from astropy.visualization import (
     ZScaleInterval,
 )
 from copy import deepcopy
+import multiprocessing as mp
 
 
 def cp_p(src, dest):
@@ -310,6 +311,8 @@ def make_sub_image(filename,
                    FoV=-1,
                    fmt="png",
                    addheader=True,
+                   title=None,
+                   info_dict=None
                    ):
     """
     Extract sub-image around OT coordinates for the given size.
@@ -395,7 +398,10 @@ def make_sub_image(filename,
         header["CRPIX2"] = int(size[1] / 2)
         header["CRVAL1"] = pix_ref[0]
         header["CRVAL2"] = pix_ref[1]
-
+        if info_dict is not None:
+            # Add information regarding the transients
+            for key, value in info_dict.items():
+                header[key] = value
         if addheader:
             hdu.header = header
         hdu.writeto(output_name, overwrite=True)
@@ -417,6 +423,9 @@ def make_sub_image(filename,
         plt.figure()
         plt.imshow(subimage - np.median(subimage),
                    cmap="gray", origin=origin, norm=norm)
+        if title is not None:
+            plt.title(title)
+        plt.tight_layout()
         plt.savefig(output_name)
 
 
