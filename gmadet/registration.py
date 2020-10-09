@@ -95,7 +95,7 @@ def registration(filelist, config, resultDir="", reference=None,
                 #weight_type = "MAP_WEIGHT"
                 #weight_type = "MAP_VARIANCE"
                 weight_type = "MAP_RMS"
-                weight_type = "NONE"
+                #weight_type = "NONE"
 
                 weight_name = path + '/' + \
                         os.path.splitext(filename_ext)[0] + \

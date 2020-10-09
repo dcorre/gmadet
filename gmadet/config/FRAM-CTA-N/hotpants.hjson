@@ -28,7 +28,7 @@ nsx: 10
 nsy: 10
 
 # kernelorder: spatial order of kernel variation within region, default: 2
-ko: 2
+ko: 1
 
 # bgorder: spatial order of background variation within region, default: 1
 bgo: 1
@@ -60,7 +60,7 @@ fi: 1.0e-30
 mous: 1
 
 # verbosity: level of verbosity, 0-2, default: 1
-v: 1
+v: 0
 
 
 }
