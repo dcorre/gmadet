@@ -110,4 +110,17 @@ gmadet/utilsDB/usrpwd.json
 # Ignore data and test folders
 gmadet/data/
 gmadet/test/
-*/gmadet_results/*
+gmadet_results/
+gmadet_astrometry/
+gmadet_psf/
+gmadet_remove_cosmics/
+gmadet_stacking/
+gmadet_subBkg/
+ps1Dir/
+ps1RescaledDir/
+
+# Misc
+.DS_Store
+*.orig
+*.rej
+\#*\#
