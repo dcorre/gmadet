@@ -38,14 +38,13 @@ def crossmatch(detected_sources, radius, pixScale, catalog, nb_threads=4):
     detected_sources["idx"] = np.arange(len(detected_sources))
 
     # Do not consider sources close to the image edges
-    # Do not add sources from substracted image
+    # Do not add sources from substracted image
     mask = (detected_sources["edge"] == "N") & \
             (detected_sources["FlagSub"] == "N")
 
     # Run xmatch to crossmatch detected sources with available catalog
-    # reduce size of the input catalog to its minimum
+    # reduce size of the input catalog to its minimum
     cat = deepcopy(detected_sources["_RAJ2000", "_DEJ2000", "idx"])
-
     crossmatch = run_xmatch(
         cat[mask],
         catalog,
@@ -53,12 +52,14 @@ def crossmatch(detected_sources, radius, pixScale, catalog, nb_threads=4):
         nb_threads)
     # Do not consider duplicates
     # Consider only closest crossmatch if multiple association.
-    # Assume that the first occurence is the closest one.
+    # Assume that the first occurence is the closest one.
     _, referenced_star_idx = np.unique(crossmatch["idx"],
                                        return_index=True)
     ref_sources = crossmatch[referenced_star_idx]
     #keep_idx = np.isin(detected_sources['idx'], ref_sources['idx'])
     ref_sources = join(ref_sources, detected_sources, join_type='left')
+    print ('Total detected sources: %d' % len(detected_sources))
+    print ('Crossmatched sources in %s: %d' % (catalog, len(ref_sources)))
     return ref_sources
 
 
@@ -152,7 +153,7 @@ def conv_mag_sys(data, band, catalog):
     return data, catalogName
 
 
-def zeropoint(data, sigma, quadrant, folder,
+def zeropoint(data, sigma, folder,
               fname, band, catalog, doPlot=False):
     """"Compute zeropoints"""
     # data.show_in_browser()
@@ -171,7 +172,7 @@ def zeropoint(data, sigma, quadrant, folder,
     delta_mag_std = np.std(delta_mag)
 
     newdata.write(
-        folder + fname + "_ZP_%d.dat" % quadrant,
+        folder + fname + "_ZP.dat",
         format="ascii.commented_header",
         overwrite=True,
     )
@@ -193,7 +194,7 @@ def zeropoint(data, sigma, quadrant, folder,
             "zeropoints without sigma clipping.\nMedian: %.2f, std: %.2f"
             % (median_nosigmaclip, std_nosigmaclip)
         )
-        plt.savefig(folder + fname + "_ZP_%d_nosigmaClipping.png" % quadrant)
+        plt.savefig(folder + fname + "_ZP_nosigmaClipping.png")
 
         plt.figure()
         plt.scatter(newdata["mag_inst"], newdata["mag_cat"], color="blue")
@@ -208,23 +209,26 @@ def zeropoint(data, sigma, quadrant, folder,
             "Median: %.2f, std: %.2f"
             % (-delta_mag_median, delta_mag_std)
         )
-        plt.savefig(folder + fname + "_ZP_%d.png" % quadrant)
+        plt.savefig(folder + fname + "_ZP.png")
         # plt.show()
 
     return newdata, delta_mag_median, delta_mag_std
 
 
-def phot_calib(detected_sources, telescope, radius=3,
+def phot_calib(detected_sources, telescope, radius=3, sigma_clip=1.5,
+               method='allimage',
                doPlot=True, subFiles=None):
     """Perform photometric calibration using catalogs"""
 
-    # Assume that the pixelscale is the same for all images.
-    # It is the case as all the images are part of the same.
-    # If the script is used outside of the gamdet_run, this need
-    # to be changed.
-    # Benefit is to make only one crossmatch with all sources instead
-    # of multiple crossmatch with small number of sources.
+    print("Processing photometric calibration.")
+    # Assume that the pixelscale is the same for all images.
+    # It is the case as all the images are part of the same.
+    # If the script is used outside of the gamdet_run, this need
+    # to be changed.
+    # Benefit is to make only one crossmatch with all sources instead
+    # of multiple crossmatch with small number of sources.
     # Get pixel scale in degrees
+
     header = fits.getheader(detected_sources['OriginalIma'][0])
     try:
         pixScale = abs(header["CDELT1"])
@@ -241,72 +245,33 @@ def phot_calib(detected_sources, telescope, radius=3,
             telescope)
 
     print("Crossmatching with catalog.")
-    # Crossmtach sources in the non substracted images.
-    # Filtering sources in substracted images is done inside.
+    # Crossmtach sources in the non substracted images.
+    # Do not consider sources in substracted images.
+    # Filtering sources in substracted images is done inside.
     ref_sources = crossmatch(detected_sources, radius, pixScale, catalog)
-
     # Remove extended sources and bad measurements from reference
     # stars catalog
     # ref_sources.show_in_browser(jsviewer=True)
-    print("Removed extended objects or with band quality flags.")
     good_ref_sources = filter_catalog_data(ref_sources, catalog)
+    print("%d sources left after removing extended " % len(good_ref_sources) \
+          + "objects or bad quality flags.")
+
     # good_ref_sources.show_in_browser(jsviewer=True)
 
-    # create columns
+    # create columns
     good_ref_sources['mag_cat'] = np.zeros(len(good_ref_sources))
-    good_ref_sources['magerr_cat'] = np.zeros(len(good_ref_sources)) 
+    good_ref_sources['magerr_cat'] = np.zeros(len(good_ref_sources))
     good_ref_sources['magsys'] = ['None'] * len(good_ref_sources)
-    
 
-    deltaMagMedianlist = []
-    deltaMagStdlist = []
-    filename_list = []
-    band_cat_list = []
-    band_DB_list = []
-    # Compute zeropoints
-    for i, key in enumerate(
-            detected_sources.group_by("OriginalIma").groups.keys):
-        print("Processing photometric calibration for ", key[0])
-
-        mask_key = good_ref_sources['OriginalIma'] == key[0]
-        # Get path and filename to images
-        path, fname_ext = os.path.split(key[0])
-        if path:
-            folder = path + "/"
-        else:
-            folder = ""
-
-        #  Get rid of the extension to keep only the name
-        fname2,extension = os.path.splitext(fname_ext)
-
-        # Get filter and catalog to perform photometric calibration
-        band_DB, band_cat, catalog = get_phot_cat(key[0], telescope)
-
-        # Transform filter bands in catalog to telescope ones
-        print("Convert magnitude system.")
-        ref_cat, catalogName = conv_mag_sys(
-            good_ref_sources[mask_key], band_cat, catalog)
-        print("Compute zeropoint.")
-        ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(
-            ref_cat, 1.5, i, folder, fname2, band_cat, catalogName, doPlot=True
-        )
-
-        deltaMagMedianlist.append(deltaMagMedian)
-        deltaMagStdlist.append(deltaMagStd)
-        filename_list.append(key[0])
-        band_cat_list.append(band_cat)
-        band_DB_list.append(band_DB)
-    
-    print("Add magnitude to candidates.")
-    # Apply photmetric calibration to candidates
+    # Add some columns in detected_sources
     mag_calib_col = Column(np.zeros(len(detected_sources)),
                            name="mag_calib")
     mag_calib_err_col = Column(np.zeros(len(detected_sources)),
                                name="mag_calib_err")
     ZP_col = Column(np.zeros(len(detected_sources)),
-                           name="ZP")
+                    name="ZP")
     ZP_err_col = Column(np.zeros(len(detected_sources)),
-                           name="ZP_err")
+                        name="ZP_err")
     magsys_col = Column(["None"] * len(detected_sources),
                         name="magsys")
     filter_cat_col = Column(["None"] * len(detected_sources),
@@ -315,12 +280,95 @@ def phot_calib(detected_sources, telescope, radius=3,
                            name="filter_DB")
 
     detected_sources.add_columns([mag_calib_col, mag_calib_err_col,
-                                 ZP_col, ZP_err_col, magsys_col, filter_cat_col,
-                                 filter_DB_col])
+                                  ZP_col, ZP_err_col, magsys_col,
+                                  filter_cat_col,
+                                  filter_DB_col])
+
+    deltaMagMedianlist = []
+    deltaMagStdlist = []
+    filename_list = []
+    band_cat_list = []
+    band_DB_list = []
+    
+
+    if method == 'allimage':
+        # Compute the Zeropoint with all the sources and not subimage 
+        # by subimage. Usually get the same results and if subimage is small
+        # there might be not enough sources to perform a good calibration.
+        # So it is much better to use this method
+
+        # Get path and filename to images
+        path, fname_ext = os.path.split(good_ref_sources['OriginalIma'][0])
+        if path:
+            folder = path + "/"
+        else:
+            folder = ""
+        # Get rid of the extension to keep only the name
+        fname2, extension = os.path.splitext(fname_ext)
+        # Get rid of the _reg suffix 
+        fname2 = fname2.split('_reg')[0]
+        # Transform filter bands in catalog to telescope ones
+        print("Convert magnitude system.")
+        ref_cat, catalogName = conv_mag_sys(
+            good_ref_sources, band_cat, catalog)
+        print("Compute zeropoint.")
+        ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(
+           ref_cat, sigma_clip, folder, fname2, band_cat, catalogName, doPlot=True
+        )
+
+        deltaMagMedianlist.append(deltaMagMedian)
+        deltaMagStdlist.append(deltaMagStd)
+        filename_list.append('NotImportant')
+        band_cat_list.append(band_cat)
+        band_DB_list.append(band_DB)
+
+    elif method == 'subimage':
+
+        # Compute zeropoints
+        for i, key in enumerate(
+            detected_sources.group_by("OriginalIma").groups.keys):
+            print("Processing photometric calibration for ", key[0])
+            mask_key = good_ref_sources['OriginalIma'] == key[0]
+            # Get path and filename to images
+            path, fname_ext = os.path.split(key[0])
+            if path:
+                folder = path + "/"
+            else:
+                folder = ""
+
+            # Get rid of the extension to keep only the name
+            fname2, extension = os.path.splitext(fname_ext)
+
+            # Get filter and catalog to perform photometric calibration
+            band_DB, band_cat, catalog = get_phot_cat(key[0], telescope)
+
+            # Transform filter bands in catalog to telescope ones
+            print("Convert magnitude system.")
+            ref_cat, catalogName = conv_mag_sys(
+                good_ref_sources[mask_key], band_cat, catalog)
+            print("Compute zeropoint.")
+            ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(
+                ref_cat, sigma_clip, folder, fname2, band_cat, catalogName, doPlot=True
+            )
+
+            deltaMagMedianlist.append(deltaMagMedian)
+            deltaMagStdlist.append(deltaMagStd)
+            filename_list.append(key[0])
+            band_cat_list.append(band_cat)
+            band_DB_list.append(band_DB)
+    
+    print("Add magnitude to candidates.")
+    # Apply photmetric calibration to candidates
 
     for j, filename in enumerate(filename_list):
-        #  Compute calibrated magnitudes for transient candidates only
-        mask = detected_sources["OriginalIma"] == filename
+        # Compute calibrated magnitudes for all sources
+        if method == 'allimage':
+            # Do not need to filter name, same ZP for all
+            mask = np.ones(len(detected_sources), dtype=bool)
+        elif method == 'subimage':
+            # Get the values associated with each subimage
+            mask = detected_sources["OriginalIma"] == filename
+
         detected_sources["mag_calib"][mask] = (
             detected_sources["mag_inst"][mask] - deltaMagMedianlist[j]
         )
@@ -337,7 +385,8 @@ def phot_calib(detected_sources, telescope, radius=3,
         if catalog == "II/349/ps1":
             detected_sources["magsys"][mask] = "AB"
         else:
-            pass
+            # Assume it is always AB
+            detected_sources["magsys"][mask] = "AB"
 
         detected_sources["filter_cat"][mask] = band_cat_list[j] 
         detected_sources["filter_DB"][mask] = band_DB_list[j] 
