@@ -112,6 +112,17 @@ def main():
     )
 
     parser.add_argument(
+        "--preprocess",
+        dest="preprocess",
+        required=False,
+        type=str,
+        default=None,
+        help="Pre-process the image using external program before analysing. "
+             "The program should accept two positional arguments - original "
+             "filename and new one. (Default: just copy the image)"
+    )
+
+    parser.add_argument(
         "--FWHM",
         "--fwhm",
         dest="FWHM",
@@ -310,11 +321,21 @@ def main():
 
     for raw_filename in filenames:
         # We should copy images to results dir one by one, while we are processing them
-        filename = make_results_dir(raw_filename, outputDir=args.path_results, keep=args.keep, skip=args.skip)
+        filename = make_results_dir(raw_filename, outputDir=args.path_results, keep=args.keep,
+                                    skip=args.skip, copy=False if args.preprocess else True)
 
         if not filename:
             print("%s is already processed, skipping. \n" % raw_filename)
             continue
+
+        if args.preprocess:
+            # We need to call external code what will copy (processed) image to results dir
+            print("Pre-processing %s" % raw_filename)
+            subprocess.call(args.preprocess.split() + [raw_filename, filename])
+
+            if not os.path.exists(filename):
+                print("Pre-processing failed")
+                continue
 
         print("Sanitise header and data of %s.\n" % filename)
         sanitise_fits(filename)
