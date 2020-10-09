@@ -48,6 +48,7 @@ from gmadet.substraction import substraction
 from gmadet.background import bkg_estimation
 from gmadet.crossmatch import catalogs, moving_objects
 from gmadet.database import send_data2DB
+from gmadet.filter_candidates import filter_candidates
 
 from astropy.io import ascii, fits
 from astropy.table import vstack, Table, Column
@@ -369,12 +370,19 @@ def main():
         )
         #moving_objects(image_table["filenames"], candidates)
 
-        total_candidates_calib = phot_calib(
+        sources_calib = phot_calib(
             total_sources,
             args.telescope,
             radius=args.radius_crossmatch,
             doPlot=True,
             subFiles=substracted_files,
+        )
+        # Apply filter to candidates
+        # Remove candidates on the edge
+        # Remove candidate depending the FWHM ratio
+        # Apply the CNN model
+        candidates_filtered = filter_candidates(
+            sources_calib
         )
 
 
@@ -384,7 +392,7 @@ def main():
         if args.VOE_path and args.owncloud_path:
             send_data2DB(
                 filename,
-                total_candidates_calib,
+                candidates_filtered,
                 Nb_cuts,
                 args.owncloud_path,
                 args.VOE_path,
