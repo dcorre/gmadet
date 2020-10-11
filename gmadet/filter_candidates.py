@@ -8,7 +8,7 @@ import astropy.units as u
 from astropy.table import join
 from gmadet.cnn.infer import infer
 from gmadet.utils import (make_sub_image, mkdir_p)
-
+from multiprocessing import Pool
 
 def filter_candidates(sources,
                       FWHM_ratio_lower=0.5,
@@ -18,7 +18,8 @@ def filter_candidates(sources,
                       makecutout=True,
                       size=32,
                       fmt='png',
-                      outLevel=1):
+                      outLevel=1,
+                      nb_threads=8):
     """Filter transient candidates"""
     print ('Filter candidates')
 
@@ -51,6 +52,7 @@ def filter_candidates(sources,
         # Create fits cutouts to be be given to the CNN model
         path_CNN_cutout = path + fname2 + '_CNN_cutouts/'
         mkdir_p(path_CNN_cutout)
+        args = []
         for cand in candidates:
             coords = [cand['_RAJ2000'], cand['_DEJ2000']]
             outname = path_CNN_cutout + 'candidate_%d.%s' % (cand['cand_ID'],
@@ -66,17 +68,22 @@ def filter_candidates(sources,
             info_dict['MAGERR'] = cand['mag_calib_err']
             info_dict['FWHM'] = cand['FWHM']
             info_dict['FWHMPSF'] = cand['FWHMPSF']
-            make_sub_image(
-                cand['filenames'],
-                coords,
-                coords_type="world",
-                output_name=outname,
-                size=[size, size],
-                fmt="fits",
-                addheader=True,
-                title=None,
-                info_dict=info_dict
-            )
+
+            args.append([cand['filenames'],
+                     coords,
+                     "world",
+                     outname,
+                     [size, size],
+                     -1,
+                     fmt,
+                     True,
+                     None,
+                     info_dict])
+
+        p = Pool(nb_threads)
+        p.starmap(make_sub_image, args)
+        p.close()
+
         # Run CNN model to associate a probability to each cutout
         # The size of the cutout should be the same as the ones used
         # for the CNN training
@@ -112,6 +119,7 @@ def filter_candidates(sources,
     if makecutout:
         path_cutout = path + fname2 + '_cutouts/'
         mkdir_p(path_cutout)
+        args = []
         for cand in candidates:
             coords = [cand['_RAJ2000'], cand['_DEJ2000']]
             outname = path_cutout + 'candidate_%d.%s' % (cand['cand_ID'],
@@ -126,15 +134,29 @@ def filter_candidates(sources,
                          cand['mag_calib'],
                          cand['mag_calib_err'],
                          cand['FWHM']/cand['FWHMPSF'])
-            make_sub_image(
-                cand['filenames'],
-                coords,
-                coords_type="world",
-                output_name=outname,
-                size=[size, size],
-                fmt=fmt,
-                addheader=False,
-                title=title
-            )
+                args.append([cand['filenames'],
+                     coords,
+                     "world",
+                     outname,
+                     [size, size],
+                     -1,
+                     fmt,
+                     False,
+                     title,
+                     None])
+            elif fmt == 'fits':
+                args.append([cand['filenames'],
+                     coords,
+                     "world",
+                     outname,
+                     [size, size],
+                     -1,
+                     fmt,
+                     True,
+                     None,
+                     None])
 
-
+        # Use multithreading to create the cutouts.
+        p = Pool(nb_threads)
+        p.starmap(make_sub_image, args)
+        p.close()

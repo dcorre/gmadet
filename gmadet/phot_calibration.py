@@ -217,7 +217,7 @@ def zeropoint(data, sigma, folder,
 
 def phot_calib(detected_sources, telescope, radius=3, sigma_clip=1.5,
                method='allimage',
-               doPlot=True, subFiles=None):
+               doPlot=True, subFiles=None, nb_threads=4):
     """Perform photometric calibration using catalogs"""
 
     print("Processing photometric calibration.")
@@ -248,7 +248,8 @@ def phot_calib(detected_sources, telescope, radius=3, sigma_clip=1.5,
     # Crossmtach sources in the non substracted images.
     # Do not consider sources in substracted images.
     # Filtering sources in substracted images is done inside.
-    ref_sources = crossmatch(detected_sources, radius, pixScale, catalog)
+    ref_sources = crossmatch(detected_sources, radius, pixScale, catalog,
+            nb_threads=nb_threads)
     # Remove extended sources and bad measurements from reference
     # stars catalog
     # ref_sources.show_in_browser(jsviewer=True)
