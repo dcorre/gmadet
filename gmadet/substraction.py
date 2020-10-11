@@ -15,7 +15,7 @@ from gmadet.ps1_survey import ps1_grid, prepare_PS1_sub
 from gmadet.utils import get_phot_cat, mkdir_p
 from gmadet.psfex import psfex
 from gmadet.mosaic import create_mosaic
-
+from multiprocessing import Pool
 
 def get_corner_coords(filename):
     """ Compute the RA, Dec coordinates at the corner of one image"""
@@ -35,7 +35,7 @@ def get_corner_coords(filename):
 
 def substraction(filenames, reference, config, soft="hotpants",
                  method="individual", doMosaic=False, 
-                 verbose="NORMAL", outLevel=1):
+                 verbose="NORMAL", outLevel=1, nb_threads=8):
     """Substract a reference image to the input image"""
 
     imagelist = np.atleast_1d(filenames)
@@ -79,7 +79,8 @@ def substraction(filenames, reference, config, soft="hotpants",
             )
 
             if soft == "hotpants":
-                subFiles = hotpants(regis_info, config, verbose=verbose)
+                subFiles = hotpants(regis_info, config, verbose=verbose,
+                        nb_threads=nb_threads)
 
         #  create a mosaic of al substracted images when
         # ps1_method=='individual'
@@ -132,12 +133,27 @@ def substraction(filenames, reference, config, soft="hotpants",
     return subFiles
 
 
-def hotpants(regis_info, config, verbose="QUIET"):
+def run_hotpants(hotpants_cmd, hotpants_cmd_file, resmask):
+    """Command to execute hotpants. Useful for multiprocessing"""
+
+    os.system("echo %s > %s" % (hotpants_cmd, hotpants_cmd_file))
+
+    os.system(hotpants_cmd)
+    
+    # Set bad pixel values to 0 and others to 1 for sextractor
+    hdulist = fits.open(resmask)
+    hdulist[0].data[hdulist[0].data == 0] = 1
+    hdulist[0].data[hdulist[0].data != 1] = 0
+    hdulist.writeto(resmask, overwrite=True)
+
+
+def hotpants(regis_info, config, verbose="QUIET", nb_threads=8):
     """Image substraction using hotpants"""
 
     subfiles = []
 
     #  Loop over the files
+    args = []
     for info in regis_info:
         inim = info["inim"]
         refim = info["refim"]
@@ -152,22 +168,20 @@ def hotpants(regis_info, config, verbose="QUIET"):
         resfile = os.path.splitext(inim)[0] + "_sub.fits"
         resmask = os.path.splitext(inim)[0] + "_sub_mask.fits"
 
+        subfiles.append([inim, refim, resfile, resmask])
+      
         hotpants_cmd = get_hotpants_cmd(
             inim, refim, maskim, resfile, resmask, info, config, verbose,
             run=1
         )
         hotpants_cmd_file = path + os.path.splitext(filename)[0] + "_hotpants.sh"
-        os.system("echo %s > %s" % (hotpants_cmd, hotpants_cmd_file))
+        args.append([hotpants_cmd, hotpants_cmd_file, resmask])
 
-        os.system(hotpants_cmd)
-        # subprocess.call([hotpants_cmd])
-
-        # Set bad pixel values to 0 and others to 1 for sextractor
-        hdulist = fits.open(resmask)
-        hdulist[0].data[hdulist[0].data == 0] = 1
-        hdulist[0].data[hdulist[0].data != 1] = 0
-        hdulist.writeto(resmask, overwrite=True)
-
+    p = Pool(nb_threads)
+    p.starmap(run_hotpants, args)
+    p.close()
+    
+    """
         #  Check that substraction performed relatively well
         header = fits.getheader(resfile)
         try:
@@ -215,8 +229,8 @@ def hotpants(regis_info, config, verbose="QUIET"):
                     os.path.splitext(filename)[0] + "_hotpants.sh"
                 os.system("echo %s > %s" % (hotpants_cmd, hotpants_cmd_file))
                 os.system(hotpants_cmd)
+        """
 
-        subfiles.append([inim, refim, resfile, resmask])
 
     return subfiles
 
