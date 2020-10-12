@@ -87,7 +87,7 @@ setup(
     keywords=['gmadet', 'transients', 'detection pipeline', 'astronomy',
               'image substraction', 'CNN'],
     name='gmadet',
-    #packages=find_packages(include=['gmadet']),
+    # packages=find_packages(include=['gmadet']),
     packages=find_packages(),
     setup_requires=setup_requirements,
     test_suite='tests',

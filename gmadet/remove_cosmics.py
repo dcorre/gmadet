@@ -36,7 +36,7 @@ def run_lacosmic(filename, FWHM, contrast=5, cr_threshold=5,
         hdulist = fits.open(ima)
         hdr = hdulist[0].header
         gain = hdr.get('GAIN', 1)
-        RN = hdr.get('RN',10)
+        RN = hdr.get('RN', 10)
 
         """
         if FWHM[i] > 2:
