@@ -165,6 +165,7 @@ def registration(filelist, config, resultDir="", reference=None,
         refim_regist = outFiles[1]
         maskim_regist = outFiles[2]
 
+        print ('Rescale and homogeneise mask maps for bad pixels.')
         # Rescale flux to 1s
         # In the future can try to rescale flux of ref image 
         # to match input image.
