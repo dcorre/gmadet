@@ -39,11 +39,21 @@ requirements = [
         'regions',
         'opencv-python-headless',
         'astroquery',
+        'astroscrappy'
        ]
-setup_requirements = ['pytest-runner', 'flake8', 'bumpversion', 'wheel', 'twine',]
+setup_requirements = [
+        'pytest-runner',
+        'flake8',
+        'bumpversion',
+        'wheel',
+        'twine']
 
-test_requirements = ['pytest', 'pytest-cov', 'pytest-console-scripts',
-                     'pytest-html', 'watchdog']
+test_requirements = [
+        'pytest',
+        'pytest-cov',
+        'pytest-console-scripts',
+        'pytest-html',
+        'watchdog']
 
 setup(
     author="David Corre",
@@ -60,7 +70,8 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
-    description="Tools to help identification of transients for Grandma network",
+    description="Tools to help identification of transients "
+                "for Grandma network",
     entry_points={
         'console_scripts': [
             'gmadet-run = gmadet.cli.run_gmadet:main',
@@ -86,7 +97,7 @@ setup(
     keywords=['gmadet', 'transients', 'detection pipeline', 'astronomy',
               'image substraction', 'CNN'],
     name='gmadet',
-    #packages=find_packages(include=['gmadet']),
+    # packages=find_packages(include=['gmadet']),
     packages=find_packages(),
     setup_requires=setup_requirements,
     test_suite='tests',
