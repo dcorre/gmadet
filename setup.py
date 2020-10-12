@@ -39,6 +39,7 @@ requirements = [
         'regions',
         'opencv-python-headless',
         'astroquery',
+        'astroscrappy'
        ]
 setup_requirements = ['pytest-runner', 'flake8', 'bumpversion', 'wheel', 'twine',]
 
