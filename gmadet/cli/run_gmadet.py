@@ -411,6 +411,7 @@ def main():
                 doMosaic=args.doMosaic,
                 verbose=args.verbose,
                 outLevel=args.outLevel,
+                nb_threads=1
             )
         else:
             substracted_files = None
@@ -425,6 +426,7 @@ def main():
                 verbose=args.verbose,
                 subFiles=substracted_files,
                 outLevel=args.outLevel,
+                nb_threads=1
             )
 
         filter_sources(
@@ -443,6 +445,7 @@ def main():
             args.radius_crossmatch,
             Nb_cuts=Nb_cuts,
             subFiles=substracted_files,
+            nb_threads=4
         )
         #moving_objects(image_table["filenames"], candidates)
 
@@ -452,6 +455,7 @@ def main():
             radius=args.radius_crossmatch,
             doPlot=True,
             subFiles=substracted_files,
+            nb_threads=4
         )
         # Apply filter to candidates
         # Remove candidates on the edge

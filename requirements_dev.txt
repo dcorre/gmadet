@@ -33,3 +33,4 @@ tensorflow
 regions
 opencv-python-headless
 astroquery
+astroscrappy

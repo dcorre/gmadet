@@ -31,7 +31,6 @@ from astropy.visualization import (
     ZScaleInterval,
 )
 from copy import deepcopy
-import multiprocessing as mp
 
 
 def cp_p(src, dest):

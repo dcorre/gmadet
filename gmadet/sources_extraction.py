@@ -15,12 +15,46 @@ import numpy as np
 from astropy.io import ascii, fits
 from astropy import wcs
 from astropy.table import Table
-
+from multiprocessing import Pool
 from gmadet.utils import mv_p, getpath
 
+def sextractor_command(
+        config,
+        filename,
+        weight_type,
+        mask,
+        FWHM_list,
+        thresh,
+        checkimage_type,
+        checkimage_name,
+        verbose,
+        psfs,
+        catname
+    ):
+    """command line ti run sextractor"""
+
+    subprocess.call(
+        [
+            "sex",
+            "-c", config["sextractor"]["conf"],
+            filename,
+            "-WEIGHT_TYPE", weight_type,
+            "-WEIGHT_IMAGE", mask,
+            "-SEEING_FWHM", FWHM_list,
+            "-DETECT_THRESH", thresh,
+            "-PARAMETERS_NAME", config["sextractor"]["param"],
+            # '-FILTER_NAME', config['sextractor']['default_conv'],
+            "-CHECKIMAGE_TYPE", checkimage_type,
+            "-CHECKIMAGE_NAME", checkimage_name,
+            "-VERBOSE_TYPE", verbose,
+            "-PSF_NAME", psfs,
+            "-CATALOG_NAME", catname,
+            "-FILTER_NAME", config["sextractor"]["convFilter"]
+        ])
 
 def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
-                   verbose="NORMAL", subFiles=None, outLevel=1):
+                   verbose="NORMAL", subFiles=None, outLevel=1,
+                   nb_threads=8):
     """Run sextractor """
     # if substraction have been performed
     # Run sextractor on input image to get photometry calibrated and
@@ -65,6 +99,7 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
 
         psfs = [os.path.splitext(im)[0] + ".psf" for im in filelist]
 
+    args = []
     for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
         if path:
@@ -89,27 +124,23 @@ def run_sextractor(filelist, FWHM_list, thresh, telescope, config,
             checkimage_type = "NONE"
             checkimage_name = " "
 
-        subprocess.call(
-            [
-                "sex",
-                "-c", config["sextractor"]["conf"],
-                filename,
-                "-WEIGHT_TYPE", str(weight_type[i]),
-                "-WEIGHT_IMAGE", str(mask[i]),
-                "-SEEING_FWHM", str(FWHM_list[i]),
-                "-DETECT_THRESH", str(thresh),
-                "-PARAMETERS_NAME", config["sextractor"]["param"],
-                # '-FILTER_NAME', config['sextractor']['default_conv'],
-                "-CHECKIMAGE_TYPE", checkimage_type,
-                "-CHECKIMAGE_NAME", checkimage_name,
-                "-VERBOSE_TYPE", verbose,
-                "-PSF_NAME", psfs[i],
-                "-CATALOG_NAME", folder + filename2 + "_SourcesDet.cat",
-                "-FILTER_NAME", config["sextractor"]["convFilter"]
-            ]
-        )
-
-
+        args.append([
+            config,
+            filename,
+            str(weight_type[i]),
+            str(mask[i]),
+            str(FWHM_list[i]),
+            str(thresh),
+            checkimage_type,
+            checkimage_name,
+            verbose,
+            psfs[i],
+            folder + filename2 + "_SourcesDet.cat",
+            ])
+    p = Pool(nb_threads)
+    p.starmap(sextractor_command, args)
+    p.close()
+    
 def filter_sources(filelist, soft, edge_cut=32, sigma=1, subFiles=None):
     # if substraction have been performed
     if subFiles:
