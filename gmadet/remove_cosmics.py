@@ -15,7 +15,7 @@ from gmadet.utils import cp_p
 # Not used at the moment.
 
 def run_lacosmic(filename, FWHM, contrast=5, cr_threshold=5,
-                 neighbor_threshold=5.0, niter=4, outLevel=1):
+                 neighbor_threshold=5.0, maxiter=4, outLevel=1):
     """Run lacosmic to remove cosmic rays from the input image"""
 
     imagelist = np.atleast_1d(filename)
@@ -47,7 +47,7 @@ def run_lacosmic(filename, FWHM, contrast=5, cr_threshold=5,
         data = np.asarray(hdulist[0].data, dtype=float)
         lacosmic_res = lacosmic(
             data, contrast, cr_threshold, neighbor_threshold,
-            effective_gain=gain, readnoise=RN, maxiter=niter
+            effective_gain=gain, readnoise=RN, maxiter=maxiter
         )
 
         # Create image cleaned from cosmic rays
