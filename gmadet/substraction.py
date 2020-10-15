@@ -12,25 +12,10 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from gmadet.registration import registration
 from gmadet.ps1_survey import ps1_grid, prepare_PS1_sub
-from gmadet.utils import get_phot_cat, mkdir_p
+from gmadet.utils import (get_phot_cat, mkdir_p, get_corner_coords)
 from gmadet.psfex import psfex
 from gmadet.mosaic import create_mosaic
 from multiprocessing import Pool
-
-def get_corner_coords(filename):
-    """ Compute the RA, Dec coordinates at the corner of one image"""
-
-    header = fits.getheader(filename)
-    Naxis1 = header["NAXIS1"]
-    Naxis2 = header["NAXIS2"]
-
-    pix_coords = [[0, 0, Naxis1, Naxis1], [0, Naxis2, Naxis2, 0]]
-
-    # Get physical coordinates of OT
-    w = WCS(header)
-    ra, dec = w.all_pix2world(pix_coords[0], pix_coords[1], 1)
-
-    return [ra, dec]
 
 
 def substraction(filenames, reference, config, soft="hotpants",

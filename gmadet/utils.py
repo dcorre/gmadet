@@ -114,7 +114,7 @@ def list_files(path, pattern="*.fit*", recursive=True):
     return filenames_filtered
 
 
-def load_config(telescope, convFilter):
+def load_config(telescope, convFilter='default'):
     """Load the path to the configuration files required by the softs.
        They are telescope dependent.
     """
@@ -442,7 +442,7 @@ def get_corner_coords(filename):
     w = WCS(header)
     ra, dec = w.all_pix2world(pix_coords[0], pix_coords[1], 1)
 
-    return ra, dec
+    return [ra, dec]
 
 
 def get_phot_cat(filename, telescope):
@@ -654,6 +654,7 @@ def clean_outputs(filenames, outLevel):
 
         rm_p(folder + "*.head")
         if outLevel == 0:
+            rm_p('coadd.weight.fits')
             rm_p(folder + "*.magwcs*")
             rm_p(folder + "*.oc*")
             rm_p(folder + "*.cat")
@@ -667,6 +668,7 @@ def clean_outputs(filenames, outLevel):
             rm_p(folder + "substraction/*segmentation")
 
         elif outLevel == 1:
+            rm_p('coadd.weight.fits')
             rm_p(folder + "*.magwcs")
             rm_p(folder + "*.oc")
             rm_p(folder + "*.cat")

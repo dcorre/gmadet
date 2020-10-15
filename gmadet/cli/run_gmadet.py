@@ -4,13 +4,6 @@
 """
 Author: David Corre, Orsay, France, corre@lal.in2p3.fr
 
-Input arguments are filename, typical fwhm (or estimated by psfex),
-sextracting threshold and maximal distance for catalog crosschecking in pixels
-
-Example :
-   python gmadet.py --filename /folder/image.fits --FWHM psfex
-                    --threshold 4 --radius_crossmatch 2.5 --telescope TRE
-
 """
 
 import sys
@@ -60,6 +53,7 @@ from astropy import units as u
 from copy import deepcopy
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
+
 
 def main():
 
@@ -124,10 +118,9 @@ def main():
         type=str,
         help="Corresponds to FILTER_NAME keyword for sextractor "
              "(without .conv)."
-             "\nDifferent filter available listed here: %s" \
-                     % path_gmadet + "/config/conv_kernels/"
-             "\n(Default: default)"
-        ,
+             "\nDifferent filter available listed here: %s"
+        % path_gmadet + "/config/conv_kernels/"
+             "\n(Default: default)",
     )
 
     parser.add_argument(
@@ -359,21 +352,22 @@ def main():
             sigma=1,
             subFiles=substracted_files,
         )
+
         convert_xy_radec(
             image_table["filenames"],
             soft=args.soft,
             subFiles=substracted_files
         )
-        total_sources, candidates = catalogs(
+
+        total_sources = catalogs(
             image_table,
             args.radius_crossmatch,
             Nb_cuts=Nb_cuts,
             subFiles=substracted_files,
             nb_threads=4
         )
-        #moving_objects(image_table["filenames"], candidates)
 
-        sources_calib = phot_calib(
+        sources_calib, candidates = phot_calib(
             total_sources,
             args.telescope,
             radius=args.radius_crossmatch,
@@ -381,14 +375,16 @@ def main():
             subFiles=substracted_files,
             nb_threads=4
         )
-        # Apply filter to candidates
-        # Remove candidates on the edge
-        # Remove candidate depending the FWHM ratio
-        # Apply the CNN model
+        
+        candidates = moving_objects(candidates)
+        
+        # Apply filter to candidates
+        # Remove candidates on the edge
+        # Remove candidate depending the FWHM ratio
+        # Apply the CNN model
         candidates_filtered = filter_candidates(
-            sources_calib
+            candidates
         )
-
 
         # If both arguments VOE_path and owncloud_path are provided
         # Send candidates to database
@@ -407,6 +403,7 @@ def main():
 
         # clean output files
         clean_outputs(image_table["filenames"], args.outLevel)
+
 
 if __name__ == "__main__":
     main()
