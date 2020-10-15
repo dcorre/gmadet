@@ -314,7 +314,8 @@ def phot_calib(detected_sources, telescope, radius=3, sigma_clip=1.5,
             good_ref_sources, band_cat, catalog)
         print("Compute zeropoint.")
         ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(
-           ref_cat, sigma_clip, folder, fname2, band_cat, catalogName, doPlot=True
+           ref_cat, sigma_clip, folder, fname2,
+           band_cat, catalogName, doPlot=True
         )
 
         deltaMagMedianlist.append(deltaMagMedian)
@@ -349,7 +350,8 @@ def phot_calib(detected_sources, telescope, radius=3, sigma_clip=1.5,
                 good_ref_sources[mask_key], band_cat, catalog)
             print("Compute zeropoint.")
             ref_cat_calibrated, deltaMagMedian, deltaMagStd = zeropoint(
-                ref_cat, sigma_clip, folder, fname2, band_cat, catalogName, doPlot=True
+                ref_cat, sigma_clip, folder, fname2,
+                band_cat, catalogName, doPlot=True
             )
 
             deltaMagMedianlist.append(deltaMagMedian)
@@ -392,11 +394,19 @@ def phot_calib(detected_sources, telescope, radius=3, sigma_clip=1.5,
         detected_sources["filter_cat"][mask] = band_cat_list[j] 
         detected_sources["filter_DB"][mask] = band_DB_list[j] 
 
-    fname = detected_sources['OriginalIma'][0].split("_reg_")[0] + ".alldetections"
+    fname = detected_sources['OriginalIma'][0].split("_reg_")[0] + \
+            ".alldetections"
     detected_sources.write(
         fname,
         format="ascii.commented_header",
         overwrite=True,
     )
 
-    return detected_sources
+    # Return total detected sources and sources without crossmatch
+    if subFiles is not None:
+        mask = (detected_sources["FlagSub"] == "Y") & \
+               (detected_sources["Match"] == "N")
+    else:
+        mask = detected_sources["Match"] == "N"
+
+    return detected_sources, detected_sources[mask]
