@@ -32,6 +32,7 @@ def main():
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
         required=True,
         type=str,
@@ -66,6 +67,7 @@ def main():
 
     parser.add_argument(
         "--flag_notsub",
+        "--flag-notsub",
         dest="flag_notsub",
         required=False,
         action="store_true",

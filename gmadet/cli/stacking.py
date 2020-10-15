@@ -23,6 +23,7 @@ def main():
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
         required=True,
         type=str,
@@ -40,6 +41,7 @@ def main():
 
     parser.add_argument(
         "--deltaT",
+        "--deltat",
         dest="deltaT",
         required=False,
         type=float,
@@ -50,6 +52,7 @@ def main():
 
     parser.add_argument(
         "--no_BackSub",
+        "--no-backsub",
         dest="no_BackSub",
         action="store_false",
         help="If provided as argument, no background substraction is "

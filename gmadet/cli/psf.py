@@ -31,6 +31,7 @@ def main():
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
         required=True,
         type=str,
@@ -48,6 +49,7 @@ def main():
 
     parser.add_argument(
         "--convFilter",
+        "--conv-filter",
         dest="convFilter",
         required=False,
         default="default",
@@ -62,6 +64,7 @@ def main():
 
     parser.add_argument(
         "--useweight",
+        "--use-weight",
         dest="useweight",
         action="store_true",
         help="If set, use weight map. "

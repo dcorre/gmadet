@@ -21,6 +21,7 @@ def main():
 
     parser.add_argument(
         "--path_plots",
+        "--path-plots",
         dest="path_plots",
         required=True,
         type=str,
@@ -29,6 +30,7 @@ def main():
 
     parser.add_argument(
         "--path_crossmatch",
+        "--path-crossmatch",
         dest="path_crossmatch",
         required=True,
         type=str,
@@ -37,6 +39,7 @@ def main():
 
     parser.add_argument(
         "--path_infer",
+        "--path-infer",
         dest="path_infer",
         required=True,
         type=str,
@@ -45,6 +48,7 @@ def main():
 
     parser.add_argument(
         "--maglim",
+        "--mag-lim",
         dest="maglim",
         required=False,
         type=float,
@@ -56,6 +60,7 @@ def main():
 
     parser.add_argument(
         "--CNNproblim",
+        "--cnn-problim",
         dest="CNNproblim",
         required=False,
         type=float,
@@ -67,6 +72,7 @@ def main():
 
     parser.add_argument(
         "--FWHM_ratio_lower",
+        "--fwhm-ratio-lower",
         dest="FWHM_ratio_lower",
         required=False,
         type=float,
@@ -74,9 +80,10 @@ def main():
         help="Lower bound for the ratio FWHM / FWHM_PSF used for the plots. "
              " (Default: 0.5)"
     )
-    
+
     parser.add_argument(
         "--FWHM_ratio_upper",
+        "--fwhm-ratio-upper",
         dest="FWHM_ratio_upper",
         required=False,
         type=float,

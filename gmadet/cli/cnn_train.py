@@ -22,6 +22,7 @@ def main():
 
     parser.add_argument(
         "--path_cubename",
+        "--path-cubename",
         dest="path_cubename",
         required=True,
         type=str,
@@ -30,6 +31,7 @@ def main():
 
     parser.add_argument(
         "--path_model",
+        "--path-model",
         dest="path_model",
         required=True,
         type=str,
@@ -38,6 +40,7 @@ def main():
 
     parser.add_argument(
         "--modelname",
+        "--model-name",
         dest="modelname",
         required=True,
         type=str,
