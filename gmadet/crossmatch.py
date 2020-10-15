@@ -526,12 +526,25 @@ def moving_objects(candidates):
         % (len(candidates[candidates['movingObjMatch'] == 'Y']))
     )
 
+    # Set up output path and file names
+    path, fname_ext = os.path.split(candidates['OriginalIma'][0])
+    if path:
+        folder = path + "/"
+    else:
+        folder = ""
+    # Get rid of the extension to keep only the name
+    fname2, extension = os.path.splitext(fname_ext)
+    # Get rid of the _reg suffix
+    fname2 = fname2.split('_reg')[0]
+
     if moving_objects_tot is not None:
         moving_objects_tot.write(
-            "moving_objects.dat", format="ascii.commented_header", overwrite=True
+            folder + fname2 + "_moving_objects.dat",
+            format="ascii.commented_header", overwrite=True
         )
         moving_objects_tot["RA", "DEC"].write(
-            "moving_objects.reg", format="ascii.commented_header", overwrite=True
+            folder + fname2 + "_moving_objects.reg",
+            format="ascii.commented_header", overwrite=True
         )
 
     return candidates
