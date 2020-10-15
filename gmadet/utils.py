@@ -654,6 +654,7 @@ def clean_outputs(filenames, outLevel):
 
         rm_p(folder + "*.head")
         if outLevel == 0:
+            rm_p('coadd.weight.fits')
             rm_p(folder + "*.magwcs*")
             rm_p(folder + "*.oc*")
             rm_p(folder + "*.cat")
@@ -667,6 +668,7 @@ def clean_outputs(filenames, outLevel):
             rm_p(folder + "substraction/*segmentation")
 
         elif outLevel == 1:
+            rm_p('coadd.weight.fits')
             rm_p(folder + "*.magwcs")
             rm_p(folder + "*.oc")
             rm_p(folder + "*.cat")
