@@ -424,19 +424,30 @@ def crossmatch_skybot(sources, moving_objects, radius=10):
     dist_match = dist[match]
     #  Convert in arcseconds
     dist_match *= 3600
-    if dist_match:
+    if len(dist_match) > 0:
         mov_match = moving_objects[ind[match]]
-        sources[match]['movingObjMatch'] = 'Y'
-        sources[match]['movingObjSep'] = dist_match * 3600
-        sources[match]['movingObjName'] = mov_match['Name']
+        movingObjMatch_list = []
+        movingObjSep_list = []
+        movingObjName = []
+        for j in range(len(mov_match)):
+            movingObjMatch_list.append('Y')
+            movingObjSep_list.append(dist_match[j])
+            movingObjName.append(mov_match['Name'][j])
+        sources['movingObjMatch'][match] = movingObjMatch_list
+        sources['movingObjSep'][match] = movingObjSep_list
+        sources['movingObjName'][match] = movingObjName
     return sources
 
 
-def moving_objects(candidates):
+def moving_objects(candidates, radius_cross=10):
     """
     Crossmatch the list of candidates with moving objects using SkyBoT
     Loop over each image in the candidates table.
     Run a SkyBot search on each.
+    radisu_cross is the radius crossmatch between transient candidates and 
+    list of solar objects (in arcseconds). By default: 10 because the 
+    crossmatch is made at a single time defined by DATE-OBS, so this allows
+    for flexibility.
     """
     # Initialise with None
     moving_objects_tot = None
@@ -446,7 +457,7 @@ def moving_objects(candidates):
                               name="movingObjMatch")
     moving_obj_sep = Column([None] * len(candidates),
                               name="movingObjSep")
-    moving_obj_name = Column(['None'] * len(candidates),
+    moving_obj_name = Column([None] * len(candidates),
                               name="movingObjName")
     candidates.add_columns([moving_obj_match,
                             moving_obj_sep,
@@ -515,11 +526,11 @@ def moving_objects(candidates):
                 moving_objects_tot = vstack([moving_objects_tot,
                                              moving_objects])
 
-        candidates_matched = crossmatch_skybot(
-            candidates[mask], moving_objects, radius=10)
+            candidates_matched = crossmatch_skybot(
+                candidates[mask], moving_objects, radius=radius_cross)
 
-        # Update candidates table
-        candidates[mask] = candidates_matched
+            # Update candidates table
+            candidates[mask] = candidates_matched
 
     print(
         "%d match with a moving object found around 10 arcseconds."
