@@ -9,15 +9,17 @@ and with solar moving objects.
 import os
 import numpy as np
 from astropy.io import ascii, fits
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, Column
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+from astropy import wcs
 from astropy.time import Time
 from astroquery import xmatch
 from astroquery.imcce import Skybot
 from astroML.crossmatch import crossmatch_angular
 from copy import deepcopy
 import multiprocessing as mp
+from gmadet.utils import get_corner_coords
 
 def _run_xmatch(coordinates, catalog, radius):
     """
@@ -129,6 +131,10 @@ def catalogs(image_table, radius,
         filelist.extend([im for im in subfiles[:, 2]])
     else:
         filelist = image_table["filenames"]
+
+    # Initialise one variable
+    detected_sources_tot = None
+
     for i, filename in enumerate(filelist):
         path, filename_ext = os.path.split(filename)
         if path:
@@ -193,6 +199,7 @@ def catalogs(image_table, radius,
             ],
             format="commented_header",
         )
+
         if detected_sources:
             detected_sources["quadrant"] = [quadrant] * len(detected_sources)
             # Do not need it as the astrometric calibration
@@ -217,7 +224,7 @@ def catalogs(image_table, radius,
             detected_sources["Xpos_quad"] = detected_sources["Xpos"]
             detected_sources["Ypos_quad"] = detected_sources["Ypos"]
 
-            if i == 0:
+            if detected_sources_tot is None:
                 detected_sources_tot = deepcopy(detected_sources)
             else:
                 detected_sources_tot = vstack(
@@ -341,10 +348,7 @@ def catalogs(image_table, radius,
         overwrite=True,
     )
 
-    # oc=candidates['Xpos', 'Ypos']
-    # oc.write(magfilewcs+'4',format='ascii.commented_header', overwrite=True)
-
-    return detected_sources_tot, detected_sources_tot[mask]
+    return detected_sources_tot
 
 
 def skybot(ra_deg, dec_deg, date, radius, Texp, position_error=120):
@@ -352,41 +356,48 @@ def skybot(ra_deg, dec_deg, date, radius, Texp, position_error=120):
     query SkyBoT catalog using astroquery.skybot to search for moving objects
     parameters: ra_deg, dec_deg, date, Texp, radius:
                 ra_deg, dec_deg: RA and DEC in degrees astropy.units
-                date: date of observation (Julian days)
+                date: date of observation (astropy.time.Time object)
                 Texp: exposure time in astropy.unit
-                position_error Maximum positional error for targets to be queried 
-                  (in arcsecond)
+                position_error Maximum positional error for targets to 
+                be queried (in arcsecond). 120 is the maximum allowed 
+                by SkyBot.
     returns: astropy.table object
     """
     field = SkyCoord(ra_deg, dec_deg)
-    moving_objects_list = Skybot.cone_search(
-        field, radius, date, position_error=position_error * u.arcsecond
-    )
+    # SkyBot is returning a RuntimeError when no objects are found
+    # So need to use a try except here
+    try:
+        moving_objects_list = Skybot.cone_search(
+            field, radius, date, position_error=position_error * u.arcsecond
+        )
+    except BaseException:
+        moving_objects_list = None
 
-    #  Add RA, DEC at end of exposure
-    moving_objects_list["RA_Tend"] = (
-        moving_objects_list["RA"] + moving_objects_list["RA_rate"] * Texp
-    )
-    moving_objects_list["DEC_Tend"] = (
-        moving_objects_list["DEC"] + moving_objects_list["DEC_rate"] * Texp
-    )
-    #  Compute angular distance  between Tstart and Tend
-    c1 = SkyCoord(
-        moving_objects_list["RA"],
-        moving_objects_list["DEC"],
-        frame="icrs")
-    c2 = SkyCoord(
-        moving_objects_list["RA_Tend"],
-        moving_objects_list["DEC_Tend"],
-        frame="icrs"
-    )
-    sep = c1.separation(c2)
-    moving_objects_list["RADEC_sep"] = sep
+    if moving_objects_list is not None:
+        #  Add RA, DEC at end of exposure
+        moving_objects_list["RA_Tend"] = (
+            moving_objects_list["RA"] + moving_objects_list["RA_rate"] * Texp
+        )
+        moving_objects_list["DEC_Tend"] = (
+            moving_objects_list["DEC"] + moving_objects_list["DEC_rate"] * Texp
+        )
+        #  Compute angular distance  between Tstart and Tend
+        c1 = SkyCoord(
+            moving_objects_list["RA"],
+            moving_objects_list["DEC"],
+            frame="icrs")
+        c2 = SkyCoord(
+            moving_objects_list["RA_Tend"],
+            moving_objects_list["DEC_Tend"],
+            frame="icrs"
+        )
+        sep = c1.separation(c2)
+        moving_objects_list["RADEC_sep"] = sep
 
     return moving_objects_list
 
 
-def crossmatch_skybot(sources, moving_objects, radius=5):
+def crossmatch_skybot(sources, moving_objects, radius=10):
     """
     crossmatch list of detected sources with list of moving objects
     in this field using skybot
@@ -414,49 +425,113 @@ def crossmatch_skybot(sources, moving_objects, radius=5):
     #  Convert in arcseconds
     dist_match *= 3600
     if dist_match:
-        mov_match = sources[ind[np.unique(match)]]
-    candidates = sources[match == False]
+        mov_match = moving_objects[ind[match]]
+        sources[match]['movingObjMatch'] = 'Y'
+        sources[match]['movingObjSep'] = dist_match * 3600
+        sources[match]['movingObjName'] = mov_match['Name']
+    return sources
 
-    return candidates
 
-
-def moving_objects(filelist, candidates):
+def moving_objects(candidates):
     """
     Crossmatch the list of candidates with moving objects using SkyBoT
-
+    Loop over each image in the candidates table.
+    Run a SkyBot search on each.
     """
-    for filename in filelist:
-        header = fits.getheader(filename)
-        ra_deg = float(header["CRVAL1"]) * u.deg
-        dec_deg = float(header["CRVAL2"]) * u.deg
+    # Initialise with None
+    moving_objects_tot = None
+
+    # Add new columns to candidates with initialisation
+    moving_obj_match = Column(['N'] * len(candidates),
+                              name="movingObjMatch")
+    moving_obj_sep = Column([None] * len(candidates),
+                              name="movingObjSep")
+    moving_obj_name = Column(['None'] * len(candidates),
+                              name="movingObjName")
+    candidates.add_columns([moving_obj_match,
+                            moving_obj_sep,
+                            moving_obj_name])
+
+    for i, key in enumerate(
+        candidates.group_by("OriginalIma").groups.keys):
+        mask = candidates["OriginalIma"] == key[0]
+        if not mask.any():
+            continue
+        header = fits.getheader(key[0])
+        # Reference pixels are not necessarily at the center of the image
+        # So compute the wcs position of the pixel center
+        w = wcs.WCS(header)
+        Naxis1 = int(header["NAXIS1"])
+        Naxis2 = int(header["NAXIS2"])
+        x_center = Naxis1 / 2.
+        y_center = Naxis2 / 2.
+        ra_center, dec_center = w.wcs_pix2world(x_center,y_center,1)
+        ra_deg = ra_center * u.deg
+        dec_deg = dec_center * u.deg
         try:
-            date = time.Time(hdr["DATE-OBS"], format="fits")
+            date = Time(header["DATE-OBS"], format="fits")
             # convert in GPS time 
-            date_JD = date.jd
+            # date_JD = date.jd
+        except BaseException:
+            date = Time(header["MJD-OBS"], format="mjd")
+
         except BaseException:
             print(
                 "No keyword is found for the date of observation.\n"
                 "Expected keyword: `DATE-OBS`"
             )
-        # Should be adpated to image field of view.
-        radius = 2 * u.deg
-        Texp = float(header["exposure"]) * u.second
+            raise
+        try:
+            Texp = float(header["EXPTIME"]) * u.second
+        except BaseException:
+            print(
+                "No keyword is found for the exposure time.\n"
+                "Expected keyword: `EXPTIME`"
+            )
+            raise
+        # Estimate Field of view. Assuming he query is performed using
+        # a circle, the diameter is assumed to be the largest diagonal of the
+        # image.
+        im_coords = get_corner_coords(key[0])
+        coords = SkyCoord(
+            im_coords[0],
+            im_coords[1],
+            unit=(u.deg, u.deg),
+            frame='icrs'
+         )        
+        sep = []
+        for j in range(len(coords)):
+            sep.append(coords[j].separation(coords))
+        fov = np.max(sep)
 
-        moving_objects = skybot(ra_deg, dec_deg, date_JD, radius, Texp)
+        # Take 10% more.
+        radius = 1.1 * fov / 2. * u.deg
+        moving_objects = skybot(ra_deg, dec_deg, date, radius, Texp)
 
-        moving_objects.write(
+        if moving_objects is not None:
+            if moving_objects_tot is None:
+                moving_objects_tot = deepcopy(moving_objects)
+            else:
+                moving_objects_tot = vstack([moving_objects_tot,
+                                             moving_objects])
+
+        candidates_matched = crossmatch_skybot(
+            candidates[mask], moving_objects, radius=10)
+
+        # Update candidates table
+        candidates[mask] = candidates_matched
+
+    print(
+        "%d match with a moving object found around 10 arcseconds."
+        % (len(candidates[candidates['movingObjMatch'] == 'Y']))
+    )
+
+    if moving_objects_tot is not None:
+        moving_objects_tot.write(
             "moving_objects.dat", format="ascii.commented_header", overwrite=True
         )
-        moving_objects["RA", "DEC"].write(
+        moving_objects_tot["RA", "DEC"].write(
             "moving_objects.reg", format="ascii.commented_header", overwrite=True
         )
 
-        candidates_out = crossmatch_skybot(
-            candidates, moving_objects, radius=10)
-
-        print(
-            "%d match with a moving object found"
-            % (len(candidates) - len(candidates_out))
-        )
-
-    # return candidates_out
+    return candidates
