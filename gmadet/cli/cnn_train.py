@@ -76,10 +76,10 @@ def main():
              "(Default: 0.3)",
     )
 
-
     args = parser.parse_args()
-    train(args.path_cubename, args.path_model,args.modelname,
+    train(args.path_cubename, args.path_model, args.modelname,
           args.epochs, frac=args.frac, dropout=args.dropout)
+
 
 if __name__ == "__main__":
     main()

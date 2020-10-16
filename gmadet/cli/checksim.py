@@ -39,9 +39,9 @@ def main():
              " Default: 2 arcseconds",
     )
 
-
     args = parser.parse_args()
     makestats(args.path_data, radius=args.radius)
+
 
 if __name__ == "__main__":
     main()

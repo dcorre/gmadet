@@ -24,6 +24,7 @@ from gmadet.cnn.sim import sim
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
+
 def main():
 
     path_gmadet = getpath()
@@ -34,7 +35,7 @@ def main():
         description="Insert simulated point like sources in astronomical "
                     "images using the estimated PSFs of each image."
 
-        )
+    )
 
     parser.add_argument(
         "--path_data",
@@ -82,7 +83,7 @@ def main():
         required=False,
         type=int,
         nargs='+',
-        default=[14,23],
+        default=[14, 23],
         help="Magnitude range of simulated sources. (Default: 14 23)"
     )
 
@@ -148,10 +149,9 @@ def main():
         type=str,
         help="Corresponds to FILTER_NAME keyword for sextractor "
              "(without .conv)."
-             "\nDifferent filter available listed here: %s" \
-                     % path_gmadet + "/config/conv_kernels/"
-             "\n(Default: default)"
-        ,
+             "\nDifferent filter available listed here: %s"
+        % path_gmadet + "/config/conv_kernels/"
+             "\n(Default: default)",
     )
 
     parser.add_argument(
@@ -192,11 +192,11 @@ def main():
 
         # Estimate the PSF FWHM for each image/quadrants using psfex
         FWHM_list = psfex(
-                filenames,
-                config,
-                verbose=args.verbose,
-                outLevel=2,
-            )
+            filenames,
+            config,
+            verbose=args.verbose,
+            outLevel=2,
+        )
 
         # Keep only the path if a file was provided
         if os.path.isdir(args.path_data):
@@ -204,7 +204,7 @@ def main():
         else:
             text = os.path.split(args.path_data)
             if text[0]:
-                datapath= text[0] + '/'
+                datapath = text[0] + '/'
             else:
                 datapath = ''
         sim(datapath,
@@ -214,7 +214,7 @@ def main():
             magrange=args.magrange,
             gain=args.gain,
             magzp=args.ZP
-        )
+            )
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ from gmadet.utils import (
     getpath,
     getTel
 )
-#from gmadet.psfex import psfex
+# from gmadet.psfex import psfex
 from gmadet.remove_cosmics import run_lacosmic
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -24,8 +24,8 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 def main():
 
-    #path_gmadet = getpath()
-    #telescope_list = getTel()
+    # path_gmadet = getpath()
+    # telescope_list = getTel()
 
     parser = argparse.ArgumentParser(
         description="Remove cosmics in astronomical images."
@@ -47,7 +47,9 @@ def main():
         default=5.0,
         type=float,
         help="Contrast threshold between the Laplacian image and the "
-             "fine-structure image. Check https://lacosmic.readthedocs.io/en/latest/api/lacosmic.lacosmic.html#lacosmic.lacosmic for more details. (Default: 5.0)",
+             "fine-structure image. Check "
+             "https://lacosmic.readthedocs.io/en/latest/api/lacosmic.lacosmic.html#lacosmic.lacosmic "
+             "for more details. (Default: 5.0)",
     )
 
     parser.add_argument(
@@ -130,18 +132,19 @@ def main():
     """
     args = parser.parse_args()
 
-    #  Load config files for a given telescope
-    #config = load_config(args.telescope, args.convFilter)
+    # Load config files for a given telescope
+    # config = load_config(args.telescope, args.convFilter)
     filenames = list_files(args.path_data)
     filenames = make_copy(filenames, args.path_data,
                           outputDir="gmadet_remove_cosmics/")
-    #FWHM = psfex(filenames, config, useweight=args.useweight,
+    # FWHM = psfex(filenames, config, useweight=args.useweight,
     #             verbose=args.verbose, outLevel=2)
     FWHM = [None] * len(filenames)
     run_lacosmic(filenames, FWHM, contrast=args.contrast,
                  cr_threshold=args.cr_threshold,
                  neighbor_threshold=args.neighbor_threshold,
                  maxiter=args.maxiter, outLevel=2)
+
 
 if __name__ == "__main__":
     main()

@@ -76,6 +76,7 @@ def getpath():
 
     return path
 
+
 def getTel():
     """Get the list of all telescopes"""
     path_gmadet = getpath()
@@ -84,6 +85,7 @@ def getTel():
                name != 'conv_kernels']
     return telList
 
+
 def is_subdir(path, basepath):
     """ Checks whether the path is inside basepath """
     path = os.path.abspath(path)
@@ -91,7 +93,12 @@ def is_subdir(path, basepath):
 
     return os.path.commonpath([path, basepath]) == basepath
 
-def list_files(paths, pattern=["*.fit", "*.fits", "*.fts"], recursive=True, exclude=None):
+
+def list_files(
+        paths,
+        pattern=["*.fit", "*.fits", "*.fts"],
+        recursive=True,
+        exclude=None):
     """ (Recursively) list the files matching the pattern from the list of
     filenames or directories, omitting the ones containing file paths
     specified by 'exclude' option (either string or list of strings)"""
@@ -107,7 +114,8 @@ def list_files(paths, pattern=["*.fit", "*.fits", "*.fts"], recursive=True, excl
         if os.path.isdir(path):
             # Recursively get all files matching given pattern(s)
             for ptn in np.atleast_1d(pattern):
-                filenames += glob.glob(path + "/**/" + ptn, recursive=recursive)
+                filenames += glob.glob(path + "/**/" +
+                                       ptn, recursive=recursive)
             # Sort alphanumerically
             filenames.sort()
         else:
@@ -220,8 +228,8 @@ def make_copy(filelist, path_data, outputDir="gmadet_results/"):
             folder = path + "/"
         else:
             folder = ""
-        # remove common path_data to keep only directories inside path_data
-        # to copy the same data architecture
+        # remove common path_data to keep only directories inside path_data
+        # to copy the same data architecture
         resultDir2 = folder.replace(path_data, '')
         mkdir_p(resultDir+resultDir2)
         copyname = resultDir + resultDir2 + filename_ext
@@ -230,7 +238,13 @@ def make_copy(filelist, path_data, outputDir="gmadet_results/"):
 
     return newlist
 
-def make_results_dir(filename, outputDir='gmadet_results', keep=False, skip=False, copy=True):
+
+def make_results_dir(
+        filename,
+        outputDir='gmadet_results',
+        keep=False,
+        skip=False,
+        copy=True):
     """ Copy original image to newly created output subdir inside given dir,
     optionally making backup of subfolder if it exists already """
 
@@ -239,7 +253,8 @@ def make_results_dir(filename, outputDir='gmadet_results', keep=False, skip=Fals
 
     # Subdir to store results for this file
     dirname = os.path.splitext(basename)[0]
-    dirname = os.path.join(outputDir, dirname) # TODO: optionally implement old behaviour?..
+    # TODO: optionally implement old behaviour?..
+    dirname = os.path.join(outputDir, dirname)
 
     # Full path for the file
     newname = os.path.join(dirname, basename)
@@ -260,6 +275,7 @@ def make_results_dir(filename, outputDir='gmadet_results', keep=False, skip=Fals
 
     return newname
 
+
 def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
 
     path, filename_ext = os.path.split(filename)
@@ -268,7 +284,7 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
     else:
         folder = ""
 
-    filename2,extension = os.path.splitext(filename_ext)
+    filename2, extension = os.path.splitext(filename_ext)
 
     quadrant_list = []
     quadrant_ID = []

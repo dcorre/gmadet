@@ -71,14 +71,14 @@ def main():
         dest="flag_notsub",
         required=False,
         action="store_true",
-        help="Whether the candidates are not the results of an image substraction."
-             "(Default: False)",
+        help="Whether the candidates are not the results of an image "
+             "substraction. (Default: False)",
     )
-
 
     args = parser.parse_args()
     subimage(args.path_data, args.training,
              size=args.size, radius=args.radius, flag_notsub=args.flag_notsub)
+
 
 if __name__ == "__main__":
     main()

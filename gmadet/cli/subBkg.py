@@ -40,7 +40,7 @@ def main():
         required=False,
         type=int,
         nargs='+',
-        default=[20,20],
+        default=[20, 20],
         help="Size of the background mesh. (Default: 20 20)"
     )
 
@@ -51,7 +51,7 @@ def main():
         required=False,
         type=int,
         nargs='+',
-        default=[3,3],
+        default=[3, 3],
         help="Size of the filter box. (Default: 3 3)"
     )
 
@@ -63,7 +63,9 @@ def main():
         type=str,
         choices=["SExtractor", "MMM", "Median", "Mean"],
         default="SExtractor",
-        help="Background estimator method among the available ones. Check https://photutils.readthedocs.io/en/stable/background.html for more info. (Default: SExtractor)."
+        help="Background estimator method among the available ones. Check "
+             "https://photutils.readthedocs.io/en/stable/background.html for"
+             " more info. (Default: SExtractor)."
     )
 
     parser.add_argument(
@@ -73,7 +75,9 @@ def main():
         required=False,
         type=float,
         default=3.0,
-        help="The number of standard deviations to use for both the lower and upper clipping limit. These limits are overridden by `sigma_lower` and `sigma_upper`, if input. (Default: 3.0)"
+        help="The number of standard deviations to use for both the lower "
+             "and upper clipping limit. These limits are overridden by "
+             "`sigma_lower` and `sigma_upper`, if input. (Default: 3.0)"
     )
 
     parser.add_argument(
@@ -83,7 +87,8 @@ def main():
         required=False,
         type=float,
         default=None,
-        help="The number of standard deviations to use as the lower bound for the clipping limit. (Default: None)"
+        help="The number of standard deviations to use as the lower bound "
+             "for the clipping limit. (Default: None)"
     )
 
     parser.add_argument(
@@ -93,7 +98,8 @@ def main():
         required=False,
         type=float,
         default=None,
-        help="The number of standard deviations to use as the upper bound for the clipping limit. (Default: None)"
+        help="The number of standard deviations to use as the upper bound "
+             "for the clipping limit. (Default: None)"
     )
 
     parser.add_argument(
@@ -103,7 +109,9 @@ def main():
         required=False,
         type=int,
         default=10,
-        help="The maximum number of sigma-clipping iterations to perform or None to clip until convergence is achieved (i.e., iterate until the last iteration clips nothing). (Default: 10)"
+        help="The maximum number of sigma-clipping iterations to perform or "
+             "None to clip until convergence is achieved (i.e., iterate until "
+             "the last iteration clips nothing). (Default: 10)"
     )
 
     args = parser.parse_args()
@@ -115,7 +123,8 @@ def main():
     bkg_estimation(filenames, box=args.box, filter_size=args.filter_size,
                    bkg_estimator=args.bkg_estimator, sigma=args.sigma_clip,
                    sigma_lower=args.sigma_lower, sigma_upper=args.sigma_upper,
-                   maxiters=args.maxiters,outLevel=2)
+                   maxiters=args.maxiters, outLevel=2)
+
 
 if __name__ == "__main__":
     main()

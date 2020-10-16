@@ -35,6 +35,7 @@ from astropy import time, wcs
 import numpy as np
 from gmadet.utils import list_files
 
+
 def rm_p(src):
     try:
         # shutil.rmtree(src, ignore_errors=True)
@@ -42,11 +43,13 @@ def rm_p(src):
     except BaseException:
         pass
 
+
 def mv_p(src, dest):
     try:
         shutil.move(src, dest)
     except BaseException:
         pass
+
 
 def mkdir_p(path):
     try:
@@ -446,6 +449,7 @@ def stacking(path_data, radius, deltaT, useweight=False,
 
         rm_p(point + ".head")
     mv_p(path_lists, path_stacks)
+
 
 if __name__ == "__main__":
 

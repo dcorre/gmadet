@@ -51,5 +51,6 @@ def main():
     args = parser.parse_args()
     infer(args.path_cutouts, args.path_model, args.probratio)
 
+
 if __name__ == "__main__":
     main()
