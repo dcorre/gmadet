@@ -24,6 +24,7 @@ from gmadet.utils import (
     mv_p,
     mkdir_p,
     make_copy,
+    make_results_dir,
     clean_outputs,
     getpath,
     getTel
@@ -67,14 +68,57 @@ def main():
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
-        required=True,
+        action="append",
+        required=False,
         type=str,
         help="Path to data"
     )
 
     parser.add_argument(
+        "--path_results",
+        "--results",
+        dest="path_results",
+        required=False,
+        type=str,
+        default='gmadet_results',
+        help="Base path to store the results. "
+             "(Default: gmadet_results)"
+    )
+
+    parser.add_argument(
+        "--keep-old",
+        "--keep",
+        dest="keep",
+        required=False,
+        action="store_true",
+        help="Keep previous results"
+    )
+
+    parser.add_argument(
+        "--skip-processed",
+        "--skip",
+        dest="skip",
+        required=False,
+        action="store_true",
+        help="Skip already processed files"
+    )
+
+    parser.add_argument(
+        "--preprocess",
+        dest="preprocess",
+        required=False,
+        type=str,
+        default=None,
+        help="Pre-process the image using external program before analysing. "
+             "The program should accept two positional arguments - original "
+             "filename and new one. (Default: just copy the image)"
+    )
+
+    parser.add_argument(
         "--FWHM",
+        "--fwhm",
         dest="FWHM",
         required=True,
         help="Typical telescope FWHM"
@@ -82,6 +126,7 @@ def main():
 
     parser.add_argument(
         "--radius_crossmatch",
+        "--radius-crossmatch",
         dest="radius_crossmatch",
         required=False,
         type=float,
@@ -112,6 +157,7 @@ def main():
 
     parser.add_argument(
         "--convFilter",
+        "--conv-filter",
         dest="convFilter",
         required=False,
         default="default",
@@ -144,6 +190,7 @@ def main():
 
     parser.add_argument(
         "--doAstrometry",
+        "--astrometry",
         dest="doAstrometry",
         required=False,
         default="scamp",
@@ -166,6 +213,7 @@ def main():
 
     parser.add_argument(
         "--doSub",
+        "--sub",
         dest="doSub",
         required=False,
         type=str,
@@ -176,6 +224,7 @@ def main():
 
     parser.add_argument(
         "--ps1_method",
+        "--ps1-method",
         dest="ps1_method",
         required=False,
         default="mosaic",
@@ -190,6 +239,7 @@ def main():
 
     parser.add_argument(
         "--doMosaic",
+        "--mosaic",
         dest="doMosaic",
         action="store_true",
         help="Whether to combine the individual frames into a common mosaic "
@@ -198,6 +248,7 @@ def main():
 
     parser.add_argument(
         "--Remove_cosmics",
+        "--remove-cosmics",
         dest="Remove_cosmics",
         action="store_true",
         help="Whether to remove cosmic rays using lacosmic. "
@@ -206,6 +257,7 @@ def main():
 
     parser.add_argument(
         "--sub_bkg",
+        "--sub-bkg",
         dest="sub_bkg",
         action="store_true",
         help="Whether to substract background. (Default: not set)",
@@ -213,6 +265,7 @@ def main():
 
     parser.add_argument(
         "--output_data_level",
+        "--output-data-level",
         dest="outLevel",
         required=False,
         type=int,
@@ -225,6 +278,7 @@ def main():
 
     parser.add_argument(
         "--owncloud_path",
+        "--owncloud",
         dest="owncloud_path",
         required=False,
         type=str,
@@ -233,26 +287,56 @@ def main():
 
     parser.add_argument(
         "--VOE_path",
+        "--voe",
         dest="VOE_path",
         required=False,
         type=str,
         help="Path/filename of the VoEvent containing the observation plan.",
     )
 
-    args = parser.parse_args()
+    args, filenames = parser.parse_known_args()
+
+    # Combine free-form arguments with path_data into single list of filenames
+    if isinstance(args.path_data, str):
+        filenames = [args.path_data] + filenames
+    elif args.path_data:
+        filenames = list(args.path_data) + filenames
+
+    if not filenames:
+        return
 
     Nb_cuts = (args.quadrants, args.quadrants)
 
     # Load config files for a given telescope
     config = load_config(args.telescope, args.convFilter)
 
-    filenames = list_files(args.path_data)
-    # copy original images
-    # Create list of the copy images
-    filenames = make_copy(filenames, args.path_data,
-                          outputDir="gmadet_results/")
+    filenames = list_files(filenames, exclude=args.path_results)
 
-    for filename in filenames:
+    for raw_filename in filenames:
+        # We should copy images to results dir one by one, while we are
+        # processing them
+        filename = make_results_dir(
+            raw_filename,
+            outputDir=args.path_results,
+            keep=args.keep,
+            skip=args.skip,
+            copy=False if args.preprocess else True
+        )
+
+        if not filename:
+            print("%s is already processed, skipping. \n" % raw_filename)
+            continue
+
+        if args.preprocess:
+            # We need to call external code what will copy (processed)
+            # image to results dir
+            print("Pre-processing %s" % raw_filename)
+            subprocess.call(args.preprocess.split() + [raw_filename,
+                                                       filename])
+
+            if not os.path.exists(filename):
+                print("Pre-processing failed")
+                continue
 
         print("Sanitise header and data of %s.\n" % filename)
         sanitise_fits(filename)
@@ -375,9 +459,9 @@ def main():
             subFiles=substracted_files,
             nb_threads=4
         )
-        
+
         candidates = moving_objects(candidates)
-        
+
         # Apply filter to candidates
         # Remove candidates on the edge
         # Remove candidate depending the FWHM ratio

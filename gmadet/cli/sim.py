@@ -24,6 +24,7 @@ from gmadet.cnn.sim import sim
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
+
 def main():
 
     path_gmadet = getpath()
@@ -34,10 +35,11 @@ def main():
         description="Insert simulated point like sources in astronomical "
                     "images using the estimated PSFs of each image."
 
-        )
+    )
 
     parser.add_argument(
         "--path_data",
+        "--data",
         dest="path_data",
         required=True,
         type=str,
@@ -55,6 +57,7 @@ def main():
 
     parser.add_argument(
         "--Ntrans",
+        "--num-trans",
         dest="Ntrans",
         required=False,
         type=int,
@@ -75,16 +78,18 @@ def main():
 
     parser.add_argument(
         "--magrange",
+        "--mag-range",
         dest="magrange",
         required=False,
         type=int,
         nargs='+',
-        default=[14,23],
+        default=[14, 23],
         help="Magnitude range of simulated sources. (Default: 14 23)"
     )
 
     parser.add_argument(
         "--ZP",
+        "--zp",
         dest="ZP",
         required=False,
         type=int,
@@ -104,6 +109,7 @@ def main():
 
     parser.add_argument(
         "--doAstrometry",
+        "--do-astrometry",
         dest="doAstrometry",
         required=False,
         default="scamp",
@@ -125,6 +131,7 @@ def main():
 
     parser.add_argument(
         "--itermax",
+        "--iter-max",
         dest="itermax",
         required=False,
         type=float,
@@ -135,16 +142,16 @@ def main():
 
     parser.add_argument(
         "--convFilter",
+        "--conv-filter",
         dest="convFilter",
         required=False,
         default="default",
         type=str,
         help="Corresponds to FILTER_NAME keyword for sextractor "
              "(without .conv)."
-             "\nDifferent filter available listed here: %s" \
-                     % path_gmadet + "/config/conv_kernels/"
-             "\n(Default: default)"
-        ,
+             "\nDifferent filter available listed here: %s"
+        % path_gmadet + "/config/conv_kernels/"
+             "\n(Default: default)",
     )
 
     parser.add_argument(
@@ -157,7 +164,7 @@ def main():
         help="Level of verbose, according to astromatic software. "
              "(Default: NORMAL)",
     )
-    
+
     args = parser.parse_args()
 
     #  Load config files for a given telescope
@@ -171,7 +178,7 @@ def main():
 
     for filename in filenames:
 
-        if args.doAstrometry != "No": 
+        if args.doAstrometry != "No":
             print("Sanitise header and data of %s.\n" % filename)
             sanitise_fits(filename)
             astrometric_calib(
@@ -185,11 +192,11 @@ def main():
 
         # Estimate the PSF FWHM for each image/quadrants using psfex
         FWHM_list = psfex(
-                filenames,
-                config,
-                verbose=args.verbose,
-                outLevel=2,
-            )
+            filenames,
+            config,
+            verbose=args.verbose,
+            outLevel=2,
+        )
 
         # Keep only the path if a file was provided
         if os.path.isdir(args.path_data):
@@ -197,7 +204,7 @@ def main():
         else:
             text = os.path.split(args.path_data)
             if text[0]:
-                datapath= text[0] + '/'
+                datapath = text[0] + '/'
             else:
                 datapath = ''
         sim(datapath,
@@ -207,7 +214,7 @@ def main():
             magrange=args.magrange,
             gain=args.gain,
             magzp=args.ZP
-        )
+            )
 
 
 if __name__ == "__main__":

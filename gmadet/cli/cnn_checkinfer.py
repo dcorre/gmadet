@@ -13,6 +13,7 @@ from gmadet.cnn.checkinfer import makestats
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
+
 def main():
 
     parser = argparse.ArgumentParser(
@@ -21,6 +22,7 @@ def main():
 
     parser.add_argument(
         "--path_plots",
+        "--path-plots",
         dest="path_plots",
         required=True,
         type=str,
@@ -29,6 +31,7 @@ def main():
 
     parser.add_argument(
         "--path_crossmatch",
+        "--path-crossmatch",
         dest="path_crossmatch",
         required=True,
         type=str,
@@ -37,6 +40,7 @@ def main():
 
     parser.add_argument(
         "--path_infer",
+        "--path-infer",
         dest="path_infer",
         required=True,
         type=str,
@@ -45,28 +49,31 @@ def main():
 
     parser.add_argument(
         "--maglim",
+        "--mag-lim",
         dest="maglim",
         required=False,
         type=float,
         nargs='+',
-        default=[12,18,21],
+        default=[12, 18, 21],
         help="Magnitudes used to split the magnitude range in the plots. "
              " (Default: 12 18 21)"
     )
 
     parser.add_argument(
         "--CNNproblim",
+        "--cnn-problim",
         dest="CNNproblim",
         required=False,
         type=float,
         nargs='+',
-        default=[0.1,0.5,0.7],
+        default=[0.1, 0.5, 0.7],
         help="CNN proba used to split the results in the plots. "
              " (Default: 0.1 0.5 0.7)"
     )
 
     parser.add_argument(
         "--FWHM_ratio_lower",
+        "--fwhm-ratio-lower",
         dest="FWHM_ratio_lower",
         required=False,
         type=float,
@@ -74,9 +81,10 @@ def main():
         help="Lower bound for the ratio FWHM / FWHM_PSF used for the plots. "
              " (Default: 0.5)"
     )
-    
+
     parser.add_argument(
         "--FWHM_ratio_upper",
+        "--fwhm-ratio-upper",
         dest="FWHM_ratio_upper",
         required=False,
         type=float,
