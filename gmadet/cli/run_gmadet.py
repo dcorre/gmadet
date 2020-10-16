@@ -294,7 +294,7 @@ def main():
         help="Path/filename of the VoEvent containing the observation plan.",
     )
 
-    args,filenames = parser.parse_known_args()
+    args, filenames = parser.parse_known_args()
 
     # Combine free-form arguments with path_data into single list of filenames
     if isinstance(args.path_data, str):
@@ -313,18 +313,26 @@ def main():
     filenames = list_files(filenames, exclude=args.path_results)
 
     for raw_filename in filenames:
-        # We should copy images to results dir one by one, while we are processing them
-        filename = make_results_dir(raw_filename, outputDir=args.path_results, keep=args.keep,
-                                    skip=args.skip, copy=False if args.preprocess else True)
+        # We should copy images to results dir one by one, while we are
+        # processing them
+        filename = make_results_dir(
+            raw_filename,
+            outputDir=args.path_results,
+            keep=args.keep,
+            skip=args.skip,
+            copy=False if args.preprocess else True
+        )
 
         if not filename:
             print("%s is already processed, skipping. \n" % raw_filename)
             continue
 
         if args.preprocess:
-            # We need to call external code what will copy (processed) image to results dir
+            # We need to call external code what will copy (processed)
+            # image to results dir
             print("Pre-processing %s" % raw_filename)
-            subprocess.call(args.preprocess.split() + [raw_filename, filename])
+            subprocess.call(args.preprocess.split() + [raw_filename,
+                                                       filename])
 
             if not os.path.exists(filename):
                 print("Pre-processing failed")
@@ -451,9 +459,9 @@ def main():
             subFiles=substracted_files,
             nb_threads=4
         )
-        
+
         candidates = moving_objects(candidates)
-        
+
         # Apply filter to candidates
         # Remove candidates on the edge
         # Remove candidate depending the FWHM ratio
