@@ -25,6 +25,7 @@ import glob
 import os
 import subprocess
 import shutil
+import tempfile
 import time as time1
 from astropy.io import fits
 from astropy.table import Table
@@ -61,11 +62,11 @@ def mkdir_p(path):
             raise
 
 
-def table_obs(path_data, radius, deltaT):
+def table_obs(path_data, radius, deltaT, exclude=None):
     """ Create astropy table to group epochs and fields """
 
     # List of all raw files
-    filenames = list_files(path_data)
+    filenames = list_files(path_data, exclude=exclude)
 
     names = []
     RA = []
@@ -240,7 +241,7 @@ def table_obs(path_data, radius, deltaT):
     return obs_table
 
 
-def makelists(path_data, radius, deltaT):
+def makelists(path_data, path_lists, radius, deltaT, exclude=None):
     """
     Group images by fields and epochs
 
@@ -248,6 +249,7 @@ def makelists(path_data, radius, deltaT):
     ----------
     path_data : path to images, string
         directory path to loop through all the fits file it contains
+
     path_lists : path to folder containing list of grouped images, string
 
     radius : radius in arcmin, float
@@ -267,20 +269,19 @@ def makelists(path_data, radius, deltaT):
 
     """
 
-    path_lists = path_data + "fieldlists/"
-
     # Create folder for lists, delete existing files
-    rm_p(path_lists)
-    mkdir_p(path_lists)
+    if not os.path.isdir(path_lists):
+        # rm_p(path_lists)
+        mkdir_p(path_lists)
 
     # Convert radius in degrees
     radius = radius / 60
-    #  Create observation table with images grouped by field and epoch
-    fields = table_obs(path_data, radius, deltaT)
+    # Create observation table with images grouped by field and epoch
+    fields = table_obs(path_data, radius, deltaT, exclude=exclude)
 
     # Create ascii files containing images to stack.
     # These files are the input of SWARP
-    fields_list = open(path_lists + "fields.slist", "w")
+    fields_list = open(os.path.join(path_lists, "fields.slist"), "w")
     for tel, inst, filt in fields.group_by(
         ["Telescope", "Instrument", "Filter"]
     ).groups.keys:
@@ -322,7 +323,7 @@ def makelists(path_data, radius, deltaT):
                 + "_field_%03d_%03d" % (field_id, epoch_id)
             )
             # filename = prefix + "_%03d_%03d" % (field_id, epoch_id)
-            f = open(path_lists + filename + ".list", "w")
+            f = open(os.path.join(path_lists, filename + ".list"), "w")
             for data in fields[mask_field]:
                 f.write(data["filename"] + "\n")
                 mask_idx = fields["idx"] == data["idx"]
@@ -334,39 +335,43 @@ def makelists(path_data, radius, deltaT):
 
 
 def stacking(path_data, radius, deltaT, useweight=False,
-             subBack=True, gain=1):
+             subBack=True, path_results="gmadet_stacking", gain=1, keep=False):
     """Stack images"""
 
     #  Add '/' at the end of the paths if they are missing
     if path_data[-1] != "/":
         path_data = path_data + "/"
 
-    path_stacks = path_data + "gmadet_stacking/"
+    path_stacks = path_results # path_data + "gmadet_stacking/"
 
     # Rename folder if already existing
     if os.path.exists(path_stacks):
-        mv_p(path_stacks,
-             path_stacks[:-1] + '_' + time1.strftime("%Y%m%d-%H%M%S"))
+        if keep:
+            mv_p(path_stacks,
+                 path_stacks + '_' + time1.strftime("%Y%m%d-%H%M%S"))
+        else:
+            shutil.rmtree(path_stacks)
+
     mkdir_p(path_stacks)
 
-    path_lists = path_data + "fieldlists/"
+    path_lists = tempfile.mkdtemp() # Temporary dir for fieldlists
 
     useweight = bool(useweight)
 
-    #  Whether to substrack background
+    # Whether to substrack background
     if subBack:
         subBack = "Y"
     else:
         subBack = "N"
 
     #  Make list of images to stack
-    makelists(path_data, radius, deltaT)
+    makelists(path_data, path_lists, radius, deltaT)
 
     # Get all the prefixes corresponding to one field
-    filenames = glob.glob(path_lists + "*.list")
+    filenames = glob.glob(os.path.join(path_lists, "*.list"))
     prefixes = []
     for filename in filenames:
-        splitfilename = os.path.splitext(filename)[0].split("/")[-1].split("_")
+        splitfilename = os.path.splitext(os.path.split(filename)[-1])[0].split("_")
         prefi = ""
         for i in range(len(splitfilename) - 1):
             prefi += splitfilename[i] + "_"
@@ -379,15 +384,15 @@ def stacking(path_data, radius, deltaT, useweight=False,
         imalists = []
         epochs = []
         # Loop over epochs
-        for imalist in glob.glob(path_lists + pref + "???.list"):
+        for imalist in glob.glob(os.path.join(path_lists, pref + "???.list")):
             # Check that there are at least 2 images to stack
             # Otherwise skip it
             file = np.genfromtxt(imalist, dtype=str)
             if len(np.atleast_1d(file)) < 2:
                 continue
 
-            epochs += [path_stacks +
-                       os.path.splitext(imalist)[0].split("/")[-1]]
+            epochs += [os.path.join(path_stacks,
+                                    os.path.splitext(os.path.split(imalist)[-1])[0])]
             imalists += ["@" + imalist]
 
         point = path_stacks + pref
@@ -448,49 +453,5 @@ def stacking(path_data, radius, deltaT, useweight=False,
             rm_p(epoch + ".head")
 
         rm_p(point + ".head")
-    mv_p(path_lists, path_stacks)
 
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="Stack astronomical images.")
-
-    parser.add_argument(
-        "--path_data",
-        dest="path_data",
-        required=True,
-        type=str,
-        help="Path where the files to be stacked are.",
-    )
-
-    parser.add_argument(
-        "--radius",
-        dest="radius",
-        required=False,
-        type=float,
-        default=5,
-        help="Radius in arcmin to group fields. Default: 5 arcmin",
-    )
-
-    parser.add_argument(
-        "--deltaT",
-        dest="deltaT",
-        required=False,
-        type=float,
-        default=1,
-        help="Time interval in hours to group fields into same epoch. "
-             "Default: 1h",
-    )
-
-    parser.add_argument(
-        "--no_BackSub",
-        dest="no_BackSub",
-        action="store_false",
-        help="If provided as argument, no background substraction is "
-             "performed on each image prior to stacking. "
-             "Default: Substraction is performed",
-    )
-
-    args = parser.parse_args()
-    stacking(args.path_data, args.radius, args.deltaT,
-             subBack=args.no_BackSub)
+    mv_p(path_lists, os.path.join(path_stacks, 'fieldlists')) # Do we really need to keep them?..

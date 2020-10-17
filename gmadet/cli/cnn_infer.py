@@ -21,8 +21,7 @@ def main():
     )
 
     parser.add_argument(
-        "--path_cutouts",
-        "--path-cutouts",
+        "--cutouts",
         dest="path_cutouts",
         required=True,
         type=str,
@@ -30,7 +29,6 @@ def main():
     )
 
     parser.add_argument(
-        "--probratio",
         "--prob-ratio",
         dest="probratio",
         required=False,
@@ -40,8 +38,7 @@ def main():
     )
 
     parser.add_argument(
-        "--path_model",
-        "--path-model",
+        "--model",
         dest="path_model",
         required=True,
         type=str,

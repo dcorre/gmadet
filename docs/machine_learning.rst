@@ -45,11 +45,11 @@ This must be done each time you run the Docker image.
 Simulate point-like sources in your images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Whithin a terminal, go to the gmadet/gmadet/cnn/ folder and type: 
+Whithin a terminal, go to the gmadet/gmadet/cnn/ folder and type:
 
 .. code-block:: console
 
-   gmadet-sim --path_data data/ --telescope your-telescope-alias --Ntrans 100 --magrange 14 23 --ZP 30
+   gmadet-sim data/ --telescope your-telescope-alias --ntrans 100 --magrange 14 23 --ZP 30
 
 Replace:
 
@@ -71,7 +71,7 @@ We run it with the image substraction but you can do it without.
 
 .. code-block:: console
 
-   gmadet-run --path_data data/gmadet_sim/simulation/ --FWHM psfex --telescope your-telescope-alias --doAstrometry scamp --radius_crossmatch 3 --threshold 4 --doSub ps1 --ps1_method individual
+   gmadet-run data/gmadet_sim/simulation/ --result data/gmadet_sim/simulation/gmadet_results --telescope your-telescope-alias --radius-crossmatch 3 --threshold 4 --sub ps1 --ps1-method individual
 
 The results are stored in ``data/gmadet_sim/simulation/gmadet_results``.
 
@@ -81,7 +81,7 @@ Create image cutouts of all candidates
 
 .. code-block:: console
 
-    gmadet-cutouts --path_data data/gmadet_sim/simulation/ --training 
+    gmadet-cutouts data/gmadet_sim/simulation/ --training
 
 The ``--training`` argument specifies that it is for the training on simulated images and create a ``true`` and ``false`` folder in ``candidates_training``. They will be used for the CNN training as what we consider true and false candidates. The simulated candidates are automatically put in the ``true`` folder.
 
@@ -92,7 +92,7 @@ You can plot some histograms to check the distribution of magnitudes for the dif
 
 .. code-block:: console
 
-    gmadet-checksim --path_data data/gmadet_sim/simulation/  --radius 2
+    gmadet-checksim data/gmadet_sim/simulation/  --radius 2
 
 It will create a folder ``CheckSim/`` with some plots. It will also create a file ``crossmatch.dat`` containing the crossmatch of the sources detected by gmadet and the positions of the simulated sources. This is useful to make some tests of how the code behaves with known simulated transients.
 
@@ -111,11 +111,11 @@ Once you have classified your candidates, the next step is to trained the CNN al
 
 .. code-block:: console
 
-    gmadet-cnn_convert --path_datacube PATH_DATACUBE --cubename CUBENAME --path_cutouts PATH_CUTOUTS
+    gmadet-cnn_convert --path PATH_DATACUBE --cube CUBENAME --cutouts PATH_CUTOUTS
 
 Replace:
 
-* ``PATH_DATACUBE`` with the pah where you want to store your datacube. 
+* ``PATH_DATACUBE`` with the pah where you want to store your datacube.
 * ``CUBENAME`` with the name of the datacube that will be created.
 * ``PATH_CUTOUTS`` with the path to the folder containing the ``true`` and ``false`` folders.
 
@@ -123,7 +123,7 @@ Then you can start the training:
 
 .. code-block:: console
 
-    gmadet-cnn_train --path_cubename PATH_CUBENAME --path_model PATH_MODEL --modelname MODELNAME
+    gmadet-cnn_train --cube PATH_CUBENAME --model-path PATH_MODEL --model-name MODELNAME
 
 Replace:
 
@@ -139,7 +139,7 @@ It assumes that you already ran gmadet on a set of images, and created the candi
 
 .. code-block:: console
 
-    gmadet-cnn_infer --path_cutouts PATH_CUTOUTS --path_model PATH_MODEL
+    gmadet-cnn_infer --cutouts PATH_CUTOUTS --model PATH_MODEL
 
 Replace:
 
@@ -156,7 +156,7 @@ Then you can visualise the results with some plots that will help to assess the 
 
 .. code-block:: console
 
-    gmadet-cnn_checkinfer --path_plots PATH_PLOTS --path_crossmatch PATH_CROSSMATCH --path_infer PATH_INFER 
+    gmadet-cnn_checkinfer --plots PATH_PLOTS --crossmatch PATH_CROSSMATCH --infer PATH_INFER
 
 Replace:
 
@@ -166,4 +166,3 @@ Replace:
 
 
 Type ``gmadet-cnn_checkinfer -h`` to see the other optional arguments.
-

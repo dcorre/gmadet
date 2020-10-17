@@ -8,10 +8,12 @@ Author: David Corre, Orsay, France, corre@lal.in2p3.fr
 
 import argparse
 import warnings
+import os
+import subprocess
 
 from gmadet.utils import (
     list_files,
-    make_copy,
+    make_results_dir,
 )
 
 from gmadet.background import bkg_estimation
@@ -22,16 +24,47 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 def main():
 
     parser = argparse.ArgumentParser(
+        usage="usage: %(prog)s [options] data",
         description="Remove background in astronomical images with photutils."
     )
 
     parser.add_argument(
-        "--path_data",
-        "--data",
-        dest="path_data",
-        required=True,
+        "--results",
+        dest="path_results",
+        required=False,
         type=str,
-        help="Path to file"
+        default='gmadet_results',
+        help="Base path to store the results. "
+             "(Default: gmadet_results)"
+    )
+
+    parser.add_argument(
+        "--keep-old",
+        "--keep",
+        dest="keep",
+        required=False,
+        action="store_true",
+        help="Keep previous results"
+    )
+
+    parser.add_argument(
+        "--skip-processed",
+        "--skip",
+        dest="skip",
+        required=False,
+        action="store_true",
+        help="Skip already processed files"
+    )
+
+    parser.add_argument(
+        "--preprocess",
+        dest="preprocess",
+        required=False,
+        type=str,
+        default=None,
+        help="Pre-process the image using external program before analysing. "
+             "The program should accept two positional arguments - original "
+             "filename and new one. (Default: just copy the image)"
     )
 
     parser.add_argument(
@@ -45,7 +78,6 @@ def main():
     )
 
     parser.add_argument(
-        "--filter_size",
         "--filter-size",
         dest="filter_size",
         required=False,
@@ -56,7 +88,6 @@ def main():
     )
 
     parser.add_argument(
-        "--bkg_estimator",
         "--bkg-estimator",
         dest="bkg_estimator",
         required=False,
@@ -69,7 +100,6 @@ def main():
     )
 
     parser.add_argument(
-        "--sigma_clip",
         "--sigma-clip",
         dest="sigma_clip",
         required=False,
@@ -81,7 +111,6 @@ def main():
     )
 
     parser.add_argument(
-        "--sigma_lower",
         "--sigma-lower",
         dest="sigma_lower",
         required=False,
@@ -92,7 +121,6 @@ def main():
     )
 
     parser.add_argument(
-        "--sigma_upper",
         "--sigma-upper",
         dest="sigma_upper",
         required=False,
@@ -114,16 +142,38 @@ def main():
              "the last iteration clips nothing). (Default: 10)"
     )
 
-    args = parser.parse_args()
+    args, filenames = parser.parse_known_args()
 
-    #  Load config files for a given telescope
-    filenames = list_files(args.path_data)
-    filenames = make_copy(filenames, args.path_data,
-                          outputDir="gmadet_subBkg/")
-    bkg_estimation(filenames, box=args.box, filter_size=args.filter_size,
-                   bkg_estimator=args.bkg_estimator, sigma=args.sigma_clip,
-                   sigma_lower=args.sigma_lower, sigma_upper=args.sigma_upper,
-                   maxiters=args.maxiters, outLevel=2)
+    filenames = list_files(filenames, exclude=args.path_results)
+
+    for raw_filename in filenames:
+        filename = make_results_dir(
+            raw_filename,
+            outputDir=args.path_results,
+            keep=args.keep,
+            skip=args.skip,
+            copy=False if args.preprocess else True
+        )
+
+        if not filename:
+            print("%s is already processed, skipping. \n" % raw_filename)
+            continue
+
+        if args.preprocess:
+            # We need to call external code what will copy (processed)
+            # image to results dir
+            print("Pre-processing %s" % raw_filename)
+            subprocess.call(args.preprocess.split() + [raw_filename,
+                                                       filename])
+
+            if not os.path.exists(filename):
+                print("Pre-processing failed")
+                continue
+
+        bkg_estimation(filename, box=args.box, filter_size=args.filter_size,
+                       bkg_estimator=args.bkg_estimator, sigma=args.sigma_clip,
+                       sigma_lower=args.sigma_lower, sigma_upper=args.sigma_upper,
+                       maxiters=args.maxiters, outLevel=2)
 
 
 if __name__ == "__main__":

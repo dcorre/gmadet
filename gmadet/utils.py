@@ -127,6 +127,7 @@ def list_files(
     #                "gmadet_stacking", "gmadet_subBkg",
     #                "gmadet_psf", "gmadet_remove_cosmics",
     #                "candidates"]
+
     if isinstance(exclude, str):
         folder2skip = [exclude]
     elif exclude:
