@@ -44,9 +44,9 @@ def main():
         dest="path_results",
         required=False,
         type=str,
-        default='gmadet_results',
+        default='gmadet_sim',
         help="Base path to store the results. "
-             "(Default: gmadet_results)"
+             "(Default: gmadet_sim)"
     )
 
     parser.add_argument(

@@ -49,7 +49,7 @@ Whithin a terminal, go to the gmadet/gmadet/cnn/ folder and type:
 
 .. code-block:: console
 
-   gmadet-sim data/ --telescope your-telescope-alias --ntrans 100 --magrange 14 23 --ZP 30
+   gmadet-sim data/  --result gmadet_sim --telescope your-telescope-alias --ntrans 100 --magrange 14 23 --zp 30
 
 Replace:
 
@@ -58,7 +58,7 @@ lable ones.
 
 This will insert 100 sources on each of your image, taking the PSF of each image (or part of image), whose magnitude in the range 14-23 with a zeropoint of 30.
 
-Results are stored in ``gmadet_sim/simulation/``. A file named 'simulated_objects.list' will be also created, containing the positions of these new point like sources in the images.
+Results are stored in ``gmadet_sim/*/simulation/``. A files named 'simulated_objects.list' will be also created, containing the positions of these new point like sources in the images.
 
 
 Type ``gmadet-sim -h`` to see the other arguments you might want to change.
@@ -71,9 +71,9 @@ We run it with the image substraction but you can do it without.
 
 .. code-block:: console
 
-   gmadet-run data/gmadet_sim/simulation/ --result data/gmadet_sim/simulation/gmadet_results --telescope your-telescope-alias --radius-crossmatch 3 --threshold 4 --sub ps1 --ps1-method individual
+   gmadet-run gmadet_sim/*/simulation --result gmadet_sim_results --telescope your-telescope-alias --radius-crossmatch 3 --threshold 4 --sub ps1 --ps1-method individual
 
-The results are stored in ``data/gmadet_sim/simulation/gmadet_results``.
+The results are stored in ``gmadet_sim_results``.
 
 
 Create image cutouts of all candidates
@@ -81,18 +81,18 @@ Create image cutouts of all candidates
 
 .. code-block:: console
 
-    gmadet-cutouts data/gmadet_sim/simulation/ --training
+    gmadet-cutouts gmadet_sim_results/* --training
 
-The ``--training`` argument specifies that it is for the training on simulated images and create a ``true`` and ``false`` folder in ``candidates_training``. They will be used for the CNN training as what we consider true and false candidates. The simulated candidates are automatically put in the ``true`` folder.
+The ``--training`` argument specifies that it is for the training on simulated images and create a ``true`` and ``false`` folders in ``candidates_training``. They will be used for the CNN training as what we consider true and false candidates. The simulated candidates are automatically put in the ``true`` folder.
 
-You can either classify the other ones by eye, or put all of them in the ``false`` folder. Some true sources will be classified as false but if the number of simulated sources is large enough, this might be a comprise.
+You can either classify the other ones by eye, or put all of them in the ``false`` folder (use argument ``--false`` to do it automatically). Some true sources will be classified as false but if the number of simulated sources is large enough, this might be a comprise.
 
 
 You can plot some histograms to check the distribution of magnitudes for the different bands and fraction of the simulated objects that are actually detected by writing:
 
 .. code-block:: console
 
-    gmadet-checksim data/gmadet_sim/simulation/  --radius 2
+    gmadet-checksim gmadet_sim_results/*  --radius 2
 
 It will create a folder ``CheckSim/`` with some plots. It will also create a file ``crossmatch.dat`` containing the crossmatch of the sources detected by gmadet and the positions of the simulated sources. This is useful to make some tests of how the code behaves with known simulated transients.
 
@@ -119,6 +119,14 @@ Replace:
 * ``CUBENAME`` with the name of the datacube that will be created.
 * ``PATH_CUTOUTS`` with the path to the folder containing the ``true`` and ``false`` folders.
 
+For the setup used in the previous examples, it will be
+
+.. code-block:: console
+
+    gmadet-cnn_convert --path gmadet_cnn --cube cube --cutouts "gmadet_sim_results/*/candidates_training/"
+
+The cube will be in ``gmadet_cnn/datacube/cube.npz``
+
 Then you can start the training:
 
 .. code-block:: console
@@ -130,6 +138,14 @@ Replace:
 * ``PATH_CUBENAME`` with the path containing the datacube, including the filename and .npz extension.
 * ``PATH_MODEL`` with the path where you want to store the trained model.
 * ``MODELNAME`` with the name of the model that will be created.
+
+Again, it will look like that
+
+.. code-block:: console
+
+    gmadet-cnn_train --cube gmadet_cnn/datacube/cube.npz --model-path gmadet_cnn --model-name model
+
+The model will be in ``gmadet_cnn/CNN_training/model.h5``
 
 
 Apply a trained model on candidates
@@ -146,7 +162,13 @@ Replace:
 * ``PATH_CUTOUTS`` with the path containing the candidates cutouts.
 * ``PATH_MODEL`` with the path to the trained CNN model, including its filnemame and .h5 extension.
 
-It will results a file ``infer_results.dat`` in the ``PATH_CUTOUTS`` containing the probability that a source is a false (column: label0) or true (column: label1). You can then aplly a threshold on these probability to keep only some candidates.
+Again, for our example it will be
+
+.. code-block:: console
+
+    gmadet-cnn_infer --cutouts "gmadet_sim_results/*/candidates_training/*/" --model gmadet_cnn/CNN_training/model.h5
+
+It will results a file ``infer_results.dat`` in the current folder containing the probability that a source is a false (column: label0) or true (column: label1). You can then aplly a threshold on these probability to keep only some candidates.
 
 To assess the threshold you can run the ``gmadet-cnn_infer`` on the same images you used for the training. Combine the cutouts in the ``true`` and ``false`` folder into one common folder and run ``gmadet-cnn_infer`` on these cutout.
 You can also perform a new simulation, run gmadet on them, extract the cutouts and apply the model you trained during the first simulation to have more representative results.

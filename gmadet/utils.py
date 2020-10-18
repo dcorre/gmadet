@@ -80,8 +80,8 @@ def getpath():
 def getTel():
     """Get the list of all telescopes"""
     path_gmadet = getpath()
-    telList = [name for name in os.listdir(path_gmadet+"/config")
-               if os.path.isdir(path_gmadet+"/config/"+name) and
+    telList = [name for name in os.listdir(os.path.join(path_gmadet, "config"))
+               if os.path.isdir(os.path.join(path_gmadet, "config", name)) and
                name != 'conv_kernels']
     return telList
 
@@ -153,29 +153,29 @@ def load_config(telescope, convFilter='default'):
        They are telescope dependent.
     """
     path = getpath()
-    path2tel = path + "/config/" + telescope + "/"
+    path2tel = os.path.join(path, "config", telescope)
     config = {
         "telescope": telescope,
         "sextractor": {
-            "conf": path2tel + "sourcesdet.sex",
-            "param": path2tel + "sourcesdet.param",
-            "convFilter": path + "/config/conv_kernels/%s.conv" % convFilter
+            "conf": os.path.join(path2tel, "sourcesdet.sex"),
+            "param": os.path.join(path2tel, "sourcesdet.param"),
+            "convFilter": os.path.join(path, "config/conv_kernels/%s.conv" % convFilter)
         },
         "scamp": {
-            "sextractor": path2tel + "prepscamp.sex",
-            "param": path2tel + "prepscamp.param",
-            "conf": path2tel + "scamp.conf",
+            "sextractor": os.path.join(path2tel, "prepscamp.sex"),
+            "param": os.path.join(path2tel, "prepscamp.param"),
+            "conf": os.path.join(path2tel, "scamp.conf"),
         },
         "swarp": {},
         "psfex": {
-            "sextractor": path2tel + "preppsfex.sex",
-            "param": path2tel + "preppsfex.param",
-            "conf": path2tel + "psfex.conf",
+            "sextractor": os.path.join(path2tel, "preppsfex.sex"),
+            "param": os.path.join(path2tel, "preppsfex.param"),
+            "conf": os.path.join(path2tel, "psfex.conf"),
         },
         "hotpants": {
-            "conf": path2tel + "hotpants.hjson",
-            "conf2": path2tel + "hotpants_2.hjson",
-            "conf3": path2tel + "hotpants_3.hjson",
+            "conf": os.path.join(path2tel, "hotpants.hjson"),
+            "conf2": os.path.join(path2tel, "hotpants_2.hjson"),
+            "conf3": os.path.join(path2tel, "hotpants_3.hjson"),
         },
     }
 
@@ -188,56 +188,15 @@ def clean_folder(filelist, subFiles=None):
     types = ("*coo.*", "*mag.*", "*.magwcs", "*.magfiltered*")
     files2delete = []
     for filename in filelist:
-        path = os.path.split(filename)
-        if path[0]:
-            folder = path[0] + "/"
-        else:
-            folder = ""
+        path = os.path.dirname(filename)
 
         for f in types:
-            files2delete.extend(glob.glob(folder + f))
+            files2delete.extend(glob.glob(os.path.join(path, f)))
             files2delete.extend(glob.glob(f))
 
     files2delete = np.unique(files2delete)
     for f in files2delete:
         os.remove(f)
-
-
-def make_copy(filelist, path_data, outputDir="gmadet_results/"):
-    """ Make copy of original images in outputDir """
-
-    filelist = np.atleast_1d(filelist)
-
-    #  List all the files in the given path
-    if os.path.isdir(path_data):
-        pass
-    else:
-        path_data, _ = os.path.split(path_data)
-    resultDir = path_data + '/' + outputDir
-    # If gmadet_results/ already exist, rename it
-    if os.path.exists(resultDir):
-        mv_p(resultDir,
-             resultDir[:-1] + '_' + time.strftime("%Y%m%d-%H%M%S"))
-    # Create results folder
-    mkdir_p(resultDir)
-
-    newlist = []
-    for filename in filelist:
-        path, filename_ext = os.path.split(filename)
-
-        if path:
-            folder = path + "/"
-        else:
-            folder = ""
-        # remove common path_data to keep only directories inside path_data
-        # to copy the same data architecture
-        resultDir2 = folder.replace(path_data, '')
-        mkdir_p(resultDir+resultDir2)
-        copyname = resultDir + resultDir2 + filename_ext
-        cp_p(filename, copyname)
-        newlist.append(copyname)
-
-    return newlist
 
 
 def make_results_dir(
@@ -250,7 +209,7 @@ def make_results_dir(
     optionally making backup of subfolder if it exists already """
 
     # Filename without dir
-    basename = os.path.split(filename)[1]
+    basename = os.path.basename(filename)
 
     # Subdir to store results for this file
     dirname = os.path.splitext(basename)[0]
@@ -280,11 +239,6 @@ def make_results_dir(
 def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
 
     path, filename_ext = os.path.split(filename)
-    if path:
-        folder = path + "/"
-    else:
-        folder = ""
-
     filename2, extension = os.path.splitext(filename_ext)
 
     quadrant_list = []
@@ -327,8 +281,8 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
                 x2 = Naxis11 * (i + 1)
                 y2 = Naxis22 * (j + 1)
 
-                filename_out = folder + filename2 + \
-                    "_Q%d" % (index) + extension
+                filename_out = os.path.join(path, filename2 + \
+                    "_Q%d" % (index) + extension)
 
                 # No need to update the header if astrometric calibration is
                 # performed with scamp, this will be updated later.
@@ -717,41 +671,29 @@ def clean_outputs(filenames, outLevel):
     imagelist = np.atleast_1d(filenames)
     for ima in imagelist:
         print("\nCleaning up output files for %s" % ima)
-        path, _ = os.path.split(ima)
-        if path:
-            folder = path + "/"
-        else:
-            folder = ""
+        path = os.path.dirname(ima)
 
-        rm_p(folder + "*.head")
+        rm_p(os.path.join(path, "*.head"))
         if outLevel == 0:
             rm_p('coadd.weight.fits')
-            rm_p(folder + "*.magwcs*")
-            rm_p(folder + "*.oc*")
-            rm_p(folder + "*.cat")
-            rm_p(folder + "*.png")
-            rm_p(folder + "*.fits")
-            rm_p(folder + "*_ZP_*")
-            rm_p(folder + "substraction/*.magwcs*")
-            rm_p(folder + "substraction/*.cat")
-            rm_p(folder + "substraction/*mask*")
-            rm_p(folder + "substraction/*background")
-            rm_p(folder + "substraction/*segmentation")
+            for _ in ["*.magwcs*", "*.oc*", "*.cat", "*.png", "*.fits", "*_ZP_*",
+                      "substraction/*.magwcs*",
+                      "substraction/*.cat",
+                      "substraction/*mask*",
+                      "substraction/*background",
+                      "substraction/*segmentation"]:
+                rm_p(os.path.join(path, _))
 
         elif outLevel == 1:
             rm_p('coadd.weight.fits')
-            rm_p(folder + "*.magwcs")
-            rm_p(folder + "*.oc")
-            rm_p(folder + "*.cat")
-            rm_p(folder + "*.png")
-            rm_p(folder + "*_ZP_*")
-            rm_p(folder + "*.fits")
-            rm_p(folder + "*_CRmask.fits")
-            rm_p(folder + "*_CR_notcleaned.fits")
-            rm_p(folder + "substraction/*.magwcs")
-            rm_p(folder + "substraction/*mask")
-            rm_p(folder + "substraction/*background")
-            rm_p(folder + "substraction/*segmentation")
+
+            for _ in ["*.magwcs*", "*.oc*", "*.cat", "*.png", "*.fits", "*_ZP_*",
+                      "*_CRmask.fits", "*_CR_notcleaned.fits",
+                      "substraction/*.magwcs*",
+                      "substraction/*mask*",
+                      "substraction/*background",
+                      "substraction/*segmentation"]:
+                rm_p(os.path.join(path, _))
 
         elif outLevel == 2:
             pass

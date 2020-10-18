@@ -52,15 +52,15 @@ import matplotlib.pyplot as plt
 
 def infer(path_cutouts, path_model, probratio):
     """Apply a previously trained CNN"""
-    
-    model_name = path_model 
+
+    model_name = path_model
     probratio = 1.0 / float(probratio)
     sstart = int(0)
 
     edge_shift = 64
 
     # Get all the images
-    filenames = sorted(glob.glob(path_cutouts + "/*.fits"))
+    filenames = sorted(glob.glob(os.path.join(path_cutouts, "*.fits")))
     print("Loading model " + model_name + " ...", end="\r", flush=True)
 
     model = keras.models.load_model(model_name)
@@ -179,39 +179,7 @@ def infer(path_cutouts, path_model, probratio):
         ],
     )
     # table.show_in_browser()
-    table.write(path_cutouts + "/infer_results.dat",
+    # FIXME: for now let's just write it to current folder
+    table.write("infer_results.dat",
                 format="ascii.commented_header",
                 overwrite=True)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Apply a previously trained CNN.")
-
-    parser.add_argument(
-        "--path_cutouts",
-        dest="path_cutouts",
-        required=True,
-        type=str,
-        help="Path to cutouts."
-    )
-
-    parser.add_argument(
-        "--probratio",
-        dest="probratio",
-        required=True,
-        type=float,
-        help="Proba ratio, not used at the moment.",
-    )
-
-    parser.add_argument(
-        "--path_model",
-        dest="path_model",
-        required=True,
-        type=str,
-        help="Path to the trained model, including its name and extension.",
-    )
-
-    args = parser.parse_args()
-
-    infer(args.path_cutouts, args.path_model, args.probratio)

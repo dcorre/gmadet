@@ -25,7 +25,7 @@ def main():
         dest="path_plots",
         required=True,
         type=str,
-        help="Path where to store plots."
+        help="Path to folder where to store plots."
     )
 
     parser.add_argument(
@@ -33,7 +33,7 @@ def main():
         dest="path_crossmatch",
         required=True,
         type=str,
-        help="Path where crossmatch.dat is stored."
+        help="Path to crossmatch.dat file."
     )
 
     parser.add_argument(
@@ -41,7 +41,7 @@ def main():
         dest="path_infer",
         required=True,
         type=str,
-        help="Path where infer.dat is stored."
+        help="Path to infer.dat file."
     )
 
     parser.add_argument(

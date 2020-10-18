@@ -4,6 +4,7 @@
 @author: David Corre (IJCLab/CNRS)
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import ascii
@@ -11,15 +12,15 @@ from astropy.table import Table
 from gmadet.utils import mkdir_p
 
 class SortRes():
-    
+
     def __init__(self, path_crossmatch, path_infer):
-        self.data1 = ascii.read(path_crossmatch + '/crossmatch.dat')
-        self.data2 = ascii.read(path_infer + '/infer_results.dat')
-        
+        self.data1 = ascii.read(path_crossmatch)
+        self.data2 = ascii.read(path_infer)
+
     def filter_prob(self, data, prob, colname):
         mask = data[colname] >= prob
         return data[mask]
-    
+
     def combine_match_cnn(self, prob, colname):
         idx_list = []
         label0 = []
@@ -30,7 +31,7 @@ class SortRes():
         magerr = []
         candID = []
         for row in self.data2:
-            mask = (self.data1['closest_candID'] == row['candID']) & (row[colname] > prob )
+            mask = (self.data1['closest_candID'] == row['cand_ID']) & (row[colname] > prob )
             if len(self.data1[mask]) == 1:
                 idx_list.append(self.data1['idx'][mask][0])
                 label0.append(row['label0'])
@@ -44,20 +45,20 @@ class SortRes():
         newtab['FWHM'] = fwhm
         newtab['FWHMPSF'] = fwhm_psf
         newtab['mag2'] = mag
-        newtab['mag2err'] = magerr       
+        newtab['mag2err'] = magerr
         newtab['label0'] = label0
         newtab['label1'] = label1
         newtab['cand_ID'] = candID
         return newtab
 
-    def filter_pos(self, data, RA, Dec, radius):    
+    def filter_pos(self, data, RA, Dec, radius):
         offset = (data['RA'] - RA)**2 + (data['Dec'] - Dec)**2
         offset = np.sqrt(offset)
         data['offset'] = offset
         mask = data['offset'] < radius / 3600
-        
+
         return data[mask]
-    
+
     def hist(self, data, col, bins=20):
         plt.hist(data[col], bins,  density=False, facecolor='C0', alpha=0.75, log=True)
 
@@ -66,7 +67,7 @@ def makestats(path_plots, path_crossmatch, path_infer, maglim,
               CNNproblim, FWHM_ratio_lower, FWHM_ratio_upper):
     """ Create some statistics on the CNN training."""
 
-    path_plots = path_plots + '/CheckInfer'
+    path_plots = os.path.join(path_plots, 'CheckInfer')
     mkdir_p(path_plots)
     res = SortRes(path_crossmatch, path_infer)
 
@@ -89,7 +90,7 @@ def makestats(path_plots, path_crossmatch, path_infer, maglim,
                         label='sim: %.1f<mag<%.1f '% (maglim[0], maglim[1]),
                         color='C0',
                         alpha=0.3)
-    
+
     _,_,_ = plt.hist(simID_list['label1'][mask2],
                      bins=bins,
                      label='sim: %.1f<mag<%.1f' % (maglim[1], maglim[2]),
@@ -100,19 +101,19 @@ def makestats(path_plots, path_crossmatch, path_infer, maglim,
                      label='sim: mag>%.1f' % maglim[2],
                      color='C2',
                      alpha=0.75)
-    
+
     plt.legend(loc='best')
     plt.xlabel('CNN prob')
     plt.title('Distribution of CNN prob for simulated events')
-    plt.savefig(path_plots + '/distrib_CNN_prob_sim.png')
+    plt.savefig(os.path.join(path_plots, 'distrib_CNN_prob_sim.png'))
 
 
     plt.figure()
-    _,_,_ = plt.hist(res.data2['label1'], 
-                        bins=bins, 
-                        log=True, 
+    _,_,_ = plt.hist(res.data2['label1'],
+                        bins=bins,
+                        log=True,
                         color='C0',
-                        alpha=0.2, 
+                        alpha=0.2,
                         label='All: sim + real')
 
     _,_,_ = plt.hist(simID_list['label1'][mask3],
@@ -133,10 +134,10 @@ def makestats(path_plots, path_crossmatch, path_infer, maglim,
     plt.legend(loc='best')
     plt.xlabel('CNN prob')
     plt.title('Distribution of CNN prob for all events')
-    plt.savefig(path_plots + '/distrib_CNN_prob_all.png')
+    plt.savefig(os.path.join(path_plots, 'distrib_CNN_prob_all.png'))
 
     plt.figure()
-    mask_sim = np.isin(res.data2['candID'], simID_list['candID'])
+    mask_sim = np.isin(res.data2['cand_ID'], simID_list['cand_ID'])
     tot,bins2,_ = plt.hist(res.data2['label1'],
                      bins=bins,
                      log=True,
@@ -157,7 +158,7 @@ def makestats(path_plots, path_crossmatch, path_infer, maglim,
                      alpha=0.3)
     plt.xlabel('CNN prob')
     plt.legend(loc='best')
-    plt.savefig(path_plots+'/distrib_CNNprob_all_and_sim.png')
+    plt.savefig(os.path.join(path_plots, 'distrib_CNNprob_all_and_sim.png'))
 
     x=(bins2[1:]+bins2[:-1])/2
 
@@ -169,7 +170,7 @@ def makestats(path_plots, path_crossmatch, path_infer, maglim,
     plt.ylabel('%')
     plt.legend(loc='best')
     plt.title('Fraction of sources per CNN prob bins')
-    plt.savefig(path_plots + '/fraction_per_bin.png')
+    plt.savefig(os.path.join(path_plots, 'fraction_per_bin.png'))
 
     colmask = 'label1'
     coldistrib = 'FWHM'
@@ -201,7 +202,7 @@ def makestats(path_plots, path_crossmatch, path_infer, maglim,
     plt.legend(loc='best')
     plt.xlabel('FWHM / FWHM_PSF')
     plt.title('Distribution of CNN prob for simulated events')
-    plt.savefig(path_plots + '/distrib_FWHM_simulation.png')
+    plt.savefig(os.path.join(path_plots, 'distrib_FWHM_simulation.png'))
 
     bins = np.linspace(0,20,60)
     plt.figure()
@@ -232,82 +233,4 @@ def makestats(path_plots, path_crossmatch, path_infer, maglim,
     plt.xlabel('FWHM / FWHM_PSF')
     plt.legend(loc='best')
     plt.title('Distribution of CNN prob for all events.')
-    plt.savefig(path_plots+'/distrib_FWHM_real_vs_sim.png')
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Compute sub-images centered on candidates position."
-    )
-
-    parser.add_argument(
-        "--path_plots",
-        dest="path_plots",
-        required=True,
-        type=str,
-        help="Path where to store plots."
-    )
-
-    parser.add_argument(
-        "--path_plots",
-        dest="path_plots",
-        required=True,
-        type=str,
-        help="Path where crossmatch.dat is stored."
-    )
-
-    parser.add_argument(
-        "--path_plots",
-        dest="path_plots",
-        required=True,
-        type=str,
-        help="Path where infer.dat is stored."
-    )
-
-    parser.add_argument(
-        "--maglim",
-        dest="maglim",
-        required=False,
-        type=float,
-        nargs='+',
-        default=[12,18,21],
-        help="Magnitudes used to split the magnitude range in the plots. "
-             " (Default: 12 18 21)"
-    )
-
-    parser.add_argument(
-        "--CNNproblim",
-        dest="CNNproblim",
-        required=False,
-        type=float,
-        nargs='+',
-        default=[0.1,0.5,0.7],
-        help="CNN proba used to split the results in the plots. "
-             " (Default: 0.1 0.5 0.7)"
-    )
-
-    parser.add_argument(
-        "--FWHM_ratio_lower",
-        dest="FWHM_ratio_lower",
-        required=False,
-        type=float,
-        default=0.5,
-        help="Lower bound for the ratio FWHM / FWHM_PSF used for the plots. "
-             " (Default: 0.5)"
-    )
-
-    parser.add_argument(
-        "--FWHM_ratio_upper",
-        dest="FWHM_ratio_upper",
-        required=False,
-        type=float,
-        default=4.2,
-        help="Upper bound for the ratio FWHM / FWHM_PSF used for the plots. "
-             " (Default: 4.2)"
-    )
-
-    args = parser.parse_args()
-
-    makestats(args.path_plots, args.path_crossmatch, args.path_infer,
-              maglim=args.maglim, CNNproblim=args.CNNproblim,
-              FWHM_ratio_lower=args.FWHM_ratio_lower,
-              FWHM_ratio_upper=args.FWHM_ratio_upper)
+    plt.savefig(os.path.join(path_plots, 'distrib_FWHM_real_vs_sim.png'))

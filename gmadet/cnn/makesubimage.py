@@ -18,12 +18,10 @@ from gmadet.utils import (getpath, make_sub_image,
                           mv_p, rm_p, mkdir_p)
 from astropy.io import ascii, fits
 from astropy.table import Table
-
+from astropy.coordinates import SkyCoord
 
 def getCandPos(path, pattern=".alldetections", flag_notsub=False):
-    resfiles = glob.glob(
-        path + "/**/gmadet_results/*%s*" %
-        pattern, recursive=True)
+    resfiles = glob.glob(os.path.join(path, "**", "*%s*" % pattern), recursive=True)
     filelist = []
     origfilelist = []
     Xpos_list = []
@@ -37,8 +35,8 @@ def getCandPos(path, pattern=".alldetections", flag_notsub=False):
     FWHM_PSF = []
     for resfile in resfiles:
         data = ascii.read(resfile)
-        #  Select only detection in the substracted images and not
-        #  close to the edge.
+        # Select only detection in the substracted images and not
+        # close to the edge.
         if not flag_notsub:
             mask = (data["FlagSub"] == "Y") & (data["edge"] == "N")
         else:
@@ -53,7 +51,7 @@ def getCandPos(path, pattern=".alldetections", flag_notsub=False):
         filelist.extend(data["filenames"][mask])
         FWHM.extend(data["FWHM"][mask])
         FWHM_PSF.extend(data["FWHMPSF"][mask])
-        _, origfile = os.path.split(data["OriginalIma"][mask][0])
+        origfile = os.path.basename(data["OriginalIma"][mask][0])
         origfilelist.extend([origfile] * len(data[mask]))
     cand_id = np.arange(len(RA_list))
     table = Table(
@@ -97,33 +95,33 @@ def getCandPos(path, pattern=".alldetections", flag_notsub=False):
 def crossmatch_detections(path, candidates_list, radius=1):
     """ Crossmatch detections with simulated events positions """
 
-    #  Load simulated events summary file
-    sim_list = ascii.read(path + "/simulated_objects.list")
+    # Load simulated events summary file
+    sim_list = ascii.read(os.path.join(path, "simulated_objects.list"))
     newfilename = []
     for sim in sim_list:
-        filename = sim["filename"].split("/")[-1]
+        filename = os.path.basename(sim["filename"])
         newfilename.append(filename)
     sim_list["filename2"] = newfilename
 
-    #  Check whether the simulated events have been detected
+    # Check whether the simulated events have been detected
     Ndet = []
     candID_list = []
     closest_candID_list = []
 
     Nsim = len(sim_list)
     for i, event in enumerate(sim_list):
-        print(
-            "processing simulated event  %d/%d ..." %
-            (i, Nsim), end="\r", flush=True)
+        print("processing simulated event  %d/%d ..." % (i, Nsim), end="\r", flush=True)
+
         event_coords = [event["RA"], event["Dec"]]
-        #  Check whether it is a simulated object
+        # Check whether it is a simulated object
+        # FIXME: it is currently broken, as candidates_list contain _reg_ annotated filenames
+        # when simulated_objects.list does not
         mask1 = candidates_list["OriginalIma"] == event["filename2"]
-        candidates = copy.deepcopy(candidates_list[mask1])
-        #  Compute the separation with detections and sort by ascending values
-        offset = (candidates["RA"] - event["RA"]) ** 2 + (
-            candidates["Dec"] - event["Dec"]
-        ) ** 2
-        offset = np.sqrt(offset)
+        candidates = copy.deepcopy(candidates_list) # [mask1])
+
+        # Compute the separation with detections and sort by ascending values
+        offset = SkyCoord(candidates["RA"], candidates["Dec"], unit='deg').separation(
+            SkyCoord(event["RA"], event["Dec"], unit='deg')).degree
         candidates["offset"] = offset
         candidates.sort("offset")
         mask2 = candidates["offset"] < radius / 3600
@@ -141,22 +139,23 @@ def crossmatch_detections(path, candidates_list, radius=1):
             candID_list.append(None)
             closest_candID_list.append(None)
 
-    #  Add a column 'detected' to the simulated events list table
+    # Add a column 'detected' to the simulated events list table
     sim_list["Nmatches"] = Ndet
     sim_list["closest_candID"] = closest_candID_list
     sim_list["all_candIDs"] = candID_list
-    sim_list.write(path + "/crossmatch.dat",
+
+    sim_list.write(os.path.join(path, "crossmatch.dat"),
                    format="ascii.commented_header",
                    overwrite=True)
     return sim_list
 
 
-def subimage(path, training, size=32, radius=1, flag_notsub=False):
+def subimage(path, training, size=32, radius=1, flag_notsub=False, false=False):
     """ Extract a sub-image centered on the candidate position """
 
     path_gmadet = getpath()
 
-    #  size of the extracted image
+    # size of the extracted image
     cutsize = (size, size)
     print("Combine the detections from all simulated images.")
     candidates_list = getCandPos(path, flag_notsub=flag_notsub)
@@ -165,15 +164,15 @@ def subimage(path, training, size=32, radius=1, flag_notsub=False):
         print("Crossmatch simulated events with detections")
         sim_list = crossmatch_detections(path, candidates_list, radius=radius)
 
-        resdir = path + "/gmadet_results/candidates_training/"
+        resdir = os.path.join(path, "candidates_training")
         mkdir_p(resdir)
-        truedir = path + "/gmadet_results/candidates_training/true/"
+        truedir = os.path.join(path, "candidates_training", "true")
         mkdir_p(truedir)
-        falsedir = path + "/gmadet_results/candidates_training/false/"
+        falsedir = os.path.join(path, "candidates_training", "false")
         mkdir_p(falsedir)
 
     else:
-        resdir = path + "/gmadet_results/candidates/"
+        resdir = os.path.join(path, "candidates")
         mkdir_p(resdir)
 
     for i, cand in enumerate(candidates_list):
@@ -186,9 +185,9 @@ def subimage(path, training, size=32, radius=1, flag_notsub=False):
         OT_coords = [cand["RA"], cand["Dec"]]
 
         if training:
-            #  Check if corresponds to a simulated event
+            # Check if corresponds to a simulated event
             mask = sim_list["closest_candID"] == cand["ID"]
-            #  Check whether it is a simulated object
+            # Check whether it is a simulated object
             # mask1 = sim_list['filename2'] == cand['OriginalIma']
             # mask2 = (sim_list['RA'] - cand['RA'])**2 + (sim_list['Dec'] - cand['Dec'])**2 < (radius/3600)**2
             # mask = np.bitwise_and(mask1,mask2)
@@ -196,7 +195,10 @@ def subimage(path, training, size=32, radius=1, flag_notsub=False):
             if len(sim_list[mask]) == 1:
                 outdir = truedir
             else:
-                outdir = resdir
+                if false:
+                    outdir = falsedir
+                else:
+                    outdir = resdir
             """
             inputname = (
                 path_gmadet
@@ -209,16 +211,16 @@ def subimage(path, training, size=32, radius=1, flag_notsub=False):
             outdir = resdir
             inputname = cand["filename"]
 
-        outname = outdir + "candidate_%d.fits" % i
-        #  If the inputname can not be found for some reasons
-        #  Make sure the code is not crashing
+        outname = os.path.join(outdir, "candidate_%d.fits" % i)
+        # If the inputname can not be found for some reasons
+        # Make sure the code is not crashing
         try:
-            #  Get initial image size
+            # Get initial image size
             hdr_input = fits.getheader(inputname)
             Naxis1 = hdr_input["NAXIS1"]
             Naxis2 = hdr_input["NAXIS2"]
 
-            #  Extract small image
+            # Extract small image
             make_sub_image(
                 inputname,
                 OT_coords,
@@ -228,7 +230,7 @@ def subimage(path, training, size=32, radius=1, flag_notsub=False):
                 fmt="fits",
                 addheader=False,
             )
-            #  add information to header
+            # add information to header
             hdus = fits.open(outname, memmap=False)
             hdr = hdus[0].header
             hdr["MAG"] = cand["mag"]
@@ -242,8 +244,8 @@ def subimage(path, training, size=32, radius=1, flag_notsub=False):
             hdr["Ypos"] = cand["Ypos"]
             hdr["FILE"] = cand["filename"]
             hdr["CANDID"] = cand["ID"]
-            #  Whether it is close to the edge of the image
-            #  If yes the image will not be size x size in pixels
+            # Whether it is close to the edge of the image
+            # If yes the image will not be size x size in pixels
             if (
                 (cand["Xpos"] > Naxis1 - size)
                 or (cand["Xpos"] < size)
@@ -258,58 +260,3 @@ def subimage(path, training, size=32, radius=1, flag_notsub=False):
 
         except BaseException:
             print("Could not extract candidate in %s" % inputname)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Compute sub-images centered on candidates position."
-    )
-
-    parser.add_argument(
-        "--path",
-        dest="path",
-        required=True,
-        type=str,
-        help="Path to images"
-    )
-
-    parser.add_argument(
-        "--training",
-        dest="training",
-        action="store_true",
-        help="If set, training mode"
-    )
-
-    parser.add_argument(
-        "--size",
-        dest="size",
-        required=False,
-        default=32,
-        type=int,
-        help="Size in pixels of the extracted images. Default: 32",
-    )
-
-    parser.add_argument(
-        "--radius",
-        dest="radius",
-        required=False,
-        default=2,
-        type=float,
-        help="Radius for crossmatching detected sources with simulated events."
-             " Default: 2 arcseconds",
-    )
-
-    parser.add_argument(
-        "--flag_notsub",
-        dest="flag_notsub",
-        required=False,
-        action="store_true",
-        help="Whether the candidates are not the results of an image substraction."
-             "(Default: False)",
-    )
-
-
-    args = parser.parse_args()
-
-    subimage(args.path, args.training,
-             size=args.size, radius=args.radius, flag_notsub=args.flag_notsub)

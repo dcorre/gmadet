@@ -28,7 +28,9 @@ def sim(datapath, filenames, Ntrans=50, size=48,
         magrange=[14, 22], gain=None, magzp=30):
     """Insert point sources in real images """
 
-    simdir = datapath + "/gmadet_sim/simulation/"
+    filenames = np.atleast_1d(filenames)
+
+    simdir = os.path.join(datapath, "simulation")
     mkdir_p(simdir)
 
     cutsize = np.array([size, size], dtype=np.int32)
@@ -77,11 +79,10 @@ def sim(datapath, filenames, Ntrans=50, size=48,
                     gain = 1.0
 
 
-            #  Add the transients to image
+            # Add the transients to image
             pos = np.zeros((Ntrans, 2), dtype=float)
             for j in range(Ntrans):
-                newfile = simdir + \
-                    os.path.splitext(name)[0] + "_" + str(counter) + ".fits"
+                newfile = os.path.join(simdir, os.path.splitext(name)[0] + "_" + str(counter) + ".fits")
                 filelist.append(newfile)
 
                 filterlist.append(band)
@@ -179,7 +180,7 @@ def sim(datapath, filenames, Ntrans=50, size=48,
             "filter"],
     )
     table.write(
-        simdir + "simulated_objects.list",
+        os.path.join(simdir, "simulated_objects.list"),
         format="ascii.commented_header",
         overwrite=True,
     )

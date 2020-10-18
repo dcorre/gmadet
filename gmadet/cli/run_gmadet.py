@@ -21,6 +21,7 @@ from gmadet.utils import (
     clean_folder,
     cut_image,
     list_files,
+    cp_p,
     mv_p,
     mkdir_p,
     make_results_dir,
@@ -305,6 +306,12 @@ def main():
             if not os.path.exists(filename):
                 print("Pre-processing failed")
                 continue
+
+        # If there is simulated_objects.list file alongside the image,
+        # let's copy it to the results dir
+        if os.path.exists(os.path.join(os.path.dirname(raw_filename), 'simulated_objects.list')):
+            cp_p(os.path.join(os.path.dirname(raw_filename), 'simulated_objects.list'),
+                 os.path.join(os.path.dirname(filename), 'simulated_objects.list'))
 
         print("Sanitise header and data of %s.\n" % filename)
         sanitise_fits(filename)
