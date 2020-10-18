@@ -245,7 +245,7 @@ def main():
             outLevel=2,
         )
 
-        datapath = os.path.split(filename)[0]
+        datapath = os.path.dirname(filename)
         sim(datapath,
             filename,
             Ntrans=args.Ntrans,

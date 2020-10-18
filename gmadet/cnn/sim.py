@@ -51,7 +51,7 @@ def sim(datapath, filenames, Ntrans=50, size=48,
     # filenames = filenames[:4]
     for filename in filenames:
         if "psf" not in filename and "weight" not in filename:
-            _, name = os.path.split(filename)
+            name = os.path.basename(filename)
             # print("\x1b[2K", end='\r', flush=True),
             # print("Loading " + epoch1 + " image data ...", end='\r',
             # flush=True),
