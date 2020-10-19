@@ -162,14 +162,14 @@ It is important to note that the following parameter will be overwritten by the 
 **SExtractor:**
 
 * ``DETECT_THRESH``: overwritten by the ``--threshold`` argument of ``gmadet-run``.
-* ``FILTER_NAME``: overwritten by the ``--convFilter`` argument of ``gmadet-run`` and other executables.
-* ``SEEING_FWHM``: overwritten by the ``--FWHM`` argument (either a float or the value returned by PSFEx)
+* ``FILTER_NAME``: overwritten by the ``--conv-filter`` argument of ``gmadet-run`` and other executables.
+* ``SEEING_FWHM``: overwritten by the ``--fwhm`` argument (either a float or the value returned by PSFEx)
 * ``VERBOSE_TYPE``: overwritten by the ``--verbose`` argument of different executables.
 * ``PARAMETERS_NAME``, ``CHECKIMAGE_TYPE``, ``CHECKIMAGE_NAME``, ``CATALOG_NAME``, ``PSF_NAME`` are also overwritten in the process.
 
 **SCAMP:**
 
-* ``FILTER_NAME``: overwritten by the ``--convFilter`` argument.
+* ``FILTER_NAME``: overwritten by the ``--conv-filter`` argument.
 * ``VERBOSE_TYPE``: overwritten by the ``--verbose`` argument of different executables.
 * ``PARAMETERS_NAME``, ``-ASTREF_BAND``, ``CHECKPLOT_DEV``, ``CHECKPLOT_NAME``, ``CHECKPLOT_TYPE`` are also overwritten in the process.
 
