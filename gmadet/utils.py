@@ -98,7 +98,7 @@ def list_files(
         paths,
         pattern=["*.fit", "*.fits", "*.fts"],
         recursive=True,
-        subdirs=False,
+        get_subdirs=False,
         exclude=None):
     """ (Recursively) list the files matching the pattern from the list of
     filenames or directories, omitting the ones containing file paths
@@ -153,7 +153,7 @@ def list_files(
 
         idx.append(~flag_skip)
 
-    if subdirs:
+    if get_subdirs:
         return [_ for _,__ in zip(filenames, idx) if __], [_ for _,__ in zip(subdirs, idx) if __]
     else:
         return [_ for _,__ in zip(filenames, idx) if __]
