@@ -187,67 +187,45 @@ def SDSS2Johnson(band, SDSS_Table):
     R_band = ["R"]  # found in header
     I_band = ["I"]
     B_band = ["B"]
-
-    if band in V_band:
-        coefficients = [-0.016, -0.573]
-        SDSS_Table["g-r"] = SDSS_Table["gmag"] - SDSS_Table["rmag"]
-        SDSS_Table["VMag"] = SDSS_Table["gmag"] + \
-            poly(SDSS_Table["g-r"], coefficients)
-        SDSS_Table["calib_err"] = (
-            np.sqrt(
-                (0.002 / 0.573) ** 2
-                + (0.002 / 0.016) ** 2
-                + (SDSS_Table["e_gmag"] / SDSS_Table["gmag"]) ** 2
-                + (SDSS_Table["e_rmag"] / SDSS_Table["rmag"]) ** 2
-            )
-            * SDSS_Table["VMag"]
-        )
-
-    if band in R_band:
+    
+    if filter in V_band:
+        coefficients = [- 0.016, -0.573]
+        SDSS_Table['g-r'] = SDSS_Table['gmag'] - SDSS_Table['rmag']
+        SDSS_Table["VMag"] = SDSS_Table["gmag"] + poly(SDSS_Table['g-r'],
+                                                            coefficients)
+        SDSS_Table["error_from_transformation"] = np.sqrt((0.002 * SDSS_Table['g-r'])**2 + 
+                                                          0.573**2 * SDSS_Table['e_rmag']**2 + 
+                                                          0.427**2 * SDSS_Table['e_gmag']**2 + 
+                                                          0.002**2)
+        
+    if filter in R_band:
         coefficients = [0.152, -0.257]
-        SDSS_Table["r-i"] = SDSS_Table["rmag"] - SDSS_Table["imag"]
-        SDSS_Table["RMag"] = SDSS_Table["rmag"] + \
-            poly(SDSS_Table["r-i"], coefficients)
-        SDSS_Table["calib_err"] = (
-            np.sqrt(
-                (0.004 / 0.257) ** 2
-                + (0.002 / 0.152) ** 2
-                + (SDSS_Table["e_rmag"] / SDSS_Table["rmag"]) ** 2
-                + (SDSS_Table["e_imag"] / SDSS_Table["imag"]) ** 2
-            )
-            * SDSS_Table["RMag"]
-        )
-
-    if band in I_band:
+        SDSS_Table['r-i'] = SDSS_Table['rmag'] - SDSS_Table['imag']
+        SDSS_Table["RMag"] = SDSS_Table["rmag"] + poly(SDSS_Table['r-i'],
+                                                            coefficients)
+        SDSS_Table["error_from_transformation"] = np.sqrt(0.743**2 * SDSS_Table['e_rmag']**2 + 
+                                                          0.257**2 * SDSS_Table['e_imag']**2 + 
+                                                          0.002**2 + SDSS_Table['r-i']**2 * 0.004**2)
+        
+    
+    if filter in I_band:
         coefficients = [-0.394, -0.409]
-        SDSS_Table["i-z"] = SDSS_Table["imag"] - SDSS_Table["zmag"]
-        SDSS_Table["IMag"] = SDSS_Table["imag"] + \
-            poly(SDSS_Table["i-z"], coefficients)
-        SDSS_Table["calib_err"] = (
-            np.sqrt(
-                (0.006 / 0.409) ** 2
-                + (0.002 / 0.394) ** 2
-                + (SDSS_Table["e_zmag"] / SDSS_Table["zmag"]) ** 2
-                + (SDSS_Table["e_imag"] / SDSS_Table["imag"]) ** 2
-            )
-            * SDSS_Table["IMag"]
-        )
-
-    if band in B_band:
+        SDSS_Table['i-z'] = SDSS_Table['imag'] - SDSS_Table['zmag']
+        SDSS_Table["IMag"] = SDSS_Table["imag"] + poly(SDSS_Table['i-z'],
+                                                            coefficients)
+        SDSS_Table["error_from_transformation"] = np.sqrt(0.591**2 * SDSS_Table['e_imag']**2 + 
+                                                          0.409**2 * SDSS_Table['e_zmag']**2 + 
+                                                          0.002**2 + SDSS_Table['i-z']**2 * 0.006**2)
+    
+    if filter in B_band:
         coefficients = [0.219, 0.312]
-        SDSS_Table["g-r"] = SDSS_Table["gmag"] - SDSS_Table["rmag"]
-        SDSS_Table["BMag"] = SDSS_Table["gmag"] + \
-            poly(SDSS_Table["g-r"], coefficients)
-        SDSS_Table["calib_err"] = (
-            np.sqrt(
-                (0.002 / 0.219) ** 2
-                + (0.003 / 0.312) ** 2
-                + (SDSS_Table["e_gmag"] / SDSS_Table["gmag"]) ** 2
-                + (SDSS_Table["e_rmag"] / SDSS_Table["rmag"]) ** 2
-            )
-            * SDSS_Table["BMag"]
-        )
-
+        SDSS_Table['g-r'] = SDSS_Table['gmag'] - SDSS_Table['rmag']
+        SDSS_Table["BMag"] = SDSS_Table["gmag"] + poly(SDSS_Table['g-r'],
+                                                            coefficients)
+        SDSS_Table["error_from_transformation"] = np.sqrt(1.312**2 * SDSS_Table['e_gmag']**2 + 
+                                                          0.312**2 * SDSS_Table['e_rmag']**2 + 0.002**2 + 
+                                                          SDSS_Table['g-r']**2 * 0.003**2)
+        
     return SDSS_Table
 
 
@@ -255,8 +233,7 @@ def PS2Johnson(band, PS_Table):
     """
     Give the transformation laws to go from Pan-STARRS photometric system
     to Johnson photometric system
-    Transformation given by http://www.sdss3.org/dr8/algorithms/
-    sdssUBVRITransform.php
+    Transformation given by https://arxiv.org/pdf/1706.06147.pdf
 
     parameters: band: filter used to get the image
                 PS_Table: astropy.table with information from PS for
@@ -265,69 +242,35 @@ def PS2Johnson(band, PS_Table):
     returns: astropy.table with informations from PS and the computation
              for the filter of the image
     """
-    V_band = ["V"]  # Different names that can be
-    R_band = ["R"]  # found in header
-    I_band = ["I"]
-    B_band = ["B"]
-
-    if band in V_band:
-        coefficients = [-0.016, -0.573]
-        PS_Table["g-r"] = PS_Table["gmag"] - PS_Table["rmag"]
-        PS_Table["VMag"] = PS_Table["gmag"] + \
-            poly(PS_Table["g-r"], coefficients)
-        PS_Table["calib_err"] = (
-            np.sqrt(
-                (0.002 / 0.573) ** 2
-                + (0.002 / 0.016) ** 2
-                + (PS_Table["e_gmag"] / PS_Table["gmag"]) ** 2
-                + (PS_Table["e_rmag"] / PS_Table["rmag"]) ** 2
-            )
-            * PS_Table["VMag"]
-        )
-
-    if band in R_band:
-        coefficients = [0.152, -0.257]
-        PS_Table["r-i"] = PS_Table["rmag"] - PS_Table["imag"]
-        PS_Table["RMag"] = PS_Table["rmag"] + \
-            poly(PS_Table["r-i"], coefficients)
-        PS_Table["calib_err"] = (
-            np.sqrt(
-                (0.004 / 0.257) ** 2
-                + (0.002 / 0.152) ** 2
-                + (PS_Table["e_rmag"] / PS_Table["rmag"]) ** 2
-                + (PS_Table["e_imag"] / PS_Table["imag"]) ** 2
-            )
-            * PS_Table["RMag"]
-        )
-
-    if band in I_band:
-        coefficients = [-0.394, -0.409]
-        PS_Table["i-z"] = PS_Table["imag"] - PS_Table["zmag"]
-        PS_Table["IMag"] = PS_Table["imag"] + \
-            poly(PS_Table["i-z"], coefficients)
-        PS_Table["calib_err"] = (
-            np.sqrt(
-                (0.006 / 0.409) ** 2
-                + (0.002 / 0.394) ** 2
-                + (PS_Table["e_zmag"] / PS_Table["zmag"]) ** 2
-                + (PS_Table["e_imag"] / PS_Table["imag"]) ** 2
-            )
-            * PS_Table["IMag"]
-        )
-
-    if band in B_band:
-        coefficients = [0.219, 0.312]
-        PS_Table["g-r"] = PS_Table["gmag"] - PS_Table["rmag"]
-        PS_Table["BMag"] = PS_Table["gmag"] + \
-            poly(PS_Table["g-r"], coefficients)
-        PS_Table["calib_err"] = (
-            np.sqrt(
-                (0.002 / 0.219) ** 2
-                + (0.003 / 0.312) ** 2
-                + (PS_Table["e_gmag"] / PS_Table["gmag"]) ** 2
-                + (PS_Table["e_rmag"] / PS_Table["rmag"]) ** 2
-            )
-            * PS_Table["BMag"]
-        )
-
+    
+    V_band = ['V'] #Different names that can be 
+    R_band = ['R'] #found in header
+    I_band = ['I']
+    B_band = ['B']
+    
+    if filter in R_band:
+        coefficients = [-0.163, -0.086, -0.061]
+        PS_Table['g-r'] = PS_Table['gmag'] - PS_Table['rmag']
+        PS_Table["RMag"] = PS_Table["rmag"] + poly(PS_Table['g-r'], coefficients)
+        PS_Table["error_from_transformation"] = 0.041
+    
+    if filter in V_band:
+        coefficients = [-0.020, -0.498, -0.008]
+        PS_Table['g-r'] = PS_Table['gmag'] - PS_Table['rmag']
+        PS_Table["VMag"] = PS_Table["gmag"] + poly(PS_Table['g-r'], coefficients)
+        PS_Table["error_from_transformation"] = 0.032
+        
+    if filter in B_band:
+        coefficients = [0.199, 0.540, 0.016]
+        PS_Table['g-r'] = PS_Table['gmag'] - PS_Table['rmag']
+        PS_Table["BMag"] = PS_Table["gmag"] + poly(PS_Table['g-r'], coefficients)
+        PS_Table["error_from_transformation"] = 0.056
+        
+    if filter in I_band:
+        coefficients = [-0.387, -0.123, -0.03]
+        PS_Table['g-r'] = PS_Table['gmag'] - PS_Table['rmag']
+        PS_Table["IMag"] = PS_Table["imag"] + poly(PS_Table['g-r'], coefficients)
+        PS_Table["error_from_transformation"] = 0.054
+        
     return PS_Table
+    
