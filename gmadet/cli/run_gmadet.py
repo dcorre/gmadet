@@ -281,12 +281,12 @@ def main():
     # Load config files for a given telescope
     config = load_config(args.telescope, args.convFilter)
 
-    filenames = list_files(filenames, exclude=args.path_results)
+    filenames,subdirs = list_files(filenames, exclude=args.path_results, subdirs=True)
 
-    for raw_filename in filenames:
+    for raw_filename,subdir in zip(filenames, subdirs):
         filename = make_results_dir(
             raw_filename,
-            outputDir=args.path_results,
+            outputDir=os.path.join(args.path_results, subdir),
             keep=args.keep,
             skip=args.skip,
             copy=False if args.preprocess else True

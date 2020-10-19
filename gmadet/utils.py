@@ -98,29 +98,36 @@ def list_files(
         paths,
         pattern=["*.fit", "*.fits", "*.fts"],
         recursive=True,
+        subdirs=False,
         exclude=None):
     """ (Recursively) list the files matching the pattern from the list of
     filenames or directories, omitting the ones containing file paths
     specified by 'exclude' option (either string or list of strings)"""
 
     filenames = []
+    subdirs = []
 
     if isinstance(paths, str):
         # Let it become list if it is just a string
         paths = [paths]
 
     for path in paths:
-        #  List all the files in the given path
+        # List all the files in the given path
         if os.path.isdir(path):
             # Recursively get all files matching given pattern(s)
+            filenames_path = []
+
             for ptn in np.atleast_1d(pattern):
-                filenames += glob.glob(path + "/**/" +
-                                       ptn, recursive=recursive)
+                filenames_path += glob.glob(path + "/**/" +
+                                            ptn, recursive=recursive)
             # Sort alphanumerically
-            filenames.sort()
+            filenames_path.sort()
+            filenames += filenames_path
+            subdirs += [os.path.dirname(os.path.relpath(_, path)) for _ in filenames_path]
         else:
             # if path is not a directory, assume it is a file
             filenames += [path]
+            subdirs += ['']
 
     # Do not keep files in previous gmadet results folder
     # folder2skip = ["gmadet_results", "gmadet_astrometry",
@@ -135,17 +142,22 @@ def list_files(
     else:
         folder2skip = []
 
-    filenames_filtered = []
+    idx = [] # Boolean mask whether to keep the filename or not
+
     for f in filenames:
         flag_skip = False
         for text in folder2skip:
             if is_subdir(f, text):
                 flag_skip = True
                 break
-        if not flag_skip:
-            filenames_filtered.append(f)
 
-    return filenames_filtered
+        idx.append(~flag_skip)
+
+    if subdirs:
+        return [_ for _,__ in zip(filenames, idx) if __], [_ for _,__ in zip(subdirs, idx) if __]
+    else:
+        return [_ for _,__ in zip(filenames, idx) if __]
+
 
 
 def load_config(telescope, convFilter='default'):
@@ -252,8 +264,8 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
             "\nCutting %s into %d quadrants.\n" %
             (filename, np.sum(Nb_cuts)))
         if doAstrometry == "scamp":
-            #  Perform astrometry before cutting image into quadrants
-            #  It will ensure the astrometic calibration for each quadrant will
+            # Perform astrometry before cutting image into quadrants
+            # It will ensure the astrometic calibration for each quadrant will
             # run smoothly
             from astrometry import scamp
 
@@ -290,8 +302,8 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
                 datacut = data[y1 - 1: y2 - 1, x1 - 1: x2 - 1]
                 newheader = deepcopy(header)
                 """
-                # Set center center of quadrant as CRPIX1,2
-                # And compute the RA, Dec at this position for CRVAL1,2
+                #Set center center of quadrant as CRPIX1,2
+                #And compute the RA, Dec at this position for CRVAL1,2
                 coeff_astro = ['PV', 'PC']
                 #keys2delete=['CD1_1', 'CD1_2', 'CD2_1', 'CD2_2']
                 keys2delete=['CD1_2', 'CD2_1']
@@ -394,12 +406,12 @@ def make_sub_image(filename,
         pix_ref = [float(ra), float(dec)]
 
     if FoV > 0:
-        #  Get pixel size in degrees
+        # Get pixel size in degrees
         try:
             pixSize = abs(float(header["CDELT1"]))
         except BaseException:
             pixSize = abs(float(header["CD1_1"]))
-        #  Compute number of pixels to reach desired FoV in arcseconds
+        # Compute number of pixels to reach desired FoV in arcseconds
         size = [int(FoV / (pixSize * 3600)), int(FoV / (pixSize * 3600))]
 
     # Extract subimage from image starting from reference pixel
@@ -431,7 +443,7 @@ def make_sub_image(filename,
         hdu.writeto(output_name, overwrite=True)
 
     elif fmt == "png":
-        #  Highest declination on top
+        # Highest declination on top
         ra1, dec1 = w.all_pix2world(pix[0], y1, 0)
         ra2, dec2 = w.all_pix2world(pix[0], y2, 0)
         if dec1 > dec2:
@@ -457,7 +469,7 @@ def get_corner_coords(filename):
     """Get the image coordinates of an image"""
 
     header = fits.getheader(filename)
-    #  Get physical coordinates
+    # Get physical coordinates
     Naxis1 = header["NAXIS1"]
     Naxis2 = header["NAXIS2"]
 
