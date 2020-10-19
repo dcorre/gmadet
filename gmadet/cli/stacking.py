@@ -72,8 +72,13 @@ def main():
     args, paths = parser.parse_known_args()
 
     for path in paths:
-        stacking(path, args.radius, args.deltaT,
-                 subBack=args.no_BackSub, path_results=args.path_results, keep=args.keep)
+        stacking(
+            path,
+            args.radius,
+            args.deltaT,
+            subBack=args.no_BackSub,
+            path_results=args.path_results,
+            keep=args.keep)
 
 if __name__ == "__main__":
     main()

@@ -213,7 +213,7 @@ def main():
         "--ps1-method",
         dest="ps1_method",
         required=False,
-        default="mosaic",
+        default="individual",
         choices=["mosaic", "individual"],
         type=str,
         help="When substracting images using Pan-STARRS reference images, "

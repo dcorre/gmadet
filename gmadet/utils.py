@@ -111,6 +111,17 @@ def list_files(
         # Let it become list if it is just a string
         paths = [paths]
 
+    # Check if paths or files provided by user do exist.
+    # filenames or folders can be a list when as they are retrieved by 
+    # parser.parse_known_args(), so make a loop on each.
+    for path in paths:
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                errno.ENOENT,
+                os.strerror(errno.ENOENT),
+                path
+            ) 
+
     for path in paths:
         # List all the files in the given path
         if os.path.isdir(path):
