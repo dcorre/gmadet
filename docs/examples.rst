@@ -39,7 +39,7 @@ Replace:
 
 This will perform the astrometric calibration on all the images contained in ``data/`` which is poiting to your data path defined above. If you want want to do it on a specific image or folder, specify it. The results will be stored in the folder ``gmadet_astrometry/``.
 
-The ``--path_data`` can be a folder or a single image.
+The first argument defines either a folder or a single image. If it is a folder it will recursively perform the astrometric calibration on each image inside the folder.   
 
 Type ``gmadet-astrometry -h`` to see the other arguments you might want to change.
 
@@ -53,10 +53,12 @@ Compute PSF
 
 Replace:
 
-* ``your-telescope-alias`` with the alias of your telescope, type ``gmadet-astrometry -h`` to see avai
-lable ones.
+* ``your-telescope-alias`` with the alias of your telescope, type ``gmadet-astrometry -h`` to see available ones.
 
 This will compute the PSF using PSFEx for all images in ``data/``. The results will be stored in the folder ``gmadet_psf/``.
+
+The first argument defines either a folder or a single image. If it is a folder it will recursively perfo
+rm the astrometric calibration on each image inside the folder.   
 
 Type ``gmadet-psf -h`` to see the other arguments you might want to change.
 
@@ -83,7 +85,10 @@ Substracting background
 
    gmadet-subBkg data/ --results gmadet_subBkg
 
-This will substract the background of all images in ``data/`` using the same method as SExtractor by default. Type ``gmadet-subBkg -h`` to see the other arguments you might want to change. The results are stored in ``gmadet_subBkg/``.
+This will substract the background of all images in ``data/`` using the same method as SExtractor by default. Type ``gmadet-subBkg -h`` to see the other arguments you might want to change. The results are stored in ``gmadet_subBkg/``.   
+
+The first argument defines either a folder or a single image. If it is a folder it will recursively perfo
+rm the astrometric calibration on each image inside the folder.
 
 
 Remove cosmics
@@ -93,11 +98,14 @@ Remove cosmics
 
    gmadet-cosmics data/ --results gmadet_remove_cosmics
 
-This will remove cosmic rays using the L.A. Cosmic algorithm. Results are stored in ``gmadet_remove_cosmics/``.
+This will remove cosmic rays using the L.A. Cosmic algorithm inside ``data/``. Results are stored in ``gmadet_remove_cosmics/``.
 
 Type ``gmadet-cosmics -h`` to see the other arguments you might want to change.
 
 Following the documentation, 4 iterations should be the maximum, if sources are still removed after you are likely removing pixels from saturated stars for instance.
+
+The first argument defines either a folder or a single image. If it is a folder it will recursively perfo
+rm the astrometric calibration on each image inside the folder.
 
 
 Run gmadet without image substraction
@@ -123,6 +131,10 @@ Type ``gmadet-run -h`` to see the other arguments you might want to change. You 
 
 Results are stored in ``gmadet_results/``.
 
+The first argument defines either a folder or a single image. If it is a folder it will recursively perfo
+rm the astrometric calibration on each image inside the folder.
+
+
 Run gmadet with image substraction using PS1 image reference
 ------------------------------------------------------------
 
@@ -139,7 +151,7 @@ For all images in ``data/`` this will perform:
 * Astrometric calibration with SCAMP using GAIA DR2 by default.
 * PSFEx is sued to estimate the PSF FWHM.
 * If not already present in ``gmadet/ps1Dir/``, download PS1 archive stack images matching your image field of view. Then rescale the images to a linear scale and store them in ``gmadet/ps1RescaledDir/``.
-* Perform an image substraction using hotpants. The ``--ps1_method individual`` means that the substraction will be performed using each PS1 images separately. All subimages are combined in a substracted mosaic image at the end of the process.
+* Perform an image substraction using hotpants. The ``--ps1-method individual`` means that the substraction will be performed using each PS1 images separately. All subimages are combined in a substracted mosaic image at the end of the process.
 * Find sources using SExtractor on the substracted mosaic image using a threshold of 4.
 * Crossmatch all sources with catalogs (GAIA DR2, PS1 DR1, GSC, USNO-B1) within 3 pixels. Xmatch is used to do the crossmatch with online queries.
 * Crossmatch solar moving objects using SkyBoT.
@@ -148,6 +160,9 @@ Type ``gmadet-run -h`` to see the other arguments you might want to change. You 
 traction, removal of cosmics for instance.
 
 Results are stored in ``gmadet_results/``. Result of substraction in ``gmadet_results/substraction/``.
+
+The first argument defines either a folder or a single image. If it is a folder it will recursively perfo
+rm the astrometric calibration on each image inside the folder.
 
 
 **IMPORTANT**: PS1 survey is limited to -30 degrees in declination, so can only be used above.

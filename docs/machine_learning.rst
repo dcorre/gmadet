@@ -53,8 +53,7 @@ Whithin a terminal, go to the gmadet/gmadet/cnn/ folder and type:
 
 Replace:
 
-* ``your-telescope-alias`` with the alias of your telescope, type ``gmadet-astrometry -h`` to see avai
-lable ones.
+* ``your-telescope-alias`` with the alias of your telescope, type ``gmadet-astrometry -h`` to see available ones.
 
 This will insert 100 sources on each of your image, taking the PSF of each image (or part of image), whose magnitude in the range 14-23 with a zeropoint of 30.
 
