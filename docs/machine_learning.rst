@@ -49,15 +49,15 @@ Whithin a terminal, go to the gmadet/gmadet/cnn/ folder and type:
 
 .. code-block:: console
 
-   gmadet-sim data/  --result gmadet_sim --telescope your-telescope-alias --ntrans 100 --magrange 14 23 --zp 30
+   gmadet-sim data/  --results gmadet_sim --telescope your-telescope-alias --ntrans 100 --magrange 14 23 --zp 30
 
 Replace:
 
 * ``your-telescope-alias`` with the alias of your telescope, type ``gmadet-astrometry -h`` to see available ones.
 
-This will insert 100 sources on each of your image, taking the PSF of each image (or part of image), whose magnitude in the range 14-23 with a zeropoint of 30.
+This will insert 100 sources on each of your image, taking the PSF of each image (or part of image depending on your PSFex configuration file), whose magnitudes lie in the range 14-23 with a zeropoint of 30.
 
-Results are stored in ``gmadet_sim/*/simulation/``. A files named 'simulated_objects.list' will be also created, containing the positions of these new point like sources in the images.
+Results are stored in ``gmadet_sim/*/simulation/``. A file named 'simulated_objects.list' is also created, containing the positions of these new point like sources in the images.
 
 
 Type ``gmadet-sim -h`` to see the other arguments you might want to change.
@@ -70,7 +70,7 @@ We run it with the image substraction but you can do it without.
 
 .. code-block:: console
 
-   gmadet-run gmadet_sim/*/simulation --result gmadet_sim_results --telescope your-telescope-alias --radius-crossmatch 3 --threshold 4 --sub ps1 --ps1-method individual
+   gmadet-run gmadet_sim/*/simulation --results gmadet_sim_results --telescope your-telescope-alias --radius-crossmatch 3 --threshold 4 --sub ps1 --ps1-method individual
 
 The results are stored in ``gmadet_sim_results``.
 

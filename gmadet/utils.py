@@ -182,7 +182,10 @@ def load_config(telescope, convFilter='default'):
         "sextractor": {
             "conf": os.path.join(path2tel, "sourcesdet.sex"),
             "param": os.path.join(path2tel, "sourcesdet.param"),
-            "convFilter": os.path.join(path, "config/conv_kernels/%s.conv" % convFilter)
+            "convFilter": os.path.join(
+                path,
+                "config/conv_kernels/%s.conv" % convFilter
+            )
         },
         "scamp": {
             "sextractor": os.path.join(path2tel, "prepscamp.sex"),
