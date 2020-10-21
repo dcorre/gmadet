@@ -178,17 +178,17 @@ def list_files(
     idx = []  # Boolean mask whether to keep the filename or not
 
     for f in filenames:
-        flag_keep = True
+        flag_2keep = True
         # If file is a standard PSF fits file
         if is_psf(f):
-            flag_keep = False
+            flag_2keep = False
         else:
             for text in folder2skip:
                 if is_subdir(f, text):
-                    flag_keep = False
+                    flag_2keep = False
                     break
 
-        idx.append(flag_keep)
+        idx.append(flag_2keep)
 
     idx = np.array(idx)
     filenames = np.array(filenames)
