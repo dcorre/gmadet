@@ -57,7 +57,7 @@ Replace:
 
 This will insert 100 sources on each of your image, taking the PSF of each image (or part of image depending on your PSFex configuration file), whose magnitudes lie in the range 14-23 with a zeropoint of 30.
 
-Results are stored in ``gmadet_sim/*/simulation/``. A file named 'simulated_objects.list' is also created, containing the positions of these new point like sources in the images.
+Results are stored in ``gmadet_sim/``. A file named `simulated_objects.list` is also created, containing the positions of these new point like sources in the images.
 
 
 Type ``gmadet-sim -h`` to see the other arguments you might want to change.
@@ -70,9 +70,9 @@ We run it with the image substraction but you can do it without.
 
 .. code-block:: console
 
-   gmadet-run gmadet_sim/*/simulation --results gmadet_sim_results --telescope your-telescope-alias --radius-crossmatch 3 --threshold 4 --sub ps1 --ps1-method individual
+   gmadet-run gmadet_sim/ --results gmadet_sim_results --telescope your-telescope-alias --radius-crossmatch 3 --threshold 4 --sub ps1 --ps1-method individual
 
-The results are stored in ``gmadet_sim_results``.
+The results are stored in ``gmadet_sim_results``. Note that each file `simulated_objects.list` is copied to this new folder structure and the filenames defined in the 'filename' column are updated to the new location.
 
 
 Create image cutouts of all candidates
@@ -80,7 +80,7 @@ Create image cutouts of all candidates
 
 .. code-block:: console
 
-    gmadet-cutouts gmadet_sim_results/* --training
+    gmadet-cutouts gmadet_sim_results/ --training
 
 The ``--training`` argument specifies that it is for the training on simulated images and create a ``true`` and ``false`` folders in ``candidates_training``. They will be used for the CNN training as what we consider true and false candidates. The simulated candidates are automatically put in the ``true`` folder.
 
@@ -91,9 +91,9 @@ You can plot some histograms to check the distribution of magnitudes for the dif
 
 .. code-block:: console
 
-    gmadet-checksim gmadet_sim_results/*  --radius 2
+    gmadet-checksim gmadet_sim_results
 
-It will create a folder ``CheckSim/`` with some plots. It will also create a file ``crossmatch.dat`` containing the crossmatch of the sources detected by gmadet and the positions of the simulated sources. This is useful to make some tests of how the code behaves with known simulated transients.
+It will create a folder ``CheckSim/`` with some plots. It will also create a file ``crossmatch.dat``, if not already created by ``gmadet-cutouts``, containing the crossmatch of the sources detected by gmadet and the positions of the simulated sources. This is useful to make some tests of how the code behaves with known simulated transients.
 
 
 Classify true and false candidates
@@ -122,7 +122,7 @@ For the setup used in the previous examples, it will be
 
 .. code-block:: console
 
-    gmadet-cnn_convert --path gmadet_cnn --cube cube --cutouts "gmadet_sim_results/*/candidates_training/"
+    gmadet-cnn_convert --path gmadet_cnn --cube cube --cutouts gmadet_sim_results/candidates_training/
 
 The cube will be in ``gmadet_cnn/datacube/cube.npz``
 
@@ -150,7 +150,8 @@ The model will be in ``gmadet_cnn/CNN_training/model.h5``
 Apply a trained model on candidates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-It assumes that you already ran gmadet on a set of images, and created the candidates cutouts without using the ``--training`` argument. So you will have a ``candidates`` folder containing the cutouts that need to be classify by the CNN algorithm.
+It assumes that you already ran gmadet on a set of images, and created the candidates cutouts without using the ``--training`` argument. So you will have a ``candidates`` folder containing the cutouts that need to be classify by the CNN algorithm. 
+
 
 .. code-block:: console
 
@@ -161,19 +162,18 @@ Replace:
 * ``PATH_CUTOUTS`` with the path containing the candidates cutouts.
 * ``PATH_MODEL`` with the path to the trained CNN model, including its filnemame and .h5 extension.
 
-Again, for our example it will be
+For our example above, you can simply create a ``candidates`` folder in ``gmadet_sim_results/`` containing all the cutouts in ``gmadet_sim_results/candidates_training/`` true/ and false/ folders. This avoids re-running gmadet on the images, as we already did it for the training. Then we can apply the CNN trained model on the same cutouts we used for the training. If the training went well, it should classify all the simulated sources as real transients, apart from some of the faintest ones.
+
+Again, for our eaxmaple it will look like that
 
 .. code-block:: console
 
-    gmadet-cnn_infer --cutouts "gmadet_sim_results/*/candidates_training/*/" --model gmadet_cnn/CNN_training/model.h5
+    gmadet-cnn_infer --cutouts gmadet_sim_results/candidates/ --model gmadet_cnn/CNN_training/model.h5
 
-It will results a file ``infer_results.dat`` in the current folder containing the probability that a source is a false (column: label0) or true (column: label1). You can then aplly a threshold on these probability to keep only some candidates.
+It will result a file ``infer_results.dat`` in the directory defined with ``--cutouts``, ``gmadet_sim_results/candidates/`` for our example, containing the probability that a source is a false (column: label0) or true (column: label1) transient.    
+You can then apply a threshold on these probability to keep only some candidates. An idea would be to select the threshold according to the False Positive Rate, i.e. you select the probability corresponding to at most 1% (or whatever value suitable for you) of false positive in your trained sample.
 
-To assess the threshold you can run the ``gmadet-cnn_infer`` on the same images you used for the training. Combine the cutouts in the ``true`` and ``false`` folder into one common folder and run ``gmadet-cnn_infer`` on these cutout.
-You can also perform a new simulation, run gmadet on them, extract the cutouts and apply the model you trained during the first simulation to have more representative results.
-Ideally these training should be done on a few tens of images with a total of a few tens or hundred of thousands true transients.
-
-Then you can visualise the results with some plots that will help to assess the probability threshold to apply.
+To visualize how these probabilities evolve with some of the candidates parameters (magnitude, FWHM) of your sample, you can use ``gmadet-cnn_checkinfer``.
 
 .. code-block:: console
 
@@ -187,3 +187,22 @@ Replace:
 
 
 Type ``gmadet-cnn_checkinfer -h`` to see the other optional arguments.
+
+Again, for our example it will be
+
+.. code-block:: console
+
+    gmadet-cnn_checkinfer --plots gmadet_sim_results/ --crossmatch gmadet_sim_results/ --infer gmadet_sim_results/candidates/
+
+It will results a folder ``CheckInfer`` in ``gmadet_sim_results/`` containing some plots illustrating the dependence of the probability that a candidate is a true transient (returned by the CNN algorithm) as a function of magnitude and FWHM ratio (so far, can include more check in the future). It also compares this evolution for the simulated soures with respect to the non-simulated sources. It is also useful to get an idea of the FWHM ratio range that can be applied to filter the candidates.
+
+General notes
+^^^^^^^^^^^^^
+
+Ideally the training should be done on a few tens of images with taken in different observing conditions (elevation, seeing, moon phase, etc...) so that you can train a model that is representative enough of the images you can have, and thus not having to train a model for each sample of images you want to analyse.
+
+Of course, if the computational time is not a constraint for you, it will be more accurate to perform a training on the images you want to analyse only, if you have a sufficient number of them.
+
+Regarding the total number of transients required for an accurate training, I do not have a proper answer to that question. I would say the more the better. A few thousands to a few tens of thousands true transients should be enough, which is easy to achieve using the simulated sources. If you work with non-simulated sources, a few thousands of visually inspected objects might be enough, but again it is just a guess and the best thing is to try and see how the code behaves regarding to your scientific case.
+
+Having a similar number of true and false transients in your training sample seems reasonable although I haven't tested the influence of having more false transients then true ones.
