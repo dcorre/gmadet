@@ -27,7 +27,7 @@
 # 	along with Bertinoscopic. If not, see <http://www.gnu.org/licenses/>.
 #
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#    Original scrip modified by: David Corre (IJCLab/CNRS)
+#   Original scrip modified by: David Corre (IJCLab/CNRS)
 
 import sys
 
@@ -44,13 +44,13 @@ from gmadet.utils import rm_p, mkdir_p
 def convert(path_datacube, cubename, path_cutouts):
     """Convert simulated data before starting training"""
 
-    outdir = path_datacube + "/datacube/"
+    outdir = os.path.join(path_datacube, "datacube")
     mkdir_p(outdir)
 
     # Get all the prefixes corresponding to one field
-    truelist = glob.glob(path_cutouts + "/true/*.fits")
-    falselist = glob.glob(path_cutouts + "/false/*.fits")
-    #  output cube name
+    truelist = glob.glob(os.path.join(path_cutouts, "true", "*.fits"))
+    falselist = glob.glob(os.path.join(path_cutouts, "false", "*.fits"))
+    # output cube name
     npz_name = "%s.npz" % cubename
 
     Ncand = len(truelist) + len(falselist)
@@ -62,9 +62,9 @@ def convert(path_datacube, cubename, path_cutouts):
     for cand in truelist:
         hdus = fits.open(cand, memmap=False)
         head = hdus[0].header
-        #  Exclude cases too close to the edge
-        #  Meaning they are located at less than the defined size
-        #  of the small images
+        # Exclude cases too close to the edge
+        # Meaning they are located at less than the defined size
+        # of the small images
         if head["EDGE"] == "False":
             labels += [1]
             mags += [head["MAG"]]
@@ -80,9 +80,9 @@ def convert(path_datacube, cubename, path_cutouts):
         #    print ('skip %s as its shape is not (64,64): (%d,%d)'
         #           % (cand, hdus[0].data.shape[0], hdus[0].data.shape[1]))
         #    continue
-        #  Exclude cases too close to the edge
-        #  Meaning they are located at less than the defined size
-        #  of the small images
+        # Exclude cases too close to the edge
+        # Meaning they are located at less than the defined size
+        # of the small images
         if head["EDGE"] == "False":
             labels += [0]
             mags += [head["MAG"]]
@@ -93,9 +93,9 @@ def convert(path_datacube, cubename, path_cutouts):
 
     print("Converting and reshaping arrays ...")
     # Convert lists to B.I.P. NumPy arrays
-    #  Check whether all candidates has 64x64 pixels
-    #  If not, delete them
-    #  This can happen at the edge of images
+    # Check whether all candidates has 64x64 pixels
+    # If not, delete them
+    # This can happen at the edge of images
     # for i in range(len(cube)):
     #    if np.array(cube[i]).shape != (64, 64):
     #        print (i, np.array(cube[i]).shape)
@@ -112,7 +112,7 @@ def convert(path_datacube, cubename, path_cutouts):
     print("Saving %d %d×%d×%d image datacube ..." %
           cube.shape, end="\r", flush=True)
     np.savez(
-        outdir + npz_name,
+        os.path.join(outdir, npz_name),
         cube=cube,
         labels=labels,
         mags=mags,
@@ -120,39 +120,4 @@ def convert(path_datacube, cubename, path_cutouts):
         filters=filters,
     )
 
-    print("Saved to " + outdir + npz_name)
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(
-        description="Convert sim data to a .npz cube.")
-
-    parser.add_argument(
-        "--path_datacube",
-        dest="path_datacube",
-        required=True,
-        type=str,
-        help="Path where to store the datacube."
-    )
-
-    parser.add_argument(
-        "--cubename",
-        dest="cubename",
-        required=True,
-        type=str,
-        help="Name of the datacube.",
-    )
-
-    parser.add_argument(
-        "--path_cutouts",
-        dest="path_cutouts",
-        required=True,
-        type=str,
-        help="Path to the cutouts used for the training.",
-    )
-
-
-    args = parser.parse_args()
-
-    convert(args.path_datacube, args.cubename, args.path_cutouts)
+    print("Saved to " + os.path.join(outdir, npz_name))

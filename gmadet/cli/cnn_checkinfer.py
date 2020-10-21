@@ -21,30 +21,27 @@ def main():
     )
 
     parser.add_argument(
-        "--path_plots",
-        "--path-plots",
+        "--plots",
         dest="path_plots",
         required=True,
         type=str,
-        help="Path where to store plots."
+        help="Path to folder where to store plots."
     )
 
     parser.add_argument(
-        "--path_crossmatch",
-        "--path-crossmatch",
+        "--crossmatch",
         dest="path_crossmatch",
         required=True,
         type=str,
-        help="Path where crossmatch.dat is stored."
+        help="Path to crossmatch.dat file."
     )
 
     parser.add_argument(
-        "--path_infer",
-        "--path-infer",
+        "--infer",
         dest="path_infer",
         required=True,
         type=str,
-        help="Path where infer.dat is stored."
+        help="Path to infer.dat file."
     )
 
     parser.add_argument(
@@ -60,7 +57,6 @@ def main():
     )
 
     parser.add_argument(
-        "--CNNproblim",
         "--cnn-problim",
         dest="CNNproblim",
         required=False,
@@ -72,7 +68,6 @@ def main():
     )
 
     parser.add_argument(
-        "--FWHM_ratio_lower",
         "--fwhm-ratio-lower",
         dest="FWHM_ratio_lower",
         required=False,
@@ -83,7 +78,6 @@ def main():
     )
 
     parser.add_argument(
-        "--FWHM_ratio_upper",
         "--fwhm-ratio-upper",
         dest="FWHM_ratio_upper",
         required=False,

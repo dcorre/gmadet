@@ -46,19 +46,19 @@ def train(path_cube, path_model, modelname, epochs,
     """Train CNN with simulated data"""
 
     gpus = -1
-    path_model = path_model + '/CNN_training/'
+    path_model = os.path.join(path_model, 'CNN_training/')
     mkdir_p(path_model)
 
-    #  Fraction of data used for the validation test
+    # Fraction of data used for the validation test
     fract = frac
-    # define dropout percentage of each dropout
+    # define dropout percentageof each dropout
     dprob = np.array([dropout, dropout, dropout])
-    #  define padding
+    # define padding
     padding = "same"  # valid, same
-    #  number of epochs
+    # number of epochs
     epochs = epochs
-    #  outputname for the trained model
-    model_name = path_model + "/%s.h5" % modelname
+    # outputname for the trained model
+    model_name = os.path.join(path_model, "%s.h5" % modelname)
 
     print("Loading " + path_cube + " ...", end="\r", flush=True)
     data = np.load(path_cube)
@@ -204,10 +204,10 @@ def train(path_cube, path_model, modelname, epochs,
         fpr = [np.mean(labpf[:, 1] > t) for t in trange]
         plt.plot(fpr, tpr, label="mag < %.2f" % maglim)
     legend = ax.legend(loc="lower right")
-    plt.savefig(path_model + "/" + modelname + "_ROC_mag.png")
+    plt.savefig(os.path.join(path_model, modelname + "_ROC_mag.png"))
     # plt.show()
 
-    #  ROC with dmag
+    # ROC with dmag
     fig, ax = plt.subplots()
     ax.set_xlabel("FPR")
     ax.set_ylabel("TPR")
@@ -222,7 +222,7 @@ def train(path_cube, path_model, modelname, epochs,
         fpr = [np.mean(labpf[:, 1] > t) for t in trange]
         plt.plot(fpr, tpr, label="errmag < %.2f" % errmaglim)
     legend = ax.legend(loc="lower right")
-    plt.savefig(path_model + "/" + modelname + "_ROC_errmag.png")
+    plt.savefig(os.path.join(path_model, modelname + "_ROC_errmag.png"))
     # plt.show()
 
     fig, ax = plt.subplots()
@@ -237,67 +237,4 @@ def train(path_cube, path_model, modelname, epochs,
         fpr = [np.mean(labpf[:, 1] > t) for t in trange]
         plt.plot(fpr, tpr, label="%s" % band)
     legend = ax.legend(loc="lower right")
-    plt.savefig(path_model + "/" + modelname + "_ROC_band.png")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Formatting data before stacking.")
-
-    parser.add_argument(
-        "--path_cubename",
-        dest="path_cubename",
-        required=True,
-        type=str,
-        help="Path to the datacube, including its name and extension.",
-    )
-
-    parser.add_argument(
-        "--path_model",
-        dest="path_model",
-        required=True,
-        type=str,
-        help="Path where to store the trained model.",
-    )
-
-    parser.add_argument(
-        "--modelname",
-        dest="modelname",
-        required=True,
-        type=str,
-        help="Name of the trained model",
-    )
-
-    parser.add_argument(
-        "--epochs",
-        dest="epochs",
-        required=False,
-        type=int,
-        default=10,
-        help="Nunmber of epochs. (Default: 10)",
-    )
-
-    parser.add_argument(
-        "--frac",
-        dest="frac",
-        required=False,
-        type=float,
-        default=0.15,
-        help="Fraction of the data used for the validation sample. "
-             "(Default: 0.15)",
-    )
-
-    parser.add_argument(
-        "--dropout",
-        dest="dropout",
-        required=False,
-        type=float,
-        default=0.3,
-        help="Fraction used for each dropout. "
-             "(Default: 0.3)",
-    )
-
-    args = parser.parse_args()
-
-    train(args.telescope, args.cubename, args.modelname,
-          args.epochs, frac=args.frac, dropout=args.dropout  )
+    plt.savefig(os.path.join(path_model, modelname + "_ROC_band.png"))

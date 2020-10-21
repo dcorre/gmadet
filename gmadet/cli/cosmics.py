@@ -8,11 +8,13 @@ Author: David Corre, Orsay, France, corre@lal.in2p3.fr
 
 import argparse
 import warnings
+import os
+import subprocess
 
 from gmadet.utils import (
     load_config,
     list_files,
-    make_copy,
+    make_results_dir,
     getpath,
     getTel
 )
@@ -28,16 +30,47 @@ def main():
     # telescope_list = getTel()
 
     parser = argparse.ArgumentParser(
+        usage="usage: %(prog)s data [data2 ... dataN] [options]",
         description="Remove cosmics in astronomical images."
     )
 
     parser.add_argument(
-        "--path_data",
-        "--data",
-        dest="path_data",
-        required=True,
+        "--results",
+        dest="path_results",
+        required=False,
         type=str,
-        help="Path to file"
+        default='gmadet_results',
+        help="Base path to store the results. "
+             "(Default: gmadet_results)"
+    )
+
+    parser.add_argument(
+        "--keep-old",
+        "--keep",
+        dest="keep",
+        required=False,
+        action="store_true",
+        help="Keep previous results"
+    )
+
+    parser.add_argument(
+        "--skip-processed",
+        "--skip",
+        dest="skip",
+        required=False,
+        action="store_true",
+        help="Skip already processed files"
+    )
+
+    parser.add_argument(
+        "--preprocess",
+        dest="preprocess",
+        required=False,
+        type=str,
+        default=None,
+        help="Pre-process the image using external program before analysing. "
+             "The program should accept two positional arguments - original "
+             "filename and new one. (Default: just copy the image)"
     )
 
     parser.add_argument(
@@ -53,7 +86,6 @@ def main():
     )
 
     parser.add_argument(
-        "--cr_threshold",
         "--cr-threshold",
         dest="cr_threshold",
         required=False,
@@ -64,7 +96,6 @@ def main():
     )
 
     parser.add_argument(
-        "--neighbor_threshold",
         "--neighbor-threshold",
         dest="neighbor_threshold",
         required=False,
@@ -130,20 +161,41 @@ def main():
              "(Default: NORMAL)",
     )
     """
-    args = parser.parse_args()
+    args, filenames = parser.parse_known_args()
 
     # Load config files for a given telescope
     # config = load_config(args.telescope, args.convFilter)
-    filenames = list_files(args.path_data)
-    filenames = make_copy(filenames, args.path_data,
-                          outputDir="gmadet_remove_cosmics/")
-    # FWHM = psfex(filenames, config, useweight=args.useweight,
-    #             verbose=args.verbose, outLevel=2)
-    FWHM = [None] * len(filenames)
-    run_lacosmic(filenames, FWHM, contrast=args.contrast,
-                 cr_threshold=args.cr_threshold,
-                 neighbor_threshold=args.neighbor_threshold,
-                 maxiter=args.maxiter, outLevel=2)
+    filenames, subdirs = list_files(filenames, exclude=args.path_results)
+
+    for raw_filename, subdir in zip(filenames, subdirs):
+        filename = make_results_dir(
+            raw_filename,
+            outputDir=os.path.join(args.path_results, subdir),
+            keep=args.keep,
+            skip=args.skip,
+            copy=False if args.preprocess else True
+        )
+
+        if not filename:
+            print("%s is already processed, skipping. \n" % raw_filename)
+            continue
+
+        if args.preprocess:
+            # We need to call external code what will copy (processed)
+            # image to results dir
+            print("Pre-processing %s" % raw_filename)
+            subprocess.call(args.preprocess.split() + [raw_filename,
+                                                       filename])
+
+            if not os.path.exists(filename):
+                print("Pre-processing failed")
+                continue
+
+        FWHM = None
+        run_lacosmic(filename, FWHM, contrast=args.contrast,
+                     cr_threshold=args.cr_threshold,
+                     neighbor_threshold=args.neighbor_threshold,
+                     maxiter=args.maxiter, outLevel=2)
 
 
 if __name__ == "__main__":

@@ -21,8 +21,7 @@ def main():
     )
 
     parser.add_argument(
-        "--path_cubename",
-        "--path-cubename",
+        "--cube",
         dest="path_cubename",
         required=True,
         type=str,
@@ -30,8 +29,7 @@ def main():
     )
 
     parser.add_argument(
-        "--path_model",
-        "--path-model",
+        "--model-path",
         dest="path_model",
         required=True,
         type=str,
@@ -39,7 +37,6 @@ def main():
     )
 
     parser.add_argument(
-        "--modelname",
         "--model-name",
         dest="modelname",
         required=True,
@@ -53,7 +50,7 @@ def main():
         required=False,
         type=int,
         default=10,
-        help="Nunmber of epochs. (Default: 10)",
+        help="Number of epochs. (Default: 10)",
     )
 
     parser.add_argument(

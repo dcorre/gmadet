@@ -5,7 +5,6 @@ Welcome to gmadet's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   readme
    installation
    information
    examples

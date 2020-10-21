@@ -28,7 +28,10 @@ def sim(datapath, filenames, Ntrans=50, size=48,
         magrange=[14, 22], gain=None, magzp=30):
     """Insert point sources in real images """
 
-    simdir = datapath + "/gmadet_sim/simulation/"
+    filenames = np.atleast_1d(filenames)
+
+    #simdir = os.path.join(datapath, "simulation")
+    simdir = datapath
     mkdir_p(simdir)
 
     cutsize = np.array([size, size], dtype=np.int32)
@@ -49,7 +52,7 @@ def sim(datapath, filenames, Ntrans=50, size=48,
     # filenames = filenames[:4]
     for filename in filenames:
         if "psf" not in filename and "weight" not in filename:
-            _, name = os.path.split(filename)
+            name = os.path.basename(filename)
             # print("\x1b[2K", end='\r', flush=True),
             # print("Loading " + epoch1 + " image data ...", end='\r',
             # flush=True),
@@ -73,16 +76,17 @@ def sim(datapath, filenames, Ntrans=50, size=48,
                 try:
                     gain = headp1["GAIN"]
                 except BaseException:
-                    print ("GAIN keyword not found in header, set to 1.0.")
+                    print("GAIN keyword not found in header, set to 1.0.")
                     gain = 1.0
 
-
-            #  Add the transients to image
+            # Add the transients to image
             pos = np.zeros((Ntrans, 2), dtype=float)
             for j in range(Ntrans):
-                newfile = simdir + \
-                    os.path.splitext(name)[0] + "_" + str(counter) + ".fits"
-                filelist.append(newfile)
+                # newfile = os.path.join(simdir, os.path.splitext(name)[
+                #                       0] + "_" + str(counter) + ".fits")
+                # Keep same name actually, if works then remove line above.
+                newfile = filename
+                filelist.append(os.path.abspath(newfile))
 
                 filterlist.append(band)
 
@@ -179,25 +183,9 @@ def sim(datapath, filenames, Ntrans=50, size=48,
             "filter"],
     )
     table.write(
-        simdir + "simulated_objects.list",
+        os.path.join(simdir, "simulated_objects.list"),
         format="ascii.commented_header",
         overwrite=True,
     )
     return table
 
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="Stacking images.")
-
-    parser.add_argument(
-        "--datapath",
-        dest="datapath",
-        required=True,
-        type=str,
-        help="Path to images"
-    )
-
-    args = parser.parse_args()
-
-    sim(args.datapath)

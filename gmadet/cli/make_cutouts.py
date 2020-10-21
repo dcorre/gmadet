@@ -12,7 +12,6 @@ import warnings
 from gmadet.utils import (
     load_config,
     list_files,
-    make_copy,
     getpath,
     getTel
 )
@@ -27,16 +26,8 @@ def main():
     telescope_list = getTel()
 
     parser = argparse.ArgumentParser(
+        usage="usage: %(prog)s [options] data",
         description="Create cutouts centered on the optical candidates."
-    )
-
-    parser.add_argument(
-        "--path_data",
-        "--data",
-        dest="path_data",
-        required=True,
-        type=str,
-        help="Path to file"
     )
 
     parser.add_argument(
@@ -44,6 +35,14 @@ def main():
         dest="training",
         action="store_true",
         help="If set, enters training mode. (Default: normal mode)"
+    )
+
+    parser.add_argument(
+        "--false",
+        dest="false",
+        action="store_true",
+        help="If set, put all unmatched objects to false folder "
+             "in training mode. (Default: not applied)"
     )
 
     parser.add_argument(
@@ -66,7 +65,6 @@ def main():
     )
 
     parser.add_argument(
-        "--flag_notsub",
         "--flag-notsub",
         dest="flag_notsub",
         required=False,
@@ -75,9 +73,16 @@ def main():
              "substraction. (Default: False)",
     )
 
-    args = parser.parse_args()
-    subimage(args.path_data, args.training,
-             size=args.size, radius=args.radius, flag_notsub=args.flag_notsub)
+    args, paths = parser.parse_known_args()
+
+    for path in paths:
+        subimage(
+            path,
+            args.training,
+            size=args.size,
+            radius=args.radius,
+            flag_notsub=args.flag_notsub,
+            false=args.false)
 
 
 if __name__ == "__main__":

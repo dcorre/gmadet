@@ -80,8 +80,8 @@ def getpath():
 def getTel():
     """Get the list of all telescopes"""
     path_gmadet = getpath()
-    telList = [name for name in os.listdir(path_gmadet+"/config")
-               if os.path.isdir(path_gmadet+"/config/"+name) and
+    telList = [name for name in os.listdir(os.path.join(path_gmadet, "config"))
+               if os.path.isdir(os.path.join(path_gmadet, "config", name)) and
                name != 'conv_kernels']
     return telList
 
@@ -93,40 +93,81 @@ def is_subdir(path, basepath):
 
     return os.path.commonpath([path, basepath]) == basepath
 
+def is_psf(filename, patterns=['_psf.fits']):
+    """ 
+    Check whether a file is a PSF file with a standard name, typically 
+    '_psf.fits'. This is used for the simulation of sources during the CNN
+    training for instance.
+    """
+    flag = False
+    for ptn in patterns:
+        if ptn in filename:
+            flag = True
+            break
+
+    return flag
 
 def list_files(
         paths,
         pattern=["*.fit", "*.fits", "*.fts"],
         recursive=True,
+        get_subdirs=True,
         exclude=None):
     """ (Recursively) list the files matching the pattern from the list of
     filenames or directories, omitting the ones containing file paths
     specified by 'exclude' option (either string or list of strings)"""
 
     filenames = []
+    subdirs = []
 
-    if isinstance(paths, str):
-        # Let it become list if it is just a string
-        paths = [paths]
+    # Make sure paths is array-like
+    paths = np.atleast_1d(paths)
 
+    # Check if paths or files provided by user do exist.
+    # filenames or folders can be a list
     for path in paths:
-        #  List all the files in the given path
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                errno.ENOENT,
+                os.strerror(errno.ENOENT),
+                path
+            )
+
+    # If there are than one pth provided keep the exact same structure
+    # Otherwise skip the basepath
+    for path in paths:
+        # List all the files in the given path
         if os.path.isdir(path):
             # Recursively get all files matching given pattern(s)
+            filenames_path = []
+
             for ptn in np.atleast_1d(pattern):
-                filenames += glob.glob(path + "/**/" +
-                                       ptn, recursive=recursive)
+                filenames_path += glob.glob(path + "/**/" +
+                                            ptn, recursive=recursive)
             # Sort alphanumerically
-            filenames.sort()
+            filenames_path.sort()
+            filenames += filenames_path
+            # Get the relative path folder namesrelative to input paths
+            reldirs = [os.path.dirname(os.path.relpath(_, path))
+                       for _ in filenames_path]
+            # When more than one argument, add the base directory
+            # being the last directory name provided by the user.
+            if len(paths) > 1:
+                basedir = os.path.basename(os.path.abspath(path))
+                subdirs += [os.path.join(basedir, _) for _ in reldirs]
+            else:
+                subdirs += reldirs
         else:
             # if path is not a directory, assume it is a file
             filenames += [path]
+            subdirs += ['']
 
     # Do not keep files in previous gmadet results folder
     # folder2skip = ["gmadet_results", "gmadet_astrometry",
     #                "gmadet_stacking", "gmadet_subBkg",
     #                "gmadet_psf", "gmadet_remove_cosmics",
     #                "candidates"]
+
     if isinstance(exclude, str):
         folder2skip = [exclude]
     elif exclude:
@@ -134,17 +175,29 @@ def list_files(
     else:
         folder2skip = []
 
-    filenames_filtered = []
-    for f in filenames:
-        flag_skip = False
-        for text in folder2skip:
-            if is_subdir(f, text):
-                flag_skip = True
-                break
-        if not flag_skip:
-            filenames_filtered.append(f)
+    idx = []  # Boolean mask whether to keep the filename or not
 
-    return filenames_filtered
+    for f in filenames:
+        flag_2keep = True
+        # If file is a standard PSF fits file
+        if is_psf(f):
+            flag_2keep = False
+        else:
+            for text in folder2skip:
+                if is_subdir(f, text):
+                    flag_2keep = False
+                    break
+
+        idx.append(flag_2keep)
+
+    idx = np.array(idx)
+    filenames = np.array(filenames)
+    subdirs = np.array(subdirs)
+
+    if get_subdirs:
+        return filenames[idx], subdirs[idx]
+    else:
+        return filenames[~idx]
 
 
 def load_config(telescope, convFilter='default'):
@@ -152,29 +205,32 @@ def load_config(telescope, convFilter='default'):
        They are telescope dependent.
     """
     path = getpath()
-    path2tel = path + "/config/" + telescope + "/"
+    path2tel = os.path.join(path, "config", telescope)
     config = {
         "telescope": telescope,
         "sextractor": {
-            "conf": path2tel + "sourcesdet.sex",
-            "param": path2tel + "sourcesdet.param",
-            "convFilter": path + "/config/conv_kernels/%s.conv" % convFilter
+            "conf": os.path.join(path2tel, "sourcesdet.sex"),
+            "param": os.path.join(path2tel, "sourcesdet.param"),
+            "convFilter": os.path.join(
+                path,
+                "config/conv_kernels/%s.conv" % convFilter
+            )
         },
         "scamp": {
-            "sextractor": path2tel + "prepscamp.sex",
-            "param": path2tel + "prepscamp.param",
-            "conf": path2tel + "scamp.conf",
+            "sextractor": os.path.join(path2tel, "prepscamp.sex"),
+            "param": os.path.join(path2tel, "prepscamp.param"),
+            "conf": os.path.join(path2tel, "scamp.conf"),
         },
         "swarp": {},
         "psfex": {
-            "sextractor": path2tel + "preppsfex.sex",
-            "param": path2tel + "preppsfex.param",
-            "conf": path2tel + "psfex.conf",
+            "sextractor": os.path.join(path2tel, "preppsfex.sex"),
+            "param": os.path.join(path2tel, "preppsfex.param"),
+            "conf": os.path.join(path2tel, "psfex.conf"),
         },
         "hotpants": {
-            "conf": path2tel + "hotpants.hjson",
-            "conf2": path2tel + "hotpants_2.hjson",
-            "conf3": path2tel + "hotpants_3.hjson",
+            "conf": os.path.join(path2tel, "hotpants.hjson"),
+            "conf2": os.path.join(path2tel, "hotpants_2.hjson"),
+            "conf3": os.path.join(path2tel, "hotpants_3.hjson"),
         },
     }
 
@@ -187,56 +243,15 @@ def clean_folder(filelist, subFiles=None):
     types = ("*coo.*", "*mag.*", "*.magwcs", "*.magfiltered*")
     files2delete = []
     for filename in filelist:
-        path = os.path.split(filename)
-        if path[0]:
-            folder = path[0] + "/"
-        else:
-            folder = ""
+        path = os.path.dirname(filename)
 
         for f in types:
-            files2delete.extend(glob.glob(folder + f))
+            files2delete.extend(glob.glob(os.path.join(path, f)))
             files2delete.extend(glob.glob(f))
 
     files2delete = np.unique(files2delete)
     for f in files2delete:
         os.remove(f)
-
-
-def make_copy(filelist, path_data, outputDir="gmadet_results/"):
-    """ Make copy of original images in outputDir """
-
-    filelist = np.atleast_1d(filelist)
-
-    #  List all the files in the given path
-    if os.path.isdir(path_data):
-        pass
-    else:
-        path_data, _ = os.path.split(path_data)
-    resultDir = path_data + '/' + outputDir
-    # If gmadet_results/ already exist, rename it
-    if os.path.exists(resultDir):
-        mv_p(resultDir,
-             resultDir[:-1] + '_' + time.strftime("%Y%m%d-%H%M%S"))
-    # Create results folder
-    mkdir_p(resultDir)
-
-    newlist = []
-    for filename in filelist:
-        path, filename_ext = os.path.split(filename)
-
-        if path:
-            folder = path + "/"
-        else:
-            folder = ""
-        # remove common path_data to keep only directories inside path_data
-        # to copy the same data architecture
-        resultDir2 = folder.replace(path_data, '')
-        mkdir_p(resultDir+resultDir2)
-        copyname = resultDir + resultDir2 + filename_ext
-        cp_p(filename, copyname)
-        newlist.append(copyname)
-
-    return newlist
 
 
 def make_results_dir(
@@ -249,7 +264,7 @@ def make_results_dir(
     optionally making backup of subfolder if it exists already """
 
     # Filename without dir
-    basename = os.path.split(filename)[1]
+    basename = os.path.basename(filename)
 
     # Subdir to store results for this file
     dirname = os.path.splitext(basename)[0]
@@ -279,11 +294,6 @@ def make_results_dir(
 def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
 
     path, filename_ext = os.path.split(filename)
-    if path:
-        folder = path + "/"
-    else:
-        folder = ""
-
     filename2, extension = os.path.splitext(filename_ext)
 
     quadrant_list = []
@@ -297,8 +307,8 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
             "\nCutting %s into %d quadrants.\n" %
             (filename, np.sum(Nb_cuts)))
         if doAstrometry == "scamp":
-            #  Perform astrometry before cutting image into quadrants
-            #  It will ensure the astrometic calibration for each quadrant will
+            # Perform astrometry before cutting image into quadrants
+            # It will ensure the astrometic calibration for each quadrant will
             # run smoothly
             from astrometry import scamp
 
@@ -326,8 +336,8 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
                 x2 = Naxis11 * (i + 1)
                 y2 = Naxis22 * (j + 1)
 
-                filename_out = folder + filename2 + \
-                    "_Q%d" % (index) + extension
+                filename_out = os.path.join(path, filename2 +
+                                            "_Q%d" % (index) + extension)
 
                 # No need to update the header if astrometric calibration is
                 # performed with scamp, this will be updated later.
@@ -335,8 +345,8 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
                 datacut = data[y1 - 1: y2 - 1, x1 - 1: x2 - 1]
                 newheader = deepcopy(header)
                 """
-                # Set center center of quadrant as CRPIX1,2
-                # And compute the RA, Dec at this position for CRVAL1,2
+                #Set center center of quadrant as CRPIX1,2
+                #And compute the RA, Dec at this position for CRVAL1,2
                 coeff_astro = ['PV', 'PC']
                 #keys2delete=['CD1_1', 'CD1_2', 'CD2_1', 'CD2_2']
                 keys2delete=['CD1_2', 'CD2_1']
@@ -439,12 +449,12 @@ def make_sub_image(filename,
         pix_ref = [float(ra), float(dec)]
 
     if FoV > 0:
-        #  Get pixel size in degrees
+        # Get pixel size in degrees
         try:
             pixSize = abs(float(header["CDELT1"]))
         except BaseException:
             pixSize = abs(float(header["CD1_1"]))
-        #  Compute number of pixels to reach desired FoV in arcseconds
+        # Compute number of pixels to reach desired FoV in arcseconds
         size = [int(FoV / (pixSize * 3600)), int(FoV / (pixSize * 3600))]
 
     # Extract subimage from image starting from reference pixel
@@ -476,7 +486,7 @@ def make_sub_image(filename,
         hdu.writeto(output_name, overwrite=True)
 
     elif fmt == "png":
-        #  Highest declination on top
+        # Highest declination on top
         ra1, dec1 = w.all_pix2world(pix[0], y1, 0)
         ra2, dec2 = w.all_pix2world(pix[0], y2, 0)
         if dec1 > dec2:
@@ -502,7 +512,7 @@ def get_corner_coords(filename):
     """Get the image coordinates of an image"""
 
     header = fits.getheader(filename)
-    #  Get physical coordinates
+    # Get physical coordinates
     Naxis1 = header["NAXIS1"]
     Naxis2 = header["NAXIS2"]
 
@@ -716,41 +726,42 @@ def clean_outputs(filenames, outLevel):
     imagelist = np.atleast_1d(filenames)
     for ima in imagelist:
         print("\nCleaning up output files for %s" % ima)
-        path, _ = os.path.split(ima)
-        if path:
-            folder = path + "/"
-        else:
-            folder = ""
+        path = os.path.dirname(ima)
 
-        rm_p(folder + "*.head")
+        rm_p(os.path.join(path, "*.head"))
         if outLevel == 0:
             rm_p('coadd.weight.fits')
-            rm_p(folder + "*.magwcs*")
-            rm_p(folder + "*.oc*")
-            rm_p(folder + "*.cat")
-            rm_p(folder + "*.png")
-            rm_p(folder + "*.fits")
-            rm_p(folder + "*_ZP_*")
-            rm_p(folder + "substraction/*.magwcs*")
-            rm_p(folder + "substraction/*.cat")
-            rm_p(folder + "substraction/*mask*")
-            rm_p(folder + "substraction/*background")
-            rm_p(folder + "substraction/*segmentation")
+            for _ in [
+                    "*.magwcs*",
+                    "*.oc*",
+                    "*.cat",
+                    "*.png",
+                    "*.fits",
+                    "*_ZP_*",
+                    "substraction/*.magwcs*",
+                    "substraction/*.cat",
+                    "substraction/*mask*",
+                    "substraction/*background",
+                    "substraction/*segmentation"]:
+                rm_p(os.path.join(path, _))
 
         elif outLevel == 1:
             rm_p('coadd.weight.fits')
-            rm_p(folder + "*.magwcs")
-            rm_p(folder + "*.oc")
-            rm_p(folder + "*.cat")
-            rm_p(folder + "*.png")
-            rm_p(folder + "*_ZP_*")
-            rm_p(folder + "*.fits")
-            rm_p(folder + "*_CRmask.fits")
-            rm_p(folder + "*_CR_notcleaned.fits")
-            rm_p(folder + "substraction/*.magwcs")
-            rm_p(folder + "substraction/*mask")
-            rm_p(folder + "substraction/*background")
-            rm_p(folder + "substraction/*segmentation")
+
+            for _ in [
+                    "*.magwcs*",
+                    "*.oc*",
+                    "*.cat",
+                    "*.png",
+                    "*.fits",
+                    "*_ZP_*",
+                    "*_CRmask.fits",
+                    "*_CR_notcleaned.fits",
+                    "substraction/*.magwcs*",
+                    "substraction/*mask*",
+                    "substraction/*background",
+                    "substraction/*segmentation"]:
+                rm_p(os.path.join(path, _))
 
         elif outLevel == 2:
             pass
