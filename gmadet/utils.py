@@ -197,7 +197,7 @@ def list_files(
     if get_subdirs:
         return filenames[idx], subdirs[idx]
     else:
-        return filenames[~idx]
+        return filenames[idx]
 
 
 def load_config(telescope, convFilter='default'):
