@@ -63,7 +63,7 @@ def main():
     telescope_list = getTel()
 
     parser = argparse.ArgumentParser(
-        usage="usage: %(prog)s [options] data",
+        usage="usage: %(prog)s data [data2 ... dataN] [options]",
         description="Finding unknown objects in astronomical images."
     )
 
@@ -274,16 +274,18 @@ def main():
         help="Path/filename of the VOEvent containing the observation plan.",
     )
 
+
+    # args, filenames = parser.parse_known_args()
     args, filenames = parser.parse_known_args()
 
     Nb_cuts = (args.quadrants, args.quadrants)
 
     # Load config files for a given telescope
     config = load_config(args.telescope, args.convFilter)
+    
+    filenames, subdirs = list_files(filenames, exclude=args.path_results)
 
-    filenames,subdirs = list_files(filenames, exclude=args.path_results, get_subdirs=True)
-
-    for raw_filename,subdir in zip(filenames, subdirs):
+    for raw_filename, subdir in zip(filenames, subdirs):
         filename = make_results_dir(
             raw_filename,
             outputDir=os.path.join(args.path_results, subdir),
@@ -309,9 +311,34 @@ def main():
 
         # If there is simulated_objects.list file alongside the image,
         # let's copy it to the results dir
-        if os.path.exists(os.path.join(os.path.dirname(raw_filename), 'simulated_objects.list')):
-            cp_p(os.path.join(os.path.dirname(raw_filename), 'simulated_objects.list'),
-                 os.path.join(os.path.dirname(filename), 'simulated_objects.list'))
+        if os.path.exists(
+                os.path.join(
+                    os.path.dirname(raw_filename),
+                    'simulated_objects.list'
+                )):
+            cp_p(os.path.join(os.path.dirname(raw_filename),
+                              'simulated_objects.list'),
+                 os.path.join(os.path.dirname(filename),
+                              'simulated_objects.list')
+                 )
+            # Rename the "filename" location in the copied
+            # 'simulated_objects.list'
+            fname = os.path.join(
+                        os.path.dirname(filename),
+                        'simulated_objects.list')
+            sim_obj = ascii.read(fname)
+
+            newname_list = []
+            for i in range(len(sim_obj)):
+                newname = os.path.join(
+                        os.path.dirname(filename),
+                        os.path.split(sim_obj[i]['filename'])[1]
+                        )
+                newname_list.append(os.path.abspath(newname))
+            sim_obj['filename'] = newname_list
+            sim_obj.write(fname, format='ascii.commented_header',
+                          overwrite=True)
+
 
         print("Sanitise header and data of %s.\n" % filename)
         sanitise_fits(filename)
@@ -387,7 +414,7 @@ def main():
                 doMosaic=args.doMosaic,
                 verbose=args.verbose,
                 outLevel=args.outLevel,
-                nb_threads=1
+                nb_threads=8
             )
         else:
             substracted_files = None
@@ -402,7 +429,7 @@ def main():
                 verbose=args.verbose,
                 subFiles=substracted_files,
                 outLevel=args.outLevel,
-                nb_threads=1
+                nb_threads=8
             )
 
         filter_sources(
