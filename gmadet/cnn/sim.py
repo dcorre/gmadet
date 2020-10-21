@@ -30,7 +30,8 @@ def sim(datapath, filenames, Ntrans=50, size=48,
 
     filenames = np.atleast_1d(filenames)
 
-    simdir = os.path.join(datapath, "simulation")
+    #simdir = os.path.join(datapath, "simulation")
+    simdir = datapath
     mkdir_p(simdir)
 
     cutsize = np.array([size, size], dtype=np.int32)
@@ -75,15 +76,17 @@ def sim(datapath, filenames, Ntrans=50, size=48,
                 try:
                     gain = headp1["GAIN"]
                 except BaseException:
-                    print ("GAIN keyword not found in header, set to 1.0.")
+                    print("GAIN keyword not found in header, set to 1.0.")
                     gain = 1.0
-
 
             # Add the transients to image
             pos = np.zeros((Ntrans, 2), dtype=float)
             for j in range(Ntrans):
-                newfile = os.path.join(simdir, os.path.splitext(name)[0] + "_" + str(counter) + ".fits")
-                filelist.append(newfile)
+                # newfile = os.path.join(simdir, os.path.splitext(name)[
+                #                       0] + "_" + str(counter) + ".fits")
+                # Keep same name actually, if works then remove line above.
+                newfile = filename
+                filelist.append(os.path.abspath(newfile))
 
                 filterlist.append(band)
 
@@ -186,19 +189,3 @@ def sim(datapath, filenames, Ntrans=50, size=48,
     )
     return table
 
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="Stacking images.")
-
-    parser.add_argument(
-        "--datapath",
-        dest="datapath",
-        required=True,
-        type=str,
-        help="Path to images"
-    )
-
-    args = parser.parse_args()
-
-    sim(args.datapath)

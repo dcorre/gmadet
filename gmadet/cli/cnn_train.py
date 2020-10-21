@@ -50,7 +50,7 @@ def main():
         required=False,
         type=int,
         default=10,
-        help="Nunmber of epochs. (Default: 10)",
+        help="Number of epochs. (Default: 10)",
     )
 
     parser.add_argument(

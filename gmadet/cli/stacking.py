@@ -9,7 +9,6 @@ Author: David Corre, Orsay, France, corre@lal.in2p3.fr
 import argparse
 import warnings
 
-#from gmadet.utils import list_files
 from gmadet.stacking import stacking
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -79,6 +78,7 @@ def main():
             subBack=args.no_BackSub,
             path_results=args.path_results,
             keep=args.keep)
+
 
 if __name__ == "__main__":
     main()

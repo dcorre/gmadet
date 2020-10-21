@@ -30,7 +30,7 @@ def main():
     telescope_list = getTel()
 
     parser = argparse.ArgumentParser(
-        usage="usage: %(prog)s [options] data",
+        usage="usage: %(prog)s data [data2 ... dataN] [options]",
         description="Perform astrometric calibration of astronomical images."
     )
 
@@ -121,10 +121,9 @@ def main():
         type=str,
         help="Corresponds to FILTER_NAME keyword for sextractor "
              "(without .conv)."
-             "\nDifferent filter available listed here: %s" \
-                     % path_gmadet + "/config/conv_kernels/"
-             "\n(Default: default)"
-        ,
+             "\nDifferent filter available listed here: %s"
+        % path_gmadet + "/config/conv_kernels/"
+             "\n(Default: default)",
     )
 
     parser.add_argument(
@@ -142,12 +141,12 @@ def main():
 
     #  Load config files for a given telescope
     config = load_config(args.telescope, args.convFilter)
-    filenames = list_files(filenames, exclude=args.path_results)
+    filenames, subdirs = list_files(filenames, exclude=args.path_results)
 
-    for raw_filename in filenames:
+    for raw_filename, subdir in zip(filenames, subdirs):
         filename = make_results_dir(
             raw_filename,
-            outputDir=args.path_results,
+            outputDir=os.path.join(args.path_results, subdir),
             keep=args.keep,
             skip=args.skip,
             copy=False if args.preprocess else True
@@ -179,6 +178,7 @@ def main():
             accuracy=args.accuracy,
             itermax=args.itermax,
         )
+
 
 if __name__ == "__main__":
     main()

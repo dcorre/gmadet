@@ -66,7 +66,9 @@ def table_obs(path_data, radius, deltaT, exclude=None):
     """ Create astropy table to group epochs and fields """
 
     # List of all raw files
-    filenames = list_files(path_data, exclude=exclude)
+    filenames = list_files(path_data,
+                           exclude=exclude,
+                           get_subdirs=False)
 
     names = []
     RA = []
@@ -75,7 +77,6 @@ def table_obs(path_data, radius, deltaT, exclude=None):
     telescopes = []
     instruments = []
     filters = []
-
     for ima in filenames:
         # print("processing " + ima + " ...\x1b[2K", end='\r', flush=True),
         hdr = fits.open(ima, memmap=False)[0].header
@@ -342,7 +343,7 @@ def stacking(path_data, radius, deltaT, useweight=False,
     if path_data[-1] != "/":
         path_data = path_data + "/"
 
-    path_stacks = path_results # path_data + "gmadet_stacking/"
+    path_stacks = path_results  # path_data + "gmadet_stacking/"
 
     # Rename folder if already existing
     if os.path.exists(path_stacks):
@@ -354,7 +355,7 @@ def stacking(path_data, radius, deltaT, useweight=False,
 
     mkdir_p(path_stacks)
 
-    path_lists = tempfile.mkdtemp() # Temporary dir for fieldlists
+    path_lists = tempfile.mkdtemp()  # Temporary dir for fieldlists
 
     useweight = bool(useweight)
 
@@ -371,7 +372,8 @@ def stacking(path_data, radius, deltaT, useweight=False,
     filenames = glob.glob(os.path.join(path_lists, "*.list"))
     prefixes = []
     for filename in filenames:
-        splitfilename = os.path.splitext(os.path.split(filename)[-1])[0].split("_")
+        splitfilename = os.path.splitext(
+            os.path.split(filename)[-1])[0].split("_")
         prefi = ""
         for i in range(len(splitfilename) - 1):
             prefi += splitfilename[i] + "_"
@@ -391,8 +393,10 @@ def stacking(path_data, radius, deltaT, useweight=False,
             if len(np.atleast_1d(file)) < 2:
                 continue
 
-            epochs += [os.path.join(path_stacks,
-                                    os.path.splitext(os.path.split(imalist)[-1])[0])]
+            epochs += [os.path.join(
+                path_stacks,
+                os.path.splitext(os.path.split(imalist)[-1])[0])
+                ]
             imalists += ["@" + imalist]
 
         point = path_stacks + pref
@@ -453,5 +457,10 @@ def stacking(path_data, radius, deltaT, useweight=False,
             rm_p(epoch + ".head")
 
         rm_p(point + ".head")
-
-    mv_p(path_lists, os.path.join(path_stacks, 'fieldlists')) # Do we really need to keep them?..
+    rm_p('swarp.xml')
+    rm_p('coadd.weight.fits')
+    # Do we really need to keep them?..
+    # Yes! :)
+    # Might be useful to know how the code grouped the files (in time
+    # and RADEC) to stack when you have hundreds of them.
+    mv_p(path_lists, os.path.join(path_stacks, 'fieldlists'))

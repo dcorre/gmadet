@@ -24,7 +24,7 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 def main():
 
     parser = argparse.ArgumentParser(
-        usage="usage: %(prog)s [options] data",
+        usage="usage: %(prog)s data [data2 ... dataN] [options]",
         description="Remove background in astronomical images with photutils."
     )
 
@@ -144,12 +144,12 @@ def main():
 
     args, filenames = parser.parse_known_args()
 
-    filenames = list_files(filenames, exclude=args.path_results)
+    filenames, subdirs = list_files(filenames, exclude=args.path_results)
 
-    for raw_filename in filenames:
+    for raw_filename, subdir in zip(filenames, subdirs):
         filename = make_results_dir(
             raw_filename,
-            outputDir=args.path_results,
+            outputDir=os.path.join(args.path_results, subdir),
             keep=args.keep,
             skip=args.skip,
             copy=False if args.preprocess else True
@@ -170,10 +170,16 @@ def main():
                 print("Pre-processing failed")
                 continue
 
-        bkg_estimation(filename, box=args.box, filter_size=args.filter_size,
-                       bkg_estimator=args.bkg_estimator, sigma=args.sigma_clip,
-                       sigma_lower=args.sigma_lower, sigma_upper=args.sigma_upper,
-                       maxiters=args.maxiters, outLevel=2)
+        bkg_estimation(
+            filename,
+            box=args.box,
+            filter_size=args.filter_size,
+            bkg_estimator=args.bkg_estimator,
+            sigma=args.sigma_clip,
+            sigma_lower=args.sigma_lower,
+            sigma_upper=args.sigma_upper,
+            maxiters=args.maxiters,
+            outLevel=2)
 
 
 if __name__ == "__main__":

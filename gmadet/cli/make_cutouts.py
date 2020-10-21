@@ -41,7 +41,8 @@ def main():
         "--false",
         dest="false",
         action="store_true",
-        help="If set, put all unmatched objects to false folder in training mode. (Default: no)"
+        help="If set, put all unmatched objects to false folder "
+             "in training mode. (Default: not applied)"
     )
 
     parser.add_argument(
@@ -75,8 +76,14 @@ def main():
     args, paths = parser.parse_known_args()
 
     for path in paths:
-        subimage(path, args.training,
-                 size=args.size, radius=args.radius, flag_notsub=args.flag_notsub, false=args.false)
+        subimage(
+            path,
+            args.training,
+            size=args.size,
+            radius=args.radius,
+            flag_notsub=args.flag_notsub,
+            false=args.false)
+
 
 if __name__ == "__main__":
     main()
