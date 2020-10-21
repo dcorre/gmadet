@@ -57,8 +57,6 @@ def infer(path_cutouts, path_model, probratio):
     probratio = 1.0 / float(probratio)
     sstart = int(0)
 
-    edge_shift = 64
-
     # Get all the images
     filenames = sorted(glob.glob(os.path.join(path_cutouts, "*.fits")))
     print("Loading model " + model_name + " ...", end="\r", flush=True)
@@ -83,17 +81,20 @@ def infer(path_cutouts, path_model, probratio):
     filter_idx = None
 
     cube = []
+    newfilenames = []
     for ima in filenames:
         hdus = fits.open(ima, memmap=False)
         head = hdus[0].header
+        # Discard cutout without the reauired size (on the image edges)
+        if head['edge'] == 'True':
+            continue
         data = hdus[0].data
-        # ima1 = ima1[edge_shift:-edge_shift,edge_shift:-edge_shift]
         cube.append(data)
         hdus.close()
+        newfilenames.append(ima)
 
     # Convert lists to B.I.P. NumPy arrays
     cube = np.asarray(cube, dtype=np.float32)
-    print(cube.shape)
     if cube.ndim < 4:
         cube = np.reshape(
             cube, [
@@ -120,7 +121,7 @@ def infer(path_cutouts, path_model, probratio):
     FWHM_PSF = []
 
     for i in range(len(p)):
-        hdus = fits.open(filenames[i], memmap=False)
+        hdus = fits.open(newfilenames[i], memmap=False)
         head = hdus[0].header
         RA_list.append(head["RA"])
         Dec_list.append(head["DEC"])
@@ -148,7 +149,7 @@ def infer(path_cutouts, path_model, probratio):
         # print (filenames[i], head['RA'], head['DEC'], p[i])
     table = Table(
         [
-            filenames,
+            newfilenames,
             RA_list,
             Dec_list,
             original_file,
@@ -180,6 +181,9 @@ def infer(path_cutouts, path_model, probratio):
     )
     # table.show_in_browser()
     # FIXME: for now let's just write it to current folder
-    table.write("infer_results.dat",
+    # Answer:
+    # I think it is better to store in the cutouts folder.
+    # So I switch it back to that solution for now.
+    table.write(os.path.join(path_cutouts, "infer_results.dat"),
                 format="ascii.commented_header",
                 overwrite=True)
