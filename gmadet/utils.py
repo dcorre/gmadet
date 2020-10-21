@@ -93,12 +93,25 @@ def is_subdir(path, basepath):
 
     return os.path.commonpath([path, basepath]) == basepath
 
+def is_psf(filename, patterns=['_psf.fits']):
+    """ 
+    Check whether a file is a PSF file with a standard name, typically 
+    '_psf.fits'. This is used for the simulation of sources during the CNN
+    training for instance.
+    """
+    flag = False
+    for ptn in patterns:
+        if ptn in filename:
+            flag = True
+            break
+
+    return flag
 
 def list_files(
         paths,
         pattern=["*.fit", "*.fits", "*.fts"],
         recursive=True,
-        get_subdirs=False,
+        get_subdirs=True,
         exclude=None):
     """ (Recursively) list the files matching the pattern from the list of
     filenames or directories, omitting the ones containing file paths
@@ -107,21 +120,21 @@ def list_files(
     filenames = []
     subdirs = []
 
-    if isinstance(paths, str):
-        # Let it become list if it is just a string
-        paths = [paths]
+    # Make sure paths is array-like
+    paths = np.atleast_1d(paths)
 
     # Check if paths or files provided by user do exist.
-    # filenames or folders can be a list when as they are retrieved by 
-    # parser.parse_known_args(), so make a loop on each.
+    # filenames or folders can be a list
     for path in paths:
         if not os.path.exists(path):
             raise FileNotFoundError(
                 errno.ENOENT,
                 os.strerror(errno.ENOENT),
                 path
-            ) 
+            )
 
+    # If there are than one pth provided keep the exact same structure
+    # Otherwise skip the basepath
     for path in paths:
         # List all the files in the given path
         if os.path.isdir(path):
@@ -134,7 +147,16 @@ def list_files(
             # Sort alphanumerically
             filenames_path.sort()
             filenames += filenames_path
-            subdirs += [os.path.dirname(os.path.relpath(_, path)) for _ in filenames_path]
+            # Get the relative path folder namesrelative to input paths
+            reldirs = [os.path.dirname(os.path.relpath(_, path))
+                       for _ in filenames_path]
+            # When more than one argument, add the base directory
+            # being the last directory name provided by the user.
+            if len(paths) > 1:
+                basedir = os.path.basename(os.path.abspath(path))
+                subdirs += [os.path.join(basedir, _) for _ in reldirs]
+            else:
+                subdirs += reldirs
         else:
             # if path is not a directory, assume it is a file
             filenames += [path]
@@ -153,22 +175,29 @@ def list_files(
     else:
         folder2skip = []
 
-    idx = [] # Boolean mask whether to keep the filename or not
+    idx = []  # Boolean mask whether to keep the filename or not
 
     for f in filenames:
-        flag_skip = False
-        for text in folder2skip:
-            if is_subdir(f, text):
-                flag_skip = True
-                break
+        flag_keep = True
+        # If file is a standard PSF fits file
+        if is_psf(f):
+            flag_keep = False
+        else:
+            for text in folder2skip:
+                if is_subdir(f, text):
+                    flag_keep = False
+                    break
 
-        idx.append(~flag_skip)
+        idx.append(flag_keep)
+
+    idx = np.array(idx)
+    filenames = np.array(filenames)
+    subdirs = np.array(subdirs)
 
     if get_subdirs:
-        return [_ for _,__ in zip(filenames, idx) if __], [_ for _,__ in zip(subdirs, idx) if __]
+        return filenames[idx], subdirs[idx]
     else:
-        return [_ for _,__ in zip(filenames, idx) if __]
-
+        return filenames[~idx]
 
 
 def load_config(telescope, convFilter='default'):
@@ -307,8 +336,8 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
                 x2 = Naxis11 * (i + 1)
                 y2 = Naxis22 * (j + 1)
 
-                filename_out = os.path.join(path, filename2 + \
-                    "_Q%d" % (index) + extension)
+                filename_out = os.path.join(path, filename2 +
+                                            "_Q%d" % (index) + extension)
 
                 # No need to update the header if astrometric calibration is
                 # performed with scamp, this will be updated later.
@@ -702,23 +731,36 @@ def clean_outputs(filenames, outLevel):
         rm_p(os.path.join(path, "*.head"))
         if outLevel == 0:
             rm_p('coadd.weight.fits')
-            for _ in ["*.magwcs*", "*.oc*", "*.cat", "*.png", "*.fits", "*_ZP_*",
-                      "substraction/*.magwcs*",
-                      "substraction/*.cat",
-                      "substraction/*mask*",
-                      "substraction/*background",
-                      "substraction/*segmentation"]:
+            for _ in [
+                    "*.magwcs*",
+                    "*.oc*",
+                    "*.cat",
+                    "*.png",
+                    "*.fits",
+                    "*_ZP_*",
+                    "substraction/*.magwcs*",
+                    "substraction/*.cat",
+                    "substraction/*mask*",
+                    "substraction/*background",
+                    "substraction/*segmentation"]:
                 rm_p(os.path.join(path, _))
 
         elif outLevel == 1:
             rm_p('coadd.weight.fits')
 
-            for _ in ["*.magwcs*", "*.oc*", "*.cat", "*.png", "*.fits", "*_ZP_*",
-                      "*_CRmask.fits", "*_CR_notcleaned.fits",
-                      "substraction/*.magwcs*",
-                      "substraction/*mask*",
-                      "substraction/*background",
-                      "substraction/*segmentation"]:
+            for _ in [
+                    "*.magwcs*",
+                    "*.oc*",
+                    "*.cat",
+                    "*.png",
+                    "*.fits",
+                    "*_ZP_*",
+                    "*_CRmask.fits",
+                    "*_CR_notcleaned.fits",
+                    "substraction/*.magwcs*",
+                    "substraction/*mask*",
+                    "substraction/*background",
+                    "substraction/*segmentation"]:
                 rm_p(os.path.join(path, _))
 
         elif outLevel == 2:
