@@ -9,7 +9,6 @@ Author: David Corre, Orsay, France, corre@lal.in2p3.fr
 import argparse
 import warnings
 
-#from gmadet.utils import list_files
 from gmadet.stacking import stacking
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -18,15 +17,27 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 def main():
 
     parser = argparse.ArgumentParser(
+        usage="usage: %(prog)s [options] data",
         description="Stack astronomical images."
     )
 
     parser.add_argument(
-        "--path_data",
-        dest="path_data",
-        required=True,
+        "--results",
+        dest="path_results",
+        required=False,
         type=str,
-        help="Path where the files to be stacked are.",
+        default='gmadet_stacking',
+        help="Base path to store the results. "
+             "(Default: gmadet_stacking)"
+    )
+
+    parser.add_argument(
+        "--keep-old",
+        "--keep",
+        dest="keep",
+        required=False,
+        action="store_true",
+        help="Keep previous results"
     )
 
     parser.add_argument(
@@ -39,7 +50,7 @@ def main():
     )
 
     parser.add_argument(
-        "--deltaT",
+        "--deltat",
         dest="deltaT",
         required=False,
         type=float,
@@ -49,7 +60,7 @@ def main():
     )
 
     parser.add_argument(
-        "--no_BackSub",
+        "--no-backsub",
         dest="no_BackSub",
         action="store_false",
         help="If provided as argument, no background substraction is "
@@ -57,9 +68,17 @@ def main():
              "Default: Substraction is performed",
     )
 
-    args = parser.parse_args()
-    stacking(args.path_data, args.radius, args.deltaT,
-             subBack=args.no_BackSub)
+    args, paths = parser.parse_known_args()
+
+    for path in paths:
+        stacking(
+            path,
+            args.radius,
+            args.deltaT,
+            subBack=args.no_BackSub,
+            path_results=args.path_results,
+            keep=args.keep)
+
 
 if __name__ == "__main__":
     main()

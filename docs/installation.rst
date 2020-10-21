@@ -9,13 +9,13 @@ There are two ways for installing the project:
      * use a Docker image to run the code.
 
 The Docker image contains all the C dependencies and python packages, that can be sometimes very time consuming to install depending on your OS. So I recommend using the Docker image.
-The code is using some of the astromatic softwares that can be difficult to run on Windows. So, it is strongly advised  to use the Docker image for Windows users. 
+The code is using some of the astromatic softwares that can be difficult to run on Windows. So, it is strongly advised  to use the Docker image for Windows users.
 
 
 Prerequisites
 -------------
 
-For both ways you will need to get the project first. 
+For both ways you will need to get the project first.
 
 The sources for gmadet can be downloaded from the `Github repo`_.
 
@@ -38,7 +38,7 @@ Note that you will need to update the project regularly to check for updates. Id
 
 * Or download:
 
-  Simply download this `tarball`_. Or through the console: 
+  Simply download this `tarball`_. Or through the console:
 
 .. code-block:: console
 
@@ -50,14 +50,14 @@ Cloning the project allows to retrieve easily future code updates. If you downlo
 Installation with Docker
 ------------------------
 
-The usage of a Docker allows to build an OS environment on your machine and thus avoid compatibility problems when running the code under Linux, Mac or Windows. If you have not Docker installed on your machine install it first.   
+The usage of a Docker allows to build an OS environment on your machine and thus avoid compatibility problems when running the code under Linux, Mac or Windows. If you have not Docker installed on your machine install it first.
 
 * Install the Docker desktop for your OS: https://docs.docker.com/get-docker/
 
 * To run Docker without appending sudo, type:
 
 .. code-block:: console
-   
+
    sudo groupadd docker
    sudo usermod -aG docker $USER
 
@@ -99,7 +99,7 @@ Python 3 environment:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: console
- 
+
     conda create -n gmadet python=3 numpy scipy matplotlib astropy pandas shapely requests h5py scikit-image
 
 
@@ -107,8 +107,8 @@ Activate the environment:
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: console
- 
-    conda activate gmadet 
+
+    conda activate gmadet
 
 
 Install other libraries
@@ -117,7 +117,7 @@ Install other libraries
 Once you have activated the environment, install the packages that are not available with conda using pip:
 
 .. code-block:: console
- 
+
     python3 -m pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis tensorflow cython regions  opencv-python-headless
     python3 -m pip install --pre astroquery
 
@@ -170,8 +170,7 @@ To test if gmadet is running normally:
 
 .. code-block:: console
 
-   gmadet-run --path_data gmadet/data_test/ATLAS18qqn-S001-R001-C001-SDSS_g.fits --FWHM psfex --telescope IRIS --doAstrometry scamp --doSub ps1
+   gmadet-run gmadet/data_test/test_image.fits --telescope IRIS --sub ps1 --result gmadet/data_test/gmadet_results
 
 It can take some times as it will download some Pan-STARRS archive image to perform the substraction. If it ran well you will see the last line starting with "Cleaning up output files for ...".
-A folder gmadet_results/ has been created in gmadet/data_test/ with a bunch of files that will be described later on.
-
+A folder gmadet_results/test_image has been created in gmadet/data_test/ with a bunch of files that will be described later on.

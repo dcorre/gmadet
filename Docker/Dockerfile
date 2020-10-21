@@ -99,7 +99,7 @@ RUN  \
    && python3.7 -m pip install --upgrade pip \
    && python3.7 -m pip install -U setuptools cmake \
    && python3.7 -m pip install -U scikit-build  \
-   && python3.7 -m pip install -U numpy scipy matplotlib astropy pandas shapely requests h5py scikit-image lacosmic hjson voevent-parse xmltodict astroML photutils keras keras-vis tensorflow cython regions  opencv-python-headless --use-feature=2020-resolver \
+   && python3.7 -m pip install -U numpy scipy matplotlib astropy pandas shapely requests h5py scikit-image lacosmic hjson voevent-parse xmltodict astroML photutils keras keras-vis tensorflow cython regions  opencv-python-headless astroscrappy --use-feature=2020-resolver \
    && python3.7 -m pip install --pre astroquery  \
    && rm -fr /home/newuser/.cache/pip \
    && rm -fr /root/.cache/pip \

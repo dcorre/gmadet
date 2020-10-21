@@ -4,13 +4,6 @@
 """
 Author: David Corre, Orsay, France, corre@lal.in2p3.fr
 
-Input arguments are filename, typical fwhm (or estimated by psfex),
-sextracting threshold and maximal distance for catalog crosschecking in pixels
-
-Example :
-   python gmadet.py --filename /folder/image.fits --FWHM psfex
-                    --threshold 4 --radius_crossmatch 2.5 --telescope TRE
-
 """
 
 import sys
@@ -28,9 +21,10 @@ from gmadet.utils import (
     clean_folder,
     cut_image,
     list_files,
+    cp_p,
     mv_p,
     mkdir_p,
-    make_copy,
+    make_results_dir,
     clean_outputs,
     getpath,
     getTel
@@ -61,6 +55,7 @@ from copy import deepcopy
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
+
 def main():
 
     path_gmadet = getpath()
@@ -68,26 +63,60 @@ def main():
     telescope_list = getTel()
 
     parser = argparse.ArgumentParser(
+        usage="usage: %(prog)s data [data2 ... dataN] [options]",
         description="Finding unknown objects in astronomical images."
     )
 
     parser.add_argument(
-        "--path_data",
-        dest="path_data",
-        required=True,
+        "--results",
+        dest="path_results",
+        required=False,
         type=str,
-        help="Path to data"
+        default='gmadet_results',
+        help="Base path to store the results. "
+             "(Default: gmadet_results)"
     )
 
     parser.add_argument(
-        "--FWHM",
+        "--keep-old",
+        "--keep",
+        dest="keep",
+        required=False,
+        action="store_true",
+        help="Keep previous results"
+    )
+
+    parser.add_argument(
+        "--skip-processed",
+        "--skip",
+        dest="skip",
+        required=False,
+        action="store_true",
+        help="Skip already processed files"
+    )
+
+    parser.add_argument(
+        "--preprocess",
+        dest="preprocess",
+        required=False,
+        type=str,
+        default=None,
+        help="Pre-process the image using external program before analysing. "
+             "The program should accept two positional arguments - original "
+             "filename and new one. (Default: just copy the image)"
+    )
+
+    parser.add_argument(
+        "--fwhm",
         dest="FWHM",
-        required=True,
-        help="Typical telescope FWHM"
+        required=False,
+        default='psfex',
+        help="Typical telescope FWHM. "
+             "(Default: use psfex to estimate FWHM)",
     )
 
     parser.add_argument(
-        "--radius_crossmatch",
+        "--radius-crossmatch",
         dest="radius_crossmatch",
         required=False,
         type=float,
@@ -107,27 +136,26 @@ def main():
     )
 
     parser.add_argument(
-        "--soft",
+        "--detect",
         dest="soft",
         required=False,
         choices=["sextractor"],
         default="sextractor",
         type=str,
-        help="Soft to use for detecting sources.\n (Default: sextractor)",
+        help="Software to use for detecting sources.\n (Default: sextractor)",
     )
 
     parser.add_argument(
-        "--convFilter",
+        "--conv-filter",
         dest="convFilter",
         required=False,
         default="default",
         type=str,
         help="Corresponds to FILTER_NAME keyword for sextractor "
              "(without .conv)."
-             "\nDifferent filter available listed here: %s" \
-                     % path_gmadet + "/config/conv_kernels/"
-             "\n(Default: default)"
-        ,
+             "\nDifferent filter available listed here: %s"
+        % path_gmadet + "/config/conv_kernels/"
+             "\n(Default: default)",
     )
 
     parser.add_argument(
@@ -150,11 +178,11 @@ def main():
     )
 
     parser.add_argument(
-        "--doAstrometry",
+        "--astrometry",
         dest="doAstrometry",
         required=False,
         default="scamp",
-        choices=["No", "scamp"],
+        choices=["no", "scamp"],
         type=str,
         help="Whether to perform astrometric calibration, with scamp. "
              "(Default: scamp)",
@@ -172,7 +200,7 @@ def main():
     )
 
     parser.add_argument(
-        "--doSub",
+        "--sub",
         dest="doSub",
         required=False,
         type=str,
@@ -182,10 +210,10 @@ def main():
     )
 
     parser.add_argument(
-        "--ps1_method",
+        "--ps1-method",
         dest="ps1_method",
         required=False,
-        default="mosaic",
+        default="individual",
         choices=["mosaic", "individual"],
         type=str,
         help="When substracting images using Pan-STARRS reference images, "
@@ -196,7 +224,7 @@ def main():
     )
 
     parser.add_argument(
-        "--doMosaic",
+        "--mosaic",
         dest="doMosaic",
         action="store_true",
         help="Whether to combine the individual frames into a common mosaic "
@@ -204,7 +232,7 @@ def main():
     )
 
     parser.add_argument(
-        "--Remove_cosmics",
+        "--remove-cosmics",
         dest="Remove_cosmics",
         action="store_true",
         help="Whether to remove cosmic rays using lacosmic. "
@@ -212,14 +240,14 @@ def main():
     )
 
     parser.add_argument(
-        "--sub_bkg",
+        "--sub-bkg",
         dest="sub_bkg",
         action="store_true",
         help="Whether to substract background. (Default: not set)",
     )
 
     parser.add_argument(
-        "--output_data_level",
+        "--output-data-level",
         dest="outLevel",
         required=False,
         type=int,
@@ -231,7 +259,7 @@ def main():
     )
 
     parser.add_argument(
-        "--owncloud_path",
+        "--owncloud",
         dest="owncloud_path",
         required=False,
         type=str,
@@ -239,27 +267,78 @@ def main():
     )
 
     parser.add_argument(
-        "--VOE_path",
+        "--voe",
         dest="VOE_path",
         required=False,
         type=str,
-        help="Path/filename of the VoEvent containing the observation plan.",
+        help="Path/filename of the VOEvent containing the observation plan.",
     )
 
-    args = parser.parse_args()
+
+    # args, filenames = parser.parse_known_args()
+    args, filenames = parser.parse_known_args()
 
     Nb_cuts = (args.quadrants, args.quadrants)
 
     # Load config files for a given telescope
     config = load_config(args.telescope, args.convFilter)
+    
+    filenames, subdirs = list_files(filenames, exclude=args.path_results)
 
-    filenames = list_files(args.path_data)
-    # copy original images
-    # Create list of the copy images
-    filenames = make_copy(filenames, args.path_data,
-                          outputDir="gmadet_results/")
+    for raw_filename, subdir in zip(filenames, subdirs):
+        filename = make_results_dir(
+            raw_filename,
+            outputDir=os.path.join(args.path_results, subdir),
+            keep=args.keep,
+            skip=args.skip,
+            copy=False if args.preprocess else True
+        )
 
-    for filename in filenames:
+        if not filename:
+            print("%s is already processed, skipping. \n" % raw_filename)
+            continue
+
+        if args.preprocess:
+            # We need to call external code what will copy (processed)
+            # image to results dir
+            print("Pre-processing %s" % raw_filename)
+            subprocess.call(args.preprocess.split() + [raw_filename,
+                                                       filename])
+
+            if not os.path.exists(filename):
+                print("Pre-processing failed")
+                continue
+
+        # If there is simulated_objects.list file alongside the image,
+        # let's copy it to the results dir
+        if os.path.exists(
+                os.path.join(
+                    os.path.dirname(raw_filename),
+                    'simulated_objects.list'
+                )):
+            cp_p(os.path.join(os.path.dirname(raw_filename),
+                              'simulated_objects.list'),
+                 os.path.join(os.path.dirname(filename),
+                              'simulated_objects.list')
+                 )
+            # Rename the "filename" location in the copied
+            # 'simulated_objects.list'
+            fname = os.path.join(
+                        os.path.dirname(filename),
+                        'simulated_objects.list')
+            sim_obj = ascii.read(fname)
+
+            newname_list = []
+            for i in range(len(sim_obj)):
+                newname = os.path.join(
+                        os.path.dirname(filename),
+                        os.path.split(sim_obj[i]['filename'])[1]
+                        )
+                newname_list.append(os.path.abspath(newname))
+            sim_obj['filename'] = newname_list
+            sim_obj.write(fname, format='ascii.commented_header',
+                          overwrite=True)
+
 
         print("Sanitise header and data of %s.\n" % filename)
         sanitise_fits(filename)
@@ -315,7 +394,7 @@ def main():
         else:
             FWHM_list = [args.FWHM] * len(image_table)
 
-        if args.doAstrometry != "No":
+        if args.doAstrometry != "no":
             astrometric_calib(
                 image_table["filenames"],
                 config,
@@ -335,7 +414,7 @@ def main():
                 doMosaic=args.doMosaic,
                 verbose=args.verbose,
                 outLevel=args.outLevel,
-                nb_threads=1
+                nb_threads=8
             )
         else:
             substracted_files = None
@@ -350,7 +429,7 @@ def main():
                 verbose=args.verbose,
                 subFiles=substracted_files,
                 outLevel=args.outLevel,
-                nb_threads=1
+                nb_threads=8
             )
 
         filter_sources(
@@ -359,21 +438,22 @@ def main():
             sigma=1,
             subFiles=substracted_files,
         )
+
         convert_xy_radec(
             image_table["filenames"],
             soft=args.soft,
             subFiles=substracted_files
         )
-        total_sources, candidates = catalogs(
+
+        total_sources = catalogs(
             image_table,
             args.radius_crossmatch,
             Nb_cuts=Nb_cuts,
             subFiles=substracted_files,
             nb_threads=4
         )
-        #moving_objects(image_table["filenames"], candidates)
 
-        sources_calib = phot_calib(
+        sources_calib, candidates = phot_calib(
             total_sources,
             args.telescope,
             radius=args.radius_crossmatch,
@@ -381,14 +461,16 @@ def main():
             subFiles=substracted_files,
             nb_threads=4
         )
-        # Apply filter to candidates
-        # Remove candidates on the edge
-        # Remove candidate depending the FWHM ratio
-        # Apply the CNN model
-        candidates_filtered = filter_candidates(
-            sources_calib
-        )
 
+        candidates = moving_objects(candidates)
+
+        # Apply filter to candidates
+        # Remove candidates on the edge
+        # Remove candidate depending the FWHM ratio
+        # Apply the CNN model
+        candidates_filtered = filter_candidates(
+            candidates
+        )
 
         # If both arguments VOE_path and owncloud_path are provided
         # Send candidates to database
@@ -407,6 +489,7 @@ def main():
 
         # clean output files
         clean_outputs(image_table["filenames"], args.outLevel)
+
 
 if __name__ == "__main__":
     main()

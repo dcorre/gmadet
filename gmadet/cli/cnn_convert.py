@@ -21,7 +21,7 @@ def main():
     )
 
     parser.add_argument(
-        "--path_datacube",
+        "--path",
         dest="path_datacube",
         required=True,
         type=str,
@@ -29,7 +29,7 @@ def main():
     )
 
     parser.add_argument(
-        "--cubename",
+        "--cube",
         dest="cubename",
         required=True,
         type=str,
@@ -37,7 +37,7 @@ def main():
     )
 
     parser.add_argument(
-        "--path_cutouts",
+        "--cutouts",
         dest="path_cutouts",
         required=True,
         type=str,
@@ -47,6 +47,7 @@ def main():
     args = parser.parse_args()
     convert(args.path_datacube, cubename=args.cubename,
             path_cutouts=args.path_cutouts)
+
 
 if __name__ == "__main__":
     main()

@@ -89,6 +89,11 @@ def sanitise_headers(filename):
     keywords2delete = np.unique(keywords2delete)
     for key in keywords2delete:
         del hdr[key]
+    # Add an artificial filter band in case it was not provided
+    if 'FILTER' not in hdr:
+        hdr['FILTER'] = 'r'
+        print ("\n\nNo FILTER keyword was found in %s's header." % filename)
+        print ('Set it to r by default, to continue the code execution.\n\n')
     hdulist.writeto(filename, overwrite=True)
 
 

@@ -29,7 +29,10 @@ def sim(datapath, filenames, Ntrans=50, size=48,
         radec= None, magnitude=None):
     """Insert point sources in real images """
 
-    simdir = datapath + "/gmadet_sim/simulation/"
+    filenames = np.atleast_1d(filenames)
+
+    #simdir = os.path.join(datapath, "simulation")
+    simdir = datapath
     mkdir_p(simdir)
 
     cutsize = np.array([size, size], dtype=np.int32)
@@ -50,29 +53,41 @@ def sim(datapath, filenames, Ntrans=50, size=48,
     # to simulate stars, psf are also included in filenames
     # filenames = filenames[:4]
     for filename in filenames:
-        if 'psf' not in filename and 'weight' not in filename:
-            _, name = os.path.split(filename)
-            #print("\x1b[2K", end='\r', flush=True),
-            #print("Loading " + epoch1 + " image data ...", end='\r', flush=True),
+        if "psf" not in filename and "weight" not in filename:
+            name = os.path.basename(filename)
+            # print("\x1b[2K", end='\r', flush=True),
+            # print("Loading " + epoch1 + " image data ...", end='\r',
+            # flush=True),
             hdusi1 = fits.open(filename, memmap=False)
             headi1 = hdusi1[0].header
             band = str(headi1['FILTER'])
             ima1 = hdusi1[0].data.astype(np.float32)
-            hdusp1 = fits.open(filename.split('.')[0] + '_psf.fits', memmap=False) ### ATTENTION INCOMPATIBILITE AVEC LES NOM DONNES PAR PSFEX.PY
+            hdusp1 = fits.open(filename.split('.')[0] + '_psf.fits',
+                               memmap=False)
             headp1 = hdusp1[0].header
             step1 = headp1['PSF_SAMP']
-            nb_psf_snaps = 1 #int(headp1['PSF_NB'])
+            nb_psf_snaps = int(headp1['PSF_NB'])
             psfs1 = hdusp1[0].data.astype(np.float32)
             imsize = ima1.shape
             posfac = np.array([nb_psf_snaps, nb_psf_snaps]) / imsize
             w = wcs.WCS(headi1)
 
+            # try to use GAIN from header
+            if gain is None:
+                try:
+                    gain = headp1["GAIN"]
+                except BaseException:
+                    print("GAIN keyword not found in header, set to 1.0.")
+                    gain = 1.0
+
             # Add the transients to image
             pos = np.zeros((Ntrans, 2), dtype=float)
             for j in range(Ntrans):
-                newfile = simdir + name.split('.')[0] +'_' + str(counter) + '.fits'
-                print(newfile)
-                filelist.append(newfile)
+                # newfile = os.path.join(simdir, os.path.splitext(name)[
+                #                       0] + "_" + str(counter) + ".fits")
+                # Keep same name actually, if works then remove line above.
+                newfile = filename
+                filelist.append(os.path.abspath(newfile))
 
                 filterlist.append(band)
                 
@@ -92,9 +107,7 @@ def sim(datapath, filenames, Ntrans=50, size=48,
 
                 else:
                     ra, dec = radec[j][0], radec[j][1]
-                    # print('ra, dec = ', ra, dec)
                     pos[j] = w.all_world2pix(ra, dec, 0)
-                    # print(pos[j])
                     trans_pix.append(pos[j])
                     trans_wcs.append([ra, dec])
                     # get pixels indexes in the image
@@ -159,24 +172,34 @@ def sim(datapath, filenames, Ntrans=50, size=48,
     xypos = np.array(trans_pix)
     wcspos = np.array(trans_wcs)
     idx = np.arange(len(xypos))
-    # trans_count = np.array(trans_count)
-    table = Table([idx, filelist, xypos[:0], xypos[:,1], wcspos[:,0], wcspos[:,1], maglist, filterlist, trans_count],
-                  names=['idx', 'filename', 'Xpos', 'Ypos', 'RA', 'Dec', 'mag', 'filter', 'count_ADU'])
-    table.write(simdir+'simulated_objects.list', format='ascii.commented_header', overwrite=True)
 
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="Stacking images.")
-
-    parser.add_argument(
-        "--datapath",
-        dest="datapath",
-        required=True,
-        type=str,
-        help="Path to images"
+    table = Table(
+        [
+            idx,
+            filelist,
+            xypos[:, 1],
+            xypos[:, 0],
+            wcspos[:, 0],
+            wcspos[:, 1],
+            maglist,
+            filterlist,
+            trans_count
+        ],
+        names=[
+            "idx",
+            "filename",
+            "Xpos",
+            "Ypos",
+            "RA",
+            "Dec",
+            "mag",
+            "filter",
+            "count_ADU"],
     )
+    table.write(
+        os.path.join(simdir, "simulated_objects.list"),
+        format="ascii.commented_header",
+        overwrite=True,
+    )
+    return table
 
-    args = parser.parse_args()
-
-    sim(args.datapath)

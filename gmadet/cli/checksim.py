@@ -17,15 +17,8 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 def main():
 
     parser = argparse.ArgumentParser(
+        usage="usage: %(prog)s [options] data",
         description="Do some tests to quantify the simulation."
-    )
-
-    parser.add_argument(
-        "--path_data",
-        dest="path_data",
-        required=True,
-        type=str,
-        help="Path to file"
     )
 
     parser.add_argument(
@@ -38,9 +31,11 @@ def main():
              " Default: 2 arcseconds",
     )
 
+    args, paths = parser.parse_known_args()
 
-    args = parser.parse_args()
-    makestats(args.path_data, radius=args.radius)
+    for path in paths:
+        makestats(path, radius=args.radius)
+
 
 if __name__ == "__main__":
     main()

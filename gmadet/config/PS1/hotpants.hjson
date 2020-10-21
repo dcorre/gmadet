@@ -59,7 +59,7 @@ fi: 1.0e-30
 mous: 1
 
 # verbosity: level of verbosity, 0-2, default: 1
-v: 1
+v: 0
 
 
 }

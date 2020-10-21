@@ -293,7 +293,7 @@ def convert_xy_radec(filelist, soft="sextractor", subFiles=None):
                 ra, dec = w.wcs_pix2world(
                     sources["X_IMAGE"], sources["Y_IMAGE"], 1)
 
-                filenames = [filename] * len(ra)
+                filenames = [os.path.abspath(filename)] * len(ra)
             else:
                 ra = []
                 dec = []
@@ -334,12 +334,14 @@ def convert_xy_radec(filelist, soft="sextractor", subFiles=None):
         # Flag to identify substraction image
         if "_sub" in magfilewcs:
             data["FlagSub"] = ["Y"] * len(data)
-            data["OriginalIma"] = [original_filename] * len(data)
-            data["RefIma"] = [refimage] * len(data)
+            data["OriginalIma"] = [os.path.abspath(original_filename)] \
+                                  * len(data)
+            data["RefIma"] = [os.path.abspath(refimage)] * len(data)
         else:
             data["FlagSub"] = ["N"] * len(data)
-            data["OriginalIma"] = [original_filename] * len(data)
-            data["RefIma"] = [refimage] * len(data)
+            data["OriginalIma"] = [os.path.abspath(original_filename)] \
+                                  * len(data)
+            data["RefIma"] = ['None'] * len(data)
 
         data.write(magfilewcs, format="ascii.commented_header", overwrite=True)
         check_RADEC = data["RA", "DEC"]
