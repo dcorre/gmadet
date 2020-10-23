@@ -16,10 +16,10 @@ from gmadet.astrometry import scamp
 
 
 def registration(filelist, config, resultDir="", reference=None,
-                 useweight=False,gain=1, normalise_exp=True,
+                 useweight=False, gain=1, normalise_exp=True,
                  verbose="NORMAL"):
     """Register images"""
-    #  Initialise lists used for creating output astropy table
+    # Initialise lists used for creating output astropy table
     inim_list = []
     refim_list = []
     mask_list = []
@@ -63,7 +63,7 @@ def registration(filelist, config, resultDir="", reference=None,
                 # '-VERBOSE_TYPE', verbose] + imalists)
                 "-VERBOSE_TYPE", verbose,
             ]
-            #+ [inim]
+            # + [inim]
             + [refim]
         )
         # Some keywords manipulation using sed
@@ -81,7 +81,7 @@ def registration(filelist, config, resultDir="", reference=None,
 
             path, filename_ext = os.path.split(ima)
             epoch = resultDir + os.path.splitext(filename_ext)[0] + \
-                    "_reg_%s" % i
+                "_reg_%s" % i
             outFiles.append(epoch + ".fits")
 
             if "mask" in ima:
@@ -89,27 +89,27 @@ def registration(filelist, config, resultDir="", reference=None,
             else:
                 subBackground = "Y"
 
-            # use weight for PS1 image
+            # use weight for PS1 image
             if reference == 'ps1' and 'rings_v3_skycell' in ima and \
                     'mask' not in ima:
-                #weight_type = "MAP_WEIGHT"
-                #weight_type = "MAP_VARIANCE"
+                # weight_type = "MAP_WEIGHT"
+                # weight_type = "MAP_VARIANCE"
                 weight_type = "MAP_RMS"
-                #weight_type = "NONE"
+                # weight_type = "NONE"
 
                 weight_name = path + '/' + \
-                        os.path.splitext(filename_ext)[0] + \
-                        ".weight.fits"
+                    os.path.splitext(filename_ext)[0] + \
+                    ".weight.fits"
             else:
                 weight_type = "NONE"
                 weight_name = path + '/' + \
-                        os.path.splitext(filename_ext)[0] + \
-                        ".weight.fits"
+                    os.path.splitext(filename_ext)[0] + \
+                    ".weight.fits"
 
             # Copy the common header in the .head file
             # So that it is read by sawrp for each image
             shutil.copy(point + ".head", epoch + ".head")
-            
+
             # Use bilinear to avoid artefact, but worst for
             # noise so would need to check in more details.
             subprocess.call(
@@ -119,9 +119,9 @@ def registration(filelist, config, resultDir="", reference=None,
                     "-WEIGHT_TYPE", weight_type,
                     "-WEIGHT_IMAGE", weight_name,
                     "-WEIGHTOUT_NAME", '.weight.fits',
-                    # Arbitrary threshold. 
-                    # Pixels at the edsge after resampling are 0 so
-                    # it is enough here
+                    # Arbitrary threshold.
+                    # Pixels at the edsge after resampling are 0 so
+                    # it is enough here
                     "-WEIGHT_THRESH", "0.1",
                     "-RESCALE_WEIGHTS", "N",
                     # '-GAIN_DEFAULT', str(gain),
@@ -144,7 +144,7 @@ def registration(filelist, config, resultDir="", reference=None,
                     # '-RESAMPLING_TYPE', 'NEAREST',
                     "-OVERSAMPLING", "0",
                     "-VERBOSE_TYPE", verbose,
-                    "-COPY_KEYWORDS", "FILTER",
+                    "-COPY_KEYWORDS", "FILTER, DATE-OBS",
                 ]
                 + [ima]
             )
@@ -154,7 +154,7 @@ def registration(filelist, config, resultDir="", reference=None,
             # hdulist=fits.open(epoch + '.fits')
             # hdulist[0].data[hdulist[0].data==0]=np.nan
             # hdulist.writeto(epoch + '.fits',overwrite=True)
-            
+
             rm_p(epoch + ".head")
         rm_p(point + ".head")
         rm_p("register.list")
@@ -165,9 +165,9 @@ def registration(filelist, config, resultDir="", reference=None,
         refim_regist = outFiles[1]
         maskim_regist = outFiles[2]
 
-        print ('Rescale and homogeneise mask maps for bad pixels.')
+        print('Rescale and homogeneise mask maps for bad pixels.')
         # Rescale flux to 1s
-        # In the future can try to rescale flux of ref image 
+        # In the future can try to rescale flux of ref image
         # to match input image.
         if normalise_exp:
             rescale_flux(inim_regist)
@@ -182,12 +182,12 @@ def registration(filelist, config, resultDir="", reference=None,
         # Apply mask on ref data
         _ = flag_bad_pixels(refim_regist, mask_ref=maskim_regist, value=1e-30)
 
-        print ('Remove bad pixels on the edge.')
+        print('Remove bad pixels on the edge.')
         # Take only part of image with data
         # This will decrease image size and speed up the substraction
-        # Might also avoid probelm with masked values, depending on how 
+        # Might also avoid probelm with masked values, depending on how
         # good they are deal with in hotpants.
-        limits = keep_useful_area(inim_regist, image_ref=refim_regist)    
+        limits = keep_useful_area(inim_regist, image_ref=refim_regist)
         _ = keep_useful_area(maskim_regist, limits_force=limits)
 
         # Perform a second time, as the edge are not straight, we can still
@@ -238,6 +238,7 @@ def registration(filelist, config, resultDir="", reference=None,
     )
     return info
 
+
 def flag_bad_pixels(image, mask_ref=None, value=1e-30, mask_map=None):
     """
     Set masked pixels to same value, to homogeneise.
@@ -276,8 +277,8 @@ def flag_bad_pixels(image, mask_ref=None, value=1e-30, mask_map=None):
 def rescale_flux(image):
     """
     Rescale flux scale to 1s.
-    In the future can also compute the flux factor scaling to match science 
-    and input image flux scale.
+    In the future can also compute the flux factor scaling
+    to match science and input image flux scale.
     """
 
     # Normalise pixel flux to 1s.
@@ -286,7 +287,7 @@ def rescale_flux(image):
     # Try to update headers that are affected by this change.
     # RN and DC standing for Read Noise and Dark Current are currently
     # not kept during sanitising of the header. Need to update it.
-    keywords=['SATURATE', 'RN', 'DC']
+    keywords = ['SATURATE', 'RN', 'DC']
     for key in keywords:
         try:
             hdulist[0].header[key] = (
@@ -318,9 +319,11 @@ def keep_useful_area(image, image_ref=None, limits_force=None):
             ymax = ymax_im
 
         else:
-            ymin_ref, xmin_ref = np.min(np.where(hdulist2[0].data > 1e-30), axis=1)
-            ymax_ref, xmax_ref = np.max(np.where(hdulist2[0].data > 1e-30), axis=1)
-           
+            ymin_ref, xmin_ref = np.min(
+                np.where(hdulist2[0].data > 1e-30), axis=1)
+            ymax_ref, xmax_ref = np.max(
+                np.where(hdulist2[0].data > 1e-30), axis=1)
+
             xmin = np.max([xmin_ref, xmin_im])
             xmax = np.min([xmax_ref, xmax_im])
             ymin = np.max([ymin_ref, ymin_im])
@@ -392,7 +395,7 @@ def get_hotpants_info(filelist, config, verbose):
     ymin = None
     xmax = None
     ymax = None
-    
+
     return [[xmin, xmax, ymin, ymax], [
         inmin, inmax, refmin, refmax], [imgain, refgain]]
 

@@ -93,9 +93,10 @@ def is_subdir(path, basepath):
 
     return os.path.commonpath([path, basepath]) == basepath
 
+
 def is_psf(filename, patterns=['_psf.fits']):
-    """ 
-    Check whether a file is a PSF file with a standard name, typically 
+    """
+    Check whether a file is a PSF file with a standard name, typically
     '_psf.fits'. This is used for the simulation of sources during the CNN
     training for instance.
     """
@@ -106,6 +107,7 @@ def is_psf(filename, patterns=['_psf.fits']):
             break
 
     return flag
+
 
 def list_files(
         paths,
@@ -197,7 +199,7 @@ def list_files(
     if get_subdirs:
         return filenames[idx], subdirs[idx]
     else:
-        return filenames[~idx]
+        return filenames[idx]
 
 
 def load_config(telescope, convFilter='default'):
@@ -382,16 +384,11 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
     return image_table
 
 
-def make_sub_image(filename,
+def make_sub_image(filenames,
                    OT_coords,
-                   coords_type="world",
-                   output_name="subimage.fits.gz",
-                   size=[200, 200],
-                   FoV=-1,
-                   fmt="png",
-                   addheader=True,
-                   title=None,
-                   info_dict=None
+                   coords_types="world",
+                   sizes=[200, 200],
+                   FoVs=-1,
                    ):
     """
     Extract sub-image around OT coordinates for the given size.
@@ -408,104 +405,223 @@ def make_sub_image(filename,
         expected in degrees format. 'pix' is the physical pixel coordinate
         on the detector, for instance [1248,2057].
         Default: 'world'
-    output_name : string, optional
-        path, including the name, where to write the new image to be created.
-        Without extension as the extension is automatically set to .fits.gz.
-        Default: 'subimage'
     size : list, optional
         define the size in pixels of the new sub-image.
         Default: [200,200]
     FoV: float, optional
         define the FoV in arcsec for the subimage. If -1 then the size is
         defined by `size`
-    fmt: string, optiona
-        define the format of the subimage, 'png' or 'fits'
     Returns
     -------
-    No variable is returned.
-    A '.fits.gz' file is created using the path defined through 'output_name'.
+    subimage: array, float
+              array of the data sub-image
+    origin: string
+            orientation of the figure
 
     """
-    # Load file
-    data, header = fits.getdata(filename, header=True)
+    # Ensure all inputs are 1D
+    filenames = np.atleast_1d(filenames)
+    OT_coords = np.atleast_1d(OT_coords)
+    coords_types = np.atleast_1d(coords_types)
+    sizes = np.atleast_1d(sizes)
+    FoVs = np.atleast_1d(FoVs)
 
-    # Get physical coordinates of OT
-    w = WCS(header)
-    if coords_type == "world":
-        # Get physical coordinates
-        c = coord.SkyCoord(
-            OT_coords[0], OT_coords[1], unit=(u.deg, u.deg), frame="icrs"
-        )
-        world = np.array([[c.ra.deg, c.dec.deg]])
-        # print (world)
-        pix1, pix2 = w.all_world2pix(world, 1)[0]
-        pix = [pix2, pix1]
-        pix_ref = OT_coords
-    elif coords_type == "pix":
-        pix = OT_coords
-        # print (pix)
-        # ra, dec = w.all_pix2world(np.array(pix), 0)
-        ra, dec = w.all_pix2world(pix[0], pix[1], 0)
-        pix_ref = [float(ra), float(dec)]
+    # Otherwise there is a problem using zip()
+    if OT_coords.shape == (2,):
+        OT_coords = [OT_coords]
+    if sizes.shape == (2,):
+        sizes = [sizes]
 
-    if FoV > 0:
-        # Get pixel size in degrees
-        try:
-            pixSize = abs(float(header["CDELT1"]))
-        except BaseException:
-            pixSize = abs(float(header["CD1_1"]))
-        # Compute number of pixels to reach desired FoV in arcseconds
-        size = [int(FoV / (pixSize * 3600)), int(FoV / (pixSize * 3600))]
+    subimages = []
+    headers = []
+    size_list = []
+    pixref = []
+    origin = []
 
-    # Extract subimage from image starting from reference pixel
-    x1 = int(pix[0]) - int(size[0] / 2)
-    if x1 < 0:
-        x1 = 0
-    x2 = int(pix[0]) + int(size[0] / 2)
-    y1 = int(pix[1]) - int(size[1] / 2)
-    if y1 < 0:
-        y1 = 0
-    y2 = int(pix[1]) + int(size[1] / 2)
-    subimage = data[x1:x2, y1:y2]
+    for fname, coords, _type, size, FoV in zip(
+            filenames,
+            OT_coords,
+            coords_types,
+            sizes,
+            FoVs):
+        # Load file
+        data, header = fits.getdata(fname, header=True)
+        headers.append(header)
+        # Get physical coordinates of OT
+        w = WCS(header)
+        if _type == "world":
+            # Get physical coordinates
+            c = coord.SkyCoord(
+                coords[0], coords[1], unit=(u.deg, u.deg), frame="icrs"
+            )
+            world = np.array([[c.ra.deg, c.dec.deg]])
+            # print (world)
+            pix1, pix2 = w.all_world2pix(world, 1)[0]
+            pix = [pix2, pix1]
+            pixref.append(coords)
+        elif _type == "pix":
+            pix = coords
+            # print (pix)
+            # ra, dec = w.all_pix2world(np.array(pix), 0)
+            ra, dec = w.all_pix2world(pix[0], pix[1], 0)
+            pixref.append([float(ra), float(dec)])
 
-    if fmt == "fits":
-        # write new sub-image
-        hdu = fits.PrimaryHDU()
-        hdu.data = subimage.astype(np.float32)
-        # Need to adapt header here !!!
-        header["CRPIX1"] = int(size[0] / 2)
-        header["CRPIX2"] = int(size[1] / 2)
-        header["CRVAL1"] = pix_ref[0]
-        header["CRVAL2"] = pix_ref[1]
-        if info_dict is not None:
-            # Add information regarding the transients
-            for key, value in info_dict.items():
-                header[key] = value
-        if addheader:
-            hdu.header = header
-        hdu.writeto(output_name, overwrite=True)
+        if FoV > 0:
+            # Get pixel size in degrees
+            try:
+                pixSize = abs(float(header["CDELT1"]))
+            except BaseException:
+                pixSize = abs(float(header["CD1_1"]))
+            # Compute number of pixels to reach desired FoV in arcseconds
+            size = [int(FoV / (pixSize * 3600)), int(FoV / (pixSize * 3600))]
 
-    elif fmt == "png":
+        size_list.append(size)
+        # Extract subimage from image starting from reference pixel
+        x1 = int(pix[0]) - int(size[0] / 2)
+        if x1 < 0:
+            x1 = 0
+        x2 = int(pix[0]) + int(size[0] / 2)
+        y1 = int(pix[1]) - int(size[1] / 2)
+        if y1 < 0:
+            y1 = 0
+        y2 = int(pix[1]) + int(size[1] / 2)
+        subimages.append(data[x1:x2, y1:y2])
+
         # Highest declination on top
         ra1, dec1 = w.all_pix2world(pix[0], y1, 0)
         ra2, dec2 = w.all_pix2world(pix[0], y2, 0)
         if dec1 > dec2:
-            origin = "upper"
+            origin.append("upper")
         else:
-            origin = "lower"
-        norm = ImageNormalize(
-            subimage - np.median(subimage),
-            interval=ZScaleInterval(),
-            stretch=LinearStretch(),
-        )
-        # stretch=SinhStretch())
-        plt.figure()
-        plt.imshow(subimage - np.median(subimage),
-                   cmap="gray", origin=origin, norm=norm)
-        if title is not None:
-            plt.title(title)
-        plt.tight_layout()
-        plt.savefig(output_name)
+            origin.append("lower")
+    return [subimages, headers, size_list, pixref, origin]
+
+
+def make_fits(data, output_name, header, size, pixref, info_dict=None):
+    """Create a fits file from a data array"""
+    hdu = fits.PrimaryHDU()
+    hdu.data = data.astype(np.float32)
+    # FIXME: need to adapt header here !!! Likely not correct
+    header["CRPIX1"] = int(size[0] / 2)
+    header["CRPIX2"] = int(size[1] / 2)
+    header["CRVAL1"] = pixref[0]
+    header["CRVAL2"] = pixref[1]
+    if info_dict is not None:
+        # Add information regarding the transients
+        for key, value in info_dict.items():
+            header[key] = value
+        if [data.shape[0], data.shape[1]] != size:
+            header['edge'] = 'True'
+        else:
+            header['edge'] = 'False'
+    hdu.header = header
+    hdu.writeto(output_name, overwrite=True)
+
+
+def make_figure(data, output_name, origin, fmt, title=None):
+    """Make a figure from a data array"""
+
+    norm = ImageNormalize(
+        # subimage - np.median(subimage),
+        data,
+        interval=ZScaleInterval(),
+        stretch=LinearStretch(),
+    )
+
+    plt.figure()
+    plt.imshow(data, cmap="gray", origin=origin, norm=norm)
+    # plt.imshow(norm(subimage),cmap="gray", origin=origin)
+    if title is not None:
+        plt.title(title)
+    plt.tight_layout()
+    plt.savefig(output_name, format=fmt)
+    plt.close()
+
+    # Much faster but without annotations
+    # plt.imsave(output_name, norm(subimage),
+    #            cmap="gray", origin=origin, format=fmt)
+    # plt.close()
+
+
+def combine_cutouts(filenames,
+                    OT_coords,
+                    coords_type="world",
+                    output_name="cutout_comb.png",
+                    size=[200, 200],
+                    FoV=-1,
+                    title=None):
+    """Create a png file with the cutouts from science image,
+    reference image and substarcted image."""
+
+    # FIXME: need to optimise this function
+    # May be provide the list of cutouts to create as inputs
+    # to reuse the plt axes and avoid recreating a new pyplot
+    # frame each time.
+    data1, _, _, _, origin1 = make_sub_image(filenames[0],
+                                             OT_coords,
+                                             coords_type,
+                                             size,
+                                             FoV,
+                                             )
+    data2, _, _, _, origin2 = make_sub_image(filenames[1],
+                                             OT_coords,
+                                             coords_type,
+                                             size,
+                                             FoV,
+                                             )
+    data3, _, _, _, origin3 = make_sub_image(filenames[2],
+                                             OT_coords,
+                                             coords_type,
+                                             size,
+                                             FoV,
+                                             )
+    # Outputs of make_sub_image are lists
+    data1 = data1[0]
+    data2 = data2[0]
+    data3 = data3[0]
+    origin1 = origin1[0]
+    origin2 = origin2[0]
+    origin3 = origin3[0]
+
+    norm1 = ImageNormalize(
+        data1,  # - np.median(data1),
+        interval=ZScaleInterval(),
+        stretch=LinearStretch(),
+    )
+    norm2 = ImageNormalize(
+        data2,  # - np.median(data2),
+        interval=ZScaleInterval(),
+        stretch=LinearStretch(),
+    )
+    norm3 = ImageNormalize(
+        data3,  # - np.median(data3),
+        interval=ZScaleInterval(),
+        stretch=LinearStretch(),
+    )
+
+    # stretch=SinhStretch())
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    # Substracting by the median is a trick to highlight the source
+    # when skybackground is important. It is not correct but just
+    # used for illustration.
+    # axs[1].imshow(data1 - np.median(data1),
+    axs[1].imshow(data1,
+                  cmap="gray", origin=origin1, norm=norm1)
+    axs[1].set_xlabel('Science', size=20)
+    # axs[2].imshow(data2 - np.median(data2),
+    axs[2].imshow(data2,
+                  cmap="gray", origin=origin2, norm=norm2)
+    axs[2].set_xlabel('Reference', size=20)
+    # axs[0].imshow(data3 #- np.median(data3),
+    axs[0].imshow(data3,
+                  cmap="gray", origin=origin3, norm=norm3)
+    axs[0].set_xlabel('Residuals', size=20)
+    if title is not None:
+        fig.suptitle(title, size=20)
+    # Tight_layout() does not support suptitle so need to do it manually.
+    fig.tight_layout(rect=[0, 0.03, 1, 0.80])
+    fig.savefig(output_name)
+    plt.close()
 
 
 def get_corner_coords(filename):
