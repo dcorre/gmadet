@@ -144,7 +144,7 @@ def registration(filelist, config, resultDir="", reference=None,
                     # '-RESAMPLING_TYPE', 'NEAREST',
                     "-OVERSAMPLING", "0",
                     "-VERBOSE_TYPE", verbose,
-                    "-COPY_KEYWORDS", "FILTER",
+                    "-COPY_KEYWORDS", "FILTER, DATE-OBS",
                 ]
                 + [ima]
             )
