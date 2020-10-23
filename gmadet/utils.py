@@ -93,9 +93,10 @@ def is_subdir(path, basepath):
 
     return os.path.commonpath([path, basepath]) == basepath
 
+
 def is_psf(filename, patterns=['_psf.fits']):
-    """ 
-    Check whether a file is a PSF file with a standard name, typically 
+    """
+    Check whether a file is a PSF file with a standard name, typically
     '_psf.fits'. This is used for the simulation of sources during the CNN
     training for instance.
     """
@@ -106,6 +107,7 @@ def is_psf(filename, patterns=['_psf.fits']):
             break
 
     return flag
+
 
 def list_files(
         paths,
@@ -472,7 +474,7 @@ def make_sub_image(filenames,
                 pixSize = abs(float(header["CD1_1"]))
             # Compute number of pixels to reach desired FoV in arcseconds
             size = [int(FoV / (pixSize * 3600)), int(FoV / (pixSize * 3600))]
-    
+
         size_list.append(size)
         # Extract subimage from image starting from reference pixel
         x1 = int(pix[0]) - int(size[0] / 2)
@@ -489,9 +491,9 @@ def make_sub_image(filenames,
         ra1, dec1 = w.all_pix2world(pix[0], y1, 0)
         ra2, dec2 = w.all_pix2world(pix[0], y2, 0)
         if dec1 > dec2:
-           origin.append("upper")
+            origin.append("upper")
         else:
-           origin.append("lower")
+            origin.append("lower")
     return [subimages, headers, size_list, pixref, origin]
 
 
@@ -520,34 +522,35 @@ def make_figure(data, output_name, origin, fmt, title=None):
     """Make a figure from a data array"""
 
     norm = ImageNormalize(
-            #subimage - np.median(subimage),
-            data,
-            interval=ZScaleInterval(),
-            stretch=LinearStretch(),
-        )
-    
+        # subimage - np.median(subimage),
+        data,
+        interval=ZScaleInterval(),
+        stretch=LinearStretch(),
+    )
+
     plt.figure()
     plt.imshow(data, cmap="gray", origin=origin, norm=norm)
-    #plt.imshow(norm(subimage),cmap="gray", origin=origin)
+    # plt.imshow(norm(subimage),cmap="gray", origin=origin)
     if title is not None:
         plt.title(title)
     plt.tight_layout()
     plt.savefig(output_name, format=fmt)
     plt.close()
-        
-    # Much faster but without annotations 
-    #plt.imsave(output_name, norm(subimage),
+
+    # Much faster but without annotations
+    # plt.imsave(output_name, norm(subimage),
     #            cmap="gray", origin=origin, format=fmt)
     # plt.close()
 
+
 def combine_cutouts(filenames,
-                   OT_coords,
-                   coords_type="world",
-                   output_name="cutout_comb.png",
-                   size=[200, 200],
-                   FoV=-1,
-                   title=None):
-    """Create a png file with the cutouts from science image, 
+                    OT_coords,
+                    coords_type="world",
+                    output_name="cutout_comb.png",
+                    size=[200, 200],
+                    FoV=-1,
+                    title=None):
+    """Create a png file with the cutouts from science image,
     reference image and substarcted image."""
 
     # FIXME: need to optimise this function
@@ -555,72 +558,70 @@ def combine_cutouts(filenames,
     # to reuse the plt axes and avoid recreating a new pyplot
     # frame each time.
     data1, _, _, _, origin1 = make_sub_image(filenames[0],
-                              OT_coords,
-                              coords_type,
-                              size,
-                              FoV,
-                              )
+                                             OT_coords,
+                                             coords_type,
+                                             size,
+                                             FoV,
+                                             )
     data2, _, _, _, origin2 = make_sub_image(filenames[1],
-                              OT_coords,
-                              coords_type,
-                              size,
-                              FoV,
-                              )
+                                             OT_coords,
+                                             coords_type,
+                                             size,
+                                             FoV,
+                                             )
     data3, _, _, _, origin3 = make_sub_image(filenames[2],
-                              OT_coords,
-                              coords_type,
-                              size,
-                              FoV,
-                              )
+                                             OT_coords,
+                                             coords_type,
+                                             size,
+                                             FoV,
+                                             )
     # Outputs of make_sub_image are lists
-    data1=data1[0]
-    data2=data2[0]
-    data3=data3[0]
-    origin1=origin1[0]
-    origin2=origin2[0]
-    origin3=origin3[0]
+    data1 = data1[0]
+    data2 = data2[0]
+    data3 = data3[0]
+    origin1 = origin1[0]
+    origin2 = origin2[0]
+    origin3 = origin3[0]
 
     norm1 = ImageNormalize(
-                data1 ,#- np.median(data1),
-                interval=ZScaleInterval(),
-                stretch=LinearStretch(),
-            )
+        data1,  # - np.median(data1),
+        interval=ZScaleInterval(),
+        stretch=LinearStretch(),
+    )
     norm2 = ImageNormalize(
-                data2 ,#- np.median(data2),
-                interval=ZScaleInterval(),
-                stretch=LinearStretch(),
-            )
+        data2,  # - np.median(data2),
+        interval=ZScaleInterval(),
+        stretch=LinearStretch(),
+    )
     norm3 = ImageNormalize(
-                data3 ,#- np.median(data3),
-                interval=ZScaleInterval(),
-                stretch=LinearStretch(),
-            )
+        data3,  # - np.median(data3),
+        interval=ZScaleInterval(),
+        stretch=LinearStretch(),
+    )
 
     # stretch=SinhStretch())
     fig, axs = plt.subplots(1, 3, figsize=(15, 5))
     # Substracting by the median is a trick to highlight the source
-    # when skybackground is important. It is not correct but just 
+    # when skybackground is important. It is not correct but just
     # used for illustration.
-    #axs[1].imshow(data1 - np.median(data1),
+    # axs[1].imshow(data1 - np.median(data1),
     axs[1].imshow(data1,
                   cmap="gray", origin=origin1, norm=norm1)
-    axs[1].set_xlabel('Science',size=20)
-    #axs[2].imshow(data2 - np.median(data2),
+    axs[1].set_xlabel('Science', size=20)
+    # axs[2].imshow(data2 - np.median(data2),
     axs[2].imshow(data2,
                   cmap="gray", origin=origin2, norm=norm2)
-    axs[2].set_xlabel('Reference',size=20)
-    #axs[0].imshow(data3 #- np.median(data3),
+    axs[2].set_xlabel('Reference', size=20)
+    # axs[0].imshow(data3 #- np.median(data3),
     axs[0].imshow(data3,
                   cmap="gray", origin=origin3, norm=norm3)
-    axs[0].set_xlabel('Residuals',size=20)
+    axs[0].set_xlabel('Residuals', size=20)
     if title is not None:
-        fig.suptitle(title,size=20)
+        fig.suptitle(title, size=20)
     # Tight_layout() does not support suptitle so need to do it manually.
     fig.tight_layout(rect=[0, 0.03, 1, 0.80])
     fig.savefig(output_name)
     plt.close()
-
-
 
 
 def get_corner_coords(filename):
