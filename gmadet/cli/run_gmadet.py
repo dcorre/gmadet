@@ -274,7 +274,6 @@ def main():
         help="Path/filename of the VOEvent containing the observation plan.",
     )
 
-
     # args, filenames = parser.parse_known_args()
     args, filenames = parser.parse_known_args()
 
@@ -282,7 +281,7 @@ def main():
 
     # Load config files for a given telescope
     config = load_config(args.telescope, args.convFilter)
-    
+
     filenames, subdirs = list_files(filenames, exclude=args.path_results)
 
     for raw_filename, subdir in zip(filenames, subdirs):
@@ -324,21 +323,20 @@ def main():
             # Rename the "filename" location in the copied
             # 'simulated_objects.list'
             fname = os.path.join(
-                        os.path.dirname(filename),
-                        'simulated_objects.list')
+                os.path.dirname(filename),
+                'simulated_objects.list')
             sim_obj = ascii.read(fname)
 
             newname_list = []
             for i in range(len(sim_obj)):
                 newname = os.path.join(
-                        os.path.dirname(filename),
-                        os.path.split(sim_obj[i]['filename'])[1]
-                        )
+                    os.path.dirname(filename),
+                    os.path.split(sim_obj[i]['filename'])[1]
+                )
                 newname_list.append(os.path.abspath(newname))
             sim_obj['filename'] = newname_list
             sim_obj.write(fname, format='ascii.commented_header',
                           overwrite=True)
-
 
         print("Sanitise header and data of %s.\n" % filename)
         sanitise_fits(filename)
@@ -453,10 +451,12 @@ def main():
             nb_threads=4
         )
 
+        # The raidus is used here to crossmatch our sources with
+        # catalogs to derive the Zeropoint. Better keep 3 pixels.
         sources_calib, candidates = phot_calib(
             total_sources,
             args.telescope,
-            radius=args.radius_crossmatch,
+            radius=3,
             doPlot=True,
             subFiles=substracted_files,
             nb_threads=4
