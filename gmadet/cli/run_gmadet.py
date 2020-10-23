@@ -453,10 +453,12 @@ def main():
             nb_threads=4
         )
 
+        # The raidus is used here to crossmatch our sources with
+        # catalogs to derive the Zeropoint. Better keep 3 pixels.
         sources_calib, candidates = phot_calib(
             total_sources,
             args.telescope,
-            radius=args.radius_crossmatch,
+            radius=3,
             doPlot=True,
             subFiles=substracted_files,
             nb_threads=4
