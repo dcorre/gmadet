@@ -292,7 +292,7 @@ def phot_calib(detected_sources, telescope, radius=3, sigma_clip=1.5,
     band_DB_list = []
     
 
-    if method == 'allimage':
+    if method == 'allimage' and len(good_ref_sources) > 0:
         # Compute the Zeropoint with all the sources and not subimage 
         # by subimage. Usually get the same results and if subimage is small
         # there might be not enough sources to perform a good calibration.
@@ -324,7 +324,7 @@ def phot_calib(detected_sources, telescope, radius=3, sigma_clip=1.5,
         band_cat_list.append(band_cat)
         band_DB_list.append(band_DB)
 
-    elif method == 'subimage':
+    elif method == 'subimage' and len(good_ref_sources) > 0:
 
         # Compute zeropoints
         for i, key in enumerate(
