@@ -38,7 +38,7 @@ def sim(datapath, telescope, filenames, Ntrans=50, size=48, magrange=[14, 22],
 
     hcutsize = cutsize // 2
 
-    #  List to store position of simulated transients
+    # List to store position of simulated transients
     trans_pix = []
     trans_wcs = []
     filelist = []
@@ -104,9 +104,9 @@ def sim(datapath, telescope, filenames, Ntrans=50, size=48, magrange=[14, 22],
                     # store in cima1
                     # same for weight maps
                     iposrange = np.s_[
-                        ipos[1] - hcutsize[1]: ipos[1] + hcutsize[1],
                         ipos[0] - hcutsize[0]: ipos[0] + hcutsize[0],
-                    ]
+                        ipos[1] - hcutsize[1]: ipos[1] + hcutsize[1],
+                        ]
                 else:
                     ra, dec = radec[j][0], radec[j][1]
                     # print('ra, dec = ', ra, dec)
@@ -128,7 +128,7 @@ def sim(datapath, telescope, filenames, Ntrans=50, size=48, magrange=[14, 22],
                 if nb_psf_snaps == 1:
                     psf1 = psfs1
                 else:
-                    #  get position with respect to number of PSF snapshots
+                    # get position with respect to number of PSF snapshots
                     ppos = (pos[j] * posfac).astype(int)
                     psf1 = psfs1[ppos[0], ppos[1]]
                 # step1 is psf_samp parameter from psfex, used in mat1 and 2
@@ -157,10 +157,9 @@ def sim(datapath, telescope, filenames, Ntrans=50, size=48, magrange=[14, 22],
                     # so did not care of the exact value.
                     # simply needed to draw random magnitudes.
                     # We could estimate the proper one for our telescopes
-                    maglist.append(mag[0])
                 else:
                     mag = np.array([magnitude[j]])
-                    maglist.append(mag[0])
+                maglist.append(mag[0])
                 amp1 = np.exp(0.921034 * (magzp - mag))
 
                 # Apply Poisson Noise to simulated object
