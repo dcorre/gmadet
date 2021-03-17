@@ -9,12 +9,7 @@ Author: David Corre, Orsay, France, corre@lal.in2p3.fr
 import argparse
 import warnings
 
-from gmadet.utils import (
-    load_config,
-    list_files,
-    getpath,
-    getTel
-)
+from gmadet.utils import load_config, list_files, getpath, getTel
 from gmadet.cnn.makesubimage import subimage
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -27,14 +22,14 @@ def main():
 
     parser = argparse.ArgumentParser(
         usage="usage: %(prog)s [options] data",
-        description="Create cutouts centered on the optical candidates."
+        description="Create cutouts centered on the optical candidates.",
     )
 
     parser.add_argument(
         "--training",
         dest="training",
         action="store_true",
-        help="If set, enters training mode. (Default: normal mode)"
+        help="If set, enters training mode. (Default: normal mode)",
     )
 
     parser.add_argument(
@@ -42,7 +37,7 @@ def main():
         dest="false",
         action="store_true",
         help="If set, put all unmatched objects to false folder "
-             "in training mode. (Default: not applied)"
+        "in training mode. (Default: not applied)",
     )
 
     parser.add_argument(
@@ -61,7 +56,7 @@ def main():
         default=2,
         type=float,
         help="Radius for crossmatching detected sources with simulated events."
-             " (Default: 2 arcseconds)",
+        " (Default: 2 arcseconds)",
     )
 
     parser.add_argument(
@@ -70,7 +65,7 @@ def main():
         required=False,
         action="store_true",
         help="Whether the candidates are not the results of an image "
-             "substraction. (Default: False)",
+        "substraction. (Default: False)",
     )
 
     args, paths = parser.parse_known_args()
@@ -82,7 +77,8 @@ def main():
             size=args.size,
             radius=args.radius,
             flag_notsub=args.flag_notsub,
-            false=args.false)
+            false=args.false,
+        )
 
 
 if __name__ == "__main__":

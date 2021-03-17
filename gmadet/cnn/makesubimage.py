@@ -14,8 +14,7 @@ import sys
 import argparse
 from copy import deepcopy
 import numpy as np
-from gmadet.utils import (getpath, make_sub_image,
-                          mv_p, rm_p, mkdir_p)
+from gmadet.utils import getpath, make_sub_image, make_fits, mv_p, rm_p, mkdir_p
 from astropy.io import ascii, fits
 from astropy.table import Table, vstack
 from astropy.coordinates import SkyCoord
@@ -23,10 +22,8 @@ from astropy.coordinates import SkyCoord
 
 def getCandPos(path, pattern=".alldetections", flag_notsub=False):
     """Combine all the .alldetections file in the provided path."""
-    
-    resfiles = glob.glob(os.path.join(path, "**", "*%s*" %
-                                      pattern), recursive=True)
 
+    resfiles = glob.glob(os.path.join(path, "**", "*%s*" % pattern), recursive=True)
     filelist = []
     origfilelist = []
     Xpos_list = []
@@ -44,9 +41,9 @@ def getCandPos(path, pattern=".alldetections", flag_notsub=False):
         # Select only detection in the substracted images and not
         # close to the edge.
         if not flag_notsub:
-            mask = (data["FlagSub"] == "Y") #& (data["edge"] == "N")
+            mask = data["FlagSub"] == "Y"  # & (data["edge"] == "N")
         else:
-            mask = (data["FlagSub"] == "N") #& (data["edge"] == "N")
+            mask = data["FlagSub"] == "N"  # & (data["edge"] == "N")
         RA_list.extend(data["_RAJ2000"][mask])
         Dec_list.extend(data["_DEJ2000"][mask])
         Xpos_list.extend(data["Xpos"][mask])
@@ -94,21 +91,20 @@ def getCandPos(path, pattern=".alldetections", flag_notsub=False):
         ],
     )
 
-    table.write(path + "/candidates_list.dat",
-                format="ascii.commented_header",
-                overwrite=True)
+    table.write(
+        path + "/candidates_list.dat", format="ascii.commented_header", overwrite=True
+    )
 
     return table
 
 
 def crossmatch_detections(path, candidates_list, radius=1):
     """ Crossmatch detections with simulated events positions """
-    
+
     # Combine all simulated_objects.list
-    pattern = 'simulated_objects.list'
-    files = glob.glob(os.path.join(path, "**", "*%s*" %
-                                   pattern), recursive=True)
-    
+    pattern = "simulated_objects.list"
+    files = glob.glob(os.path.join(path, "**", "*%s*" % pattern), recursive=True)
+
     sim_list = None
     for f in files:
         data = ascii.read(f)
@@ -132,34 +128,31 @@ def crossmatch_detections(path, candidates_list, radius=1):
 
     Nsim = len(sim_list)
     for i, event in enumerate(sim_list):
-        print("processing simulated event  %d/%d ..." %
-              (i, Nsim), end="\r", flush=True)
+        print("processing simulated event  %d/%d ..." % (i, Nsim), end="\r", flush=True)
 
         event_coords = [event["RA"], event["Dec"]]
         # Check whether it is a simulated object
-        # FIXME: it is currently broken, as candidates_list contain 
+        # FIXME: it is currently broken, as candidates_list contain
         # _reg_ annotated filenames when simulated_objects.list does not.
         # Answer:
         # This mask was used to use only one image at a time to speed up
-        # this loop. But now that the original image in .alldetection 
-        # is the registered image and not the true original image, it 
+        # this loop. But now that the original image in .alldetection
+        # is the registered image and not the true original image, it
         # does not work anymore as the filename in simulated_object.list
         # point to the true original image. Can either add a new column
-        # in the .alldetection to have the true original image, or find 
+        # in the .alldetection to have the true original image, or find
         # an another solution to speed up the loop.
         # For now we just ignore it.
         # mask1 = candidates_list["OriginalIma"] == event["filename2"]
         candidates = deepcopy(candidates_list)  # [mask1])
 
         # Compute the separation with detections and sort by ascending values
-        offset = SkyCoord(
-                candidates["RA"],
-                candidates["Dec"],
-                unit='deg').separation(
-                        SkyCoord(
-                            event["RA"],
-                            event["Dec"],
-                            unit='deg')).degree
+        offset = (
+            SkyCoord(candidates["RA"], candidates["Dec"], unit="deg")
+            .separation(SkyCoord(event["RA"], event["Dec"], unit="deg"))
+            .degree
+        )
+
         candidates["offset"] = offset
         candidates.sort("offset")
         mask2 = candidates["offset"] < radius / 3600
@@ -183,15 +176,16 @@ def crossmatch_detections(path, candidates_list, radius=1):
     sim_list["Nmatches"] = Ndet
     sim_list["closest_candID"] = closest_candID_list
     sim_list["all_candIDs"] = candID_list
-    sim_list['edge'] = edge_list
-    sim_list.write(os.path.join(path, "crossmatch.dat"),
-                   format="ascii.commented_header",
-                   overwrite=True)
+    sim_list["edge"] = edge_list
+    sim_list.write(
+        os.path.join(path, "crossmatch.dat"),
+        format="ascii.commented_header",
+        overwrite=True,
+    )
     return sim_list
 
 
-def subimage(path, training, size=32, radius=1,
-             flag_notsub=False, false=False):
+def subimage(path, training, size=32, radius=1, flag_notsub=False, false=False):
     """ Extract a sub-image centered on the candidate position """
 
     path_gmadet = getpath()
@@ -234,9 +228,9 @@ def subimage(path, training, size=32, radius=1,
             # mask = np.bitwise_and(mask1,mask2)
 
             # Consider only sources with a single match.
-            # Some real sources close to a cosmic or another will not be 
-            # consider. But with a visual inspection they can be easily 
-            # claissified as true transient.
+            # Some real sources close to a cosmic or another will not be
+            # consider. But with a visual inspection they can be easily
+            # classified as true transient.
             if len(sim_list[mask]) == 1:
                 outdir = truedir
             else:
@@ -259,15 +253,15 @@ def subimage(path, training, size=32, radius=1,
             Naxis2 = hdr_input["NAXIS2"]
 
             # Extract small image
-            make_sub_image(
+            subimage, header, size_list, pixref, origin = make_sub_image(
                 inputname,
                 OT_coords,
                 coords_type="world",
-                output_name=outname,
-                size=[size, size],
-                fmt="fits",
-                addheader=False,
+                sizes=[size, size],
             )
+
+            make_fits(subimage[0], outname, header[0], size_list[0], pixref[0])
+
             # add information to header
             hdus = fits.open(outname, memmap=False)
             hdr = hdus[0].header

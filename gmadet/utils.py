@@ -80,9 +80,12 @@ def getpath():
 def getTel():
     """Get the list of all telescopes"""
     path_gmadet = getpath()
-    telList = [name for name in os.listdir(os.path.join(path_gmadet, "config"))
-               if os.path.isdir(os.path.join(path_gmadet, "config", name)) and
-               name != 'conv_kernels']
+    telList = [
+        name
+        for name in os.listdir(os.path.join(path_gmadet, "config"))
+        if os.path.isdir(os.path.join(path_gmadet, "config", name))
+        and name != "conv_kernels"
+    ]
     return telList
 
 
@@ -94,7 +97,7 @@ def is_subdir(path, basepath):
     return os.path.commonpath([path, basepath]) == basepath
 
 
-def is_psf(filename, patterns=['_psf.fits']):
+def is_psf(filename, patterns=["_psf.fits"]):
     """
     Check whether a file is a PSF file with a standard name, typically
     '_psf.fits'. This is used for the simulation of sources during the CNN
@@ -110,12 +113,13 @@ def is_psf(filename, patterns=['_psf.fits']):
 
 
 def list_files(
-        paths,
-        pattern=["*.fit", "*.fits", "*.fts"],
-        recursive=True,
-        get_subdirs=True,
-        exclude=None):
-    """ (Recursively) list the files matching the pattern from the list of
+    paths,
+    pattern=["*.fit", "*.fits", "*.fts"],
+    recursive=True,
+    get_subdirs=True,
+    exclude=None,
+):
+    """(Recursively) list the files matching the pattern from the list of
     filenames or directories, omitting the ones containing file paths
     specified by 'exclude' option (either string or list of strings)"""
 
@@ -129,11 +133,7 @@ def list_files(
     # filenames or folders can be a list
     for path in paths:
         if not os.path.exists(path):
-            raise FileNotFoundError(
-                errno.ENOENT,
-                os.strerror(errno.ENOENT),
-                path
-            )
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
 
     # If there are than one pth provided keep the exact same structure
     # Otherwise skip the basepath
@@ -144,14 +144,14 @@ def list_files(
             filenames_path = []
 
             for ptn in np.atleast_1d(pattern):
-                filenames_path += glob.glob(path + "/**/" +
-                                            ptn, recursive=recursive)
+                filenames_path += glob.glob(path + "/**/" + ptn, recursive=recursive)
             # Sort alphanumerically
             filenames_path.sort()
             filenames += filenames_path
             # Get the relative path folder namesrelative to input paths
-            reldirs = [os.path.dirname(os.path.relpath(_, path))
-                       for _ in filenames_path]
+            reldirs = [
+                os.path.dirname(os.path.relpath(_, path)) for _ in filenames_path
+            ]
             # When more than one argument, add the base directory
             # being the last directory name provided by the user.
             if len(paths) > 1:
@@ -162,7 +162,7 @@ def list_files(
         else:
             # if path is not a directory, assume it is a file
             filenames += [path]
-            subdirs += ['']
+            subdirs += [""]
 
     # Do not keep files in previous gmadet results folder
     # folder2skip = ["gmadet_results", "gmadet_astrometry",
@@ -202,9 +202,9 @@ def list_files(
         return filenames[idx]
 
 
-def load_config(telescope, convFilter='default'):
+def load_config(telescope, convFilter="default"):
     """Load the path to the configuration files required by the softs.
-       They are telescope dependent.
+    They are telescope dependent.
     """
     path = getpath()
     path2tel = os.path.join(path, "config", telescope)
@@ -214,9 +214,8 @@ def load_config(telescope, convFilter='default'):
             "conf": os.path.join(path2tel, "sourcesdet.sex"),
             "param": os.path.join(path2tel, "sourcesdet.param"),
             "convFilter": os.path.join(
-                path,
-                "config/conv_kernels/%s.conv" % convFilter
-            )
+                path, "config/conv_kernels/%s.conv" % convFilter
+            ),
         },
         "scamp": {
             "sextractor": os.path.join(path2tel, "prepscamp.sex"),
@@ -257,13 +256,10 @@ def clean_folder(filelist, subFiles=None):
 
 
 def make_results_dir(
-        filename,
-        outputDir='gmadet_results',
-        keep=False,
-        skip=False,
-        copy=True):
-    """ Copy original image to newly created output subdir inside given dir,
-    optionally making backup of subfolder if it exists already """
+    filename, outputDir="gmadet_results", keep=False, skip=False, copy=True
+):
+    """Copy original image to newly created output subdir inside given dir,
+    optionally making backup of subfolder if it exists already"""
 
     # Filename without dir
     basename = os.path.basename(filename)
@@ -281,7 +277,7 @@ def make_results_dir(
         if skip:
             return None
         elif keep:
-            mv_p(dirname, dirname + '_' + time.strftime("%Y%m%d-%H%M%S"))
+            mv_p(dirname, dirname + "_" + time.strftime("%Y%m%d-%H%M%S"))
         else:
             shutil.rmtree(dirname)
 
@@ -305,9 +301,7 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
         quadrant_list.append(filename)
         quadrant_ID.append("None")
     else:
-        print(
-            "\nCutting %s into %d quadrants.\n" %
-            (filename, np.sum(Nb_cuts)))
+        print("\nCutting %s into %d quadrants.\n" % (filename, np.sum(Nb_cuts)))
         if doAstrometry == "scamp":
             # Perform astrometry before cutting image into quadrants
             # It will ensure the astrometic calibration for each quadrant will
@@ -338,13 +332,14 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
                 x2 = Naxis11 * (i + 1)
                 y2 = Naxis22 * (j + 1)
 
-                filename_out = os.path.join(path, filename2 +
-                                            "_Q%d" % (index) + extension)
+                filename_out = os.path.join(
+                    path, filename2 + "_Q%d" % (index) + extension
+                )
 
                 # No need to update the header if astrometric calibration is
                 # performed with scamp, this will be updated later.
                 # datacut = data[x1-1:x2-1,y1-1:y2-1]
-                datacut = data[y1 - 1: y2 - 1, x1 - 1: x2 - 1]
+                datacut = data[y1 - 1 : y2 - 1, x1 - 1 : x2 - 1]
                 newheader = deepcopy(header)
                 """
                 #Set center center of quadrant as CRPIX1,2
@@ -378,18 +373,18 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
                 quadrant_list.append(filename_out)
                 quadrant_ID.append("Q%d_%d_%d" % (index, i, j))
 
-    image_table = Table([quadrant_list, quadrant_ID],
-                        names=["filenames", "quadrant"])
+    image_table = Table([quadrant_list, quadrant_ID], names=["filenames", "quadrant"])
 
     return image_table
 
 
-def make_sub_image(filenames,
-                   OT_coords,
-                   coords_types="world",
-                   sizes=[200, 200],
-                   FoVs=-1,
-                   ):
+def make_sub_image(
+    filenames,
+    OT_coords,
+    coords_type="world",
+    sizes=[200, 200],
+    FoVs=-1,
+):
     """
     Extract sub-image around OT coordinates for the given size.
 
@@ -422,7 +417,7 @@ def make_sub_image(filenames,
     # Ensure all inputs are 1D
     filenames = np.atleast_1d(filenames)
     OT_coords = np.atleast_1d(OT_coords)
-    coords_types = np.atleast_1d(coords_types)
+    coords_type = np.atleast_1d(coords_type)
     sizes = np.atleast_1d(sizes)
     FoVs = np.atleast_1d(FoVs)
 
@@ -439,11 +434,8 @@ def make_sub_image(filenames,
     origin = []
 
     for fname, coords, _type, size, FoV in zip(
-            filenames,
-            OT_coords,
-            coords_types,
-            sizes,
-            FoVs):
+        filenames, OT_coords, coords_type, sizes, FoVs
+    ):
         # Load file
         data, header = fits.getdata(fname, header=True)
         headers.append(header)
@@ -451,9 +443,7 @@ def make_sub_image(filenames,
         w = WCS(header)
         if _type == "world":
             # Get physical coordinates
-            c = coord.SkyCoord(
-                coords[0], coords[1], unit=(u.deg, u.deg), frame="icrs"
-            )
+            c = coord.SkyCoord(coords[0], coords[1], unit=(u.deg, u.deg), frame="icrs")
             world = np.array([[c.ra.deg, c.dec.deg]])
             # print (world)
             pix1, pix2 = w.all_world2pix(world, 1)[0]
@@ -511,9 +501,9 @@ def make_fits(data, output_name, header, size, pixref, info_dict=None):
         for key, value in info_dict.items():
             header[key] = value
         if [data.shape[0], data.shape[1]] != size:
-            header['edge'] = 'True'
+            header["edge"] = "True"
         else:
-            header['edge'] = 'False'
+            header["edge"] = "False"
     hdu.header = header
     hdu.writeto(output_name, overwrite=True)
 
@@ -543,13 +533,15 @@ def make_figure(data, output_name, origin, fmt, title=None):
     # plt.close()
 
 
-def combine_cutouts(filenames,
-                    OT_coords,
-                    coords_type="world",
-                    output_name="cutout_comb.png",
-                    size=[200, 200],
-                    FoV=-1,
-                    title=None):
+def combine_cutouts(
+    filenames,
+    OT_coords,
+    coords_type="world",
+    output_name="cutout_comb.png",
+    size=[200, 200],
+    FoV=-1,
+    title=None,
+):
     """Create a png file with the cutouts from science image,
     reference image and substarcted image."""
 
@@ -557,24 +549,27 @@ def combine_cutouts(filenames,
     # May be provide the list of cutouts to create as inputs
     # to reuse the plt axes and avoid recreating a new pyplot
     # frame each time.
-    data1, _, _, _, origin1 = make_sub_image(filenames[0],
-                                             OT_coords,
-                                             coords_type,
-                                             size,
-                                             FoV,
-                                             )
-    data2, _, _, _, origin2 = make_sub_image(filenames[1],
-                                             OT_coords,
-                                             coords_type,
-                                             size,
-                                             FoV,
-                                             )
-    data3, _, _, _, origin3 = make_sub_image(filenames[2],
-                                             OT_coords,
-                                             coords_type,
-                                             size,
-                                             FoV,
-                                             )
+    data1, _, _, _, origin1 = make_sub_image(
+        filenames[0],
+        OT_coords,
+        coords_type,
+        size,
+        FoV,
+    )
+    data2, _, _, _, origin2 = make_sub_image(
+        filenames[1],
+        OT_coords,
+        coords_type,
+        size,
+        FoV,
+    )
+    data3, _, _, _, origin3 = make_sub_image(
+        filenames[2],
+        OT_coords,
+        coords_type,
+        size,
+        FoV,
+    )
     # Outputs of make_sub_image are lists
     data1 = data1[0]
     data2 = data2[0]
@@ -605,17 +600,14 @@ def combine_cutouts(filenames,
     # when skybackground is important. It is not correct but just
     # used for illustration.
     # axs[1].imshow(data1 - np.median(data1),
-    axs[1].imshow(data1,
-                  cmap="gray", origin=origin1, norm=norm1)
-    axs[1].set_xlabel('Science', size=20)
+    axs[1].imshow(data1, cmap="gray", origin=origin1, norm=norm1)
+    axs[1].set_xlabel("Science", size=20)
     # axs[2].imshow(data2 - np.median(data2),
-    axs[2].imshow(data2,
-                  cmap="gray", origin=origin2, norm=norm2)
-    axs[2].set_xlabel('Reference', size=20)
+    axs[2].imshow(data2, cmap="gray", origin=origin2, norm=norm2)
+    axs[2].set_xlabel("Reference", size=20)
     # axs[0].imshow(data3 #- np.median(data3),
-    axs[0].imshow(data3,
-                  cmap="gray", origin=origin3, norm=norm3)
-    axs[0].set_xlabel('Residuals', size=20)
+    axs[0].imshow(data3, cmap="gray", origin=origin3, norm=norm3)
+    axs[0].set_xlabel("Residuals", size=20)
     if title is not None:
         fig.suptitle(title, size=20)
     # Tight_layout() does not support suptitle so need to do it manually.
@@ -642,8 +634,8 @@ def get_corner_coords(filename):
 
 
 def get_phot_cat(filename, telescope):
-    """ Get the name of the filter band from header and telescope name
-        And associate the correct name from DB
+    """Get the name of the filter band from header and telescope name
+    And associate the correct name from DB
     """
     header = fits.getheader(filename)
 
@@ -685,13 +677,11 @@ def get_phot_cat(filename, telescope):
     try:
         RA = header["CRVAL1"]
     except Exception:
-        print("No CRVAL1 keyword found header. "
-              "Astrometric calibration required.")
+        print("No CRVAL1 keyword found header. " "Astrometric calibration required.")
     try:
         DEC = header["CRVAL2"]
     except Exception:
-        print("No CRVAL2 keyword found header. "
-              "Astrometric calibration required.")
+        print("No CRVAL2 keyword found header. " "Astrometric calibration required.")
 
     # Use Pan-Starrs if Dec > -30 degrees
     if float(DEC) > -30.0:
@@ -712,8 +702,8 @@ def get_phot_cat(filename, telescope):
 
 
 def unpackbits(x, num_bits):
-    """ Unpack bits with any dimension ndarray.
-        Can unpack however many bits"""
+    """Unpack bits with any dimension ndarray.
+    Can unpack however many bits"""
     xshape = list(x.shape)
     x = x.reshape([-1, 1])
     to_and = 2 ** np.arange(num_bits).reshape([1, num_bits])
@@ -722,7 +712,7 @@ def unpackbits(x, num_bits):
 
 def filter_catalog_data(data, catalogName):
     """Remove extended sources and bad measurements from reference catalogs
-       before performing photometric calibration"""
+    before performing photometric calibration"""
 
     # Keep only point source objects and good measurements
 
@@ -815,8 +805,7 @@ def filter_catalog_data(data, catalogName):
                 if counter2 == 0:
                     quality_mask_or = condition_or
                 else:
-                    quality_mask_or = np.bitwise_or(
-                        quality_mask_or, condition_or)
+                    quality_mask_or = np.bitwise_or(quality_mask_or, condition_or)
                 counter2 += 1
             # Combine both masks
             quality_mask = np.bitwise_and(quality_mask, quality_mask_or)
@@ -846,37 +835,39 @@ def clean_outputs(filenames, outLevel):
 
         rm_p(os.path.join(path, "*.head"))
         if outLevel == 0:
-            rm_p('coadd.weight.fits')
+            rm_p("coadd.weight.fits")
             for _ in [
-                    "*.magwcs*",
-                    "*.oc*",
-                    "*.cat",
-                    "*.png",
-                    "*.fits",
-                    "*_ZP_*",
-                    "substraction/*.magwcs*",
-                    "substraction/*.cat",
-                    "substraction/*mask*",
-                    "substraction/*background",
-                    "substraction/*segmentation"]:
+                "*.magwcs*",
+                "*.oc*",
+                "*.cat",
+                "*.png",
+                "*.fits",
+                "*_ZP_*",
+                "substraction/*.magwcs*",
+                "substraction/*.cat",
+                "substraction/*mask*",
+                "substraction/*background",
+                "substraction/*segmentation",
+            ]:
                 rm_p(os.path.join(path, _))
 
         elif outLevel == 1:
-            rm_p('coadd.weight.fits')
+            rm_p("coadd.weight.fits")
 
             for _ in [
-                    "*.magwcs*",
-                    "*.oc*",
-                    "*.cat",
-                    "*.png",
-                    "*.fits",
-                    "*_ZP_*",
-                    "*_CRmask.fits",
-                    "*_CR_notcleaned.fits",
-                    "substraction/*.magwcs*",
-                    "substraction/*mask*",
-                    "substraction/*background",
-                    "substraction/*segmentation"]:
+                "*.magwcs*",
+                "*.oc*",
+                "*.cat",
+                "*.png",
+                "*.fits",
+                "*_ZP_*",
+                "*_CRmask.fits",
+                "*_CR_notcleaned.fits",
+                "substraction/*.magwcs*",
+                "substraction/*mask*",
+                "substraction/*background",
+                "substraction/*segmentation",
+            ]:
                 rm_p(os.path.join(path, _))
 
         elif outLevel == 2:
