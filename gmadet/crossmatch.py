@@ -449,6 +449,11 @@ def moving_objects(candidates, radius_cross=10):
     crossmatch is made at a single time defined by DATE-OBS, so this allows
     for flexibility.
     """
+    # If candidates is empty return it directly
+    if not candidates:
+        print ("No candidates, no need to search for moving objects.")
+        return candidates
+
     # Initialise with None
     moving_objects_tot = None
 

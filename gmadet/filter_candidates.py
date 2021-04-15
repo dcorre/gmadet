@@ -31,6 +31,12 @@ def filter_candidates(sources,
                       nb_threads=8,
                       combined=False):
     """Filter transient candidates"""
+
+    # if no sources skip the following
+    if not sources:
+        print ("No candidates, no need to filter.")
+        return 0
+
     print('Filter candidates')
     # Take first candidate to extract the path where to store the file
     # No need to chack if substraction was performed,
