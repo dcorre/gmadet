@@ -437,7 +437,11 @@ def make_sub_image(
         filenames, OT_coords, coords_type, sizes, FoVs
     ):
         # Load file
-        data, header = fits.getdata(fname, header=True)
+        #data, header = fits.getdata(fname, header=True)
+        hdul = fits.open(fname)
+        data = hdul[0].data
+        header = hdul[0].header
+        hdul.close()
         headers.append(header)
         # Get physical coordinates of OT
         w = WCS(header)
