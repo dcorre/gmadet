@@ -158,7 +158,7 @@ def main():
         type=str,
         help="Alias for the available telescopes.",
     )
-    
+
     parser.add_argument(
         "--threads",
         dest="threads",
@@ -261,6 +261,58 @@ def main():
         dest="sub_bkg",
         action="store_true",
         help="Whether to substract background. (Default: not set)",
+    )
+
+    parser.add_argument(
+        "--cnn_model",
+        dest="cnn_model",
+        required=False,
+        type=str,
+        help="Path to trained CNN model. Defaut: None. ",
+    )
+
+    parser.add_argument(
+        "--cnn_thres",
+        dest="cnn_thres",
+        required=False,
+        type=float,
+        help="Threshold to apply to filter CNN results, between 0 and 1. "
+        "Defaut: 0.0. ",
+    )
+
+    parser.add_argument(
+        "--doCutouts",
+        dest="doCutouts",
+        action="store_true",
+        help="Whether to create cutouts centered on candidates. (Default: not set)",
+    )
+
+    parser.add_argument(
+        "--cutouts-size",
+        dest="cutouts_size",
+        required=False,
+        type=int,
+        default=100,
+        help="Size of square array for cutouts other than for CNN. " "Defaut: 100. ",
+    )
+
+    parser.add_argument(
+        "--cutouts-size_cnn",
+        dest="cutouts_size_cnn",
+        required=False,
+        type=int,
+        default=32,
+        help="Size of square array for CNN cutouts. Defaut: 32. ",
+    )
+
+    parser.add_argument(
+        "--cutouts-fmt",
+        dest="cutouts_fmt",
+        required=False,
+        type=str,
+        default="fits",
+        choices=["png", "fits"],
+        help="File format for cutouts. Defaut: fits. ",
     )
 
     parser.add_argument(
@@ -451,10 +503,10 @@ def main():
             Nb_cuts=Nb_cuts,
             subFiles=substracted_files,
             # 4 threads are faster than 8 here so in general divide by 2
-            nb_threads=int(args.threads/2),
+            nb_threads=int(args.threads / 2),
         )
 
-        # The raidus is used here to crossmatch our sources with
+        # The radius is used here to crossmatch our sources with
         # catalogs to derive the Zeropoint. Better keep 3 pixels.
         sources_calib, candidates = phot_calib(
             total_sources,
@@ -463,7 +515,7 @@ def main():
             doPlot=True,
             subFiles=substracted_files,
             # 4 threads are faster than 8 here so in general divide by 2
-            nb_threads=int(args.threads/2),
+            nb_threads=int(args.threads / 2),
         )
 
         candidates = moving_objects(candidates)
@@ -472,7 +524,20 @@ def main():
         # Remove candidates on the edge
         # Remove candidate depending the FWHM ratio
         # Apply the CNN model
-        candidates_filtered = filter_candidates(candidates)
+        candidates_filtered = filter_candidates(
+            candidates,
+            FWHM_ratio_lower=0.5,
+            FWHM_ratio_upper=5.0,
+            CNN_model=args.cnn_model,
+            CNN_thres=args.cnn_thres,
+            makecutout=args.doCutouts,
+            size=args.cutouts_size,
+            size_cnn=args.cutouts_size_cnn,
+            fmt=args.cutouts_fmt,
+            outLevel=1,
+            nb_threads=args.threads,
+            combined=False,
+        )
 
         # If both arguments VOE_path and owncloud_path are provided
         # Send candidates to database
