@@ -11,6 +11,7 @@ import subprocess
 import sys
 import importlib
 import time
+import gc
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -437,8 +438,9 @@ def make_sub_image(
         filenames, OT_coords, coords_type, sizes, FoVs
     ):
         # Load file
-        #data, header = fits.getdata(fname, header=True)
-        hdul = fits.open(fname)
+        # data, header = fits.getdata(fname, header=True)
+        # hdul = fits.open(fname)
+        hdul = fits.open(fname, memmap=False)
         data = hdul[0].data
         header = hdul[0].header
         hdul.close()
@@ -488,6 +490,18 @@ def make_sub_image(
             origin.append("upper")
         else:
             origin.append("lower")
+
+        """
+        # Don't need the data anymore; delete all references to it
+        # so that it can be garbage collected
+        del hdul
+        del data
+        del header
+        # In some extreme cases files are opened and closed fast enough that 
+        # Python’s garbage collector does not free them (and hence free the 
+        # file handles) often enough. So manual call to garbage collector 
+        gc.collect()
+        """
     return [subimages, headers, size_list, pixref, origin]
 
 
