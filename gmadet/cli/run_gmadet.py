@@ -158,7 +158,15 @@ def main():
         type=str,
         help="Alias for the available telescopes.",
     )
-
+    
+    parser.add_argument(
+        "--threads",
+        dest="threads",
+        required=False,
+        default=4,
+        type=int,
+        help="Number of threads to use. " "(Default: 4)",
+    )
     parser.add_argument(
         "--quadrants",
         dest="quadrants",
@@ -408,7 +416,7 @@ def main():
                 doMosaic=args.doMosaic,
                 verbose=args.verbose,
                 outLevel=args.outLevel,
-                nb_threads=8,
+                nb_threads=args.threads,
             )
         else:
             substracted_files = None
@@ -423,7 +431,7 @@ def main():
                 verbose=args.verbose,
                 subFiles=substracted_files,
                 outLevel=args.outLevel,
-                nb_threads=8,
+                nb_threads=args.threads,
             )
 
         filter_sources(
@@ -442,7 +450,8 @@ def main():
             args.radius_crossmatch,
             Nb_cuts=Nb_cuts,
             subFiles=substracted_files,
-            nb_threads=4,
+            # 4 threads are faster than 8 here so in general divide by 2
+            nb_threads=int(args.threads/2),
         )
 
         # The raidus is used here to crossmatch our sources with
@@ -453,7 +462,8 @@ def main():
             radius=3,
             doPlot=True,
             subFiles=substracted_files,
-            nb_threads=4,
+            # 4 threads are faster than 8 here so in general divide by 2
+            nb_threads=int(args.threads/2),
         )
 
         candidates = moving_objects(candidates)
