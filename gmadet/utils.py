@@ -381,10 +381,14 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
 
 def make_sub_image(
     filenames,
+    output_names,
     OT_coords,
     coords_type="world",
     sizes=[200, 200],
     FoVs=-1,
+    info_dicts=None,
+    title=None,
+    fmts="fits",
 ):
     """
     Extract sub-image around OT coordinates for the given size.
@@ -421,46 +425,60 @@ def make_sub_image(
     coords_type = np.atleast_1d(coords_type)
     sizes = np.atleast_1d(sizes)
     FoVs = np.atleast_1d(FoVs)
+    output_names = np.atleast_1d(output_names)
+    fmts = np.atleast_1d(fmts)
 
     # Otherwise there is a problem using zip()
     if OT_coords.shape == (2,):
         OT_coords = [OT_coords]
     if sizes.shape == (2,):
         sizes = [sizes]
+    if info_dicts is None:
+        info_dicts = [None] * len(filenames)
+    else:
+        info_dicts = np.atleast_1d(info_dicts)
+
+    if title is None:
+        title = [None] * len(filenames)
+    else:
+        title = np.atleast_1d(title)
 
     subimages = []
     headers = []
     size_list = []
     pixref = []
-    origin = []
+    origins = []
 
-    for fname, coords, _type, size, FoV in zip(
-        filenames, OT_coords, coords_type, sizes, FoVs
+    for fname, outname, coords, _type, size, FoV, info_dict, tit, fmt in zip(
+        filenames,
+        output_names,
+        OT_coords,
+        coords_type,
+        sizes,
+        FoVs,
+        info_dicts,
+        title,
+        fmts,
     ):
         # Load file
-        # data, header = fits.getdata(fname, header=True)
-        # hdul = fits.open(fname)
         hdul = fits.open(fname, memmap=False)
         data = hdul[0].data
         header = hdul[0].header
         hdul.close()
-        headers.append(header)
         # Get physical coordinates of OT
         w = WCS(header)
         if _type == "world":
             # Get physical coordinates
             c = coord.SkyCoord(coords[0], coords[1], unit=(u.deg, u.deg), frame="icrs")
             world = np.array([[c.ra.deg, c.dec.deg]])
-            # print (world)
             pix1, pix2 = w.all_world2pix(world, 1)[0]
             pix = [pix2, pix1]
-            pixref.append(coords)
+            pixref = coords
         elif _type == "pix":
             pix = coords
-            # print (pix)
             # ra, dec = w.all_pix2world(np.array(pix), 0)
             ra, dec = w.all_pix2world(pix[0], pix[1], 0)
-            pixref.append([float(ra), float(dec)])
+            pixref = [float(ra), float(dec)]
 
         if FoV > 0:
             # Get pixel size in degrees
@@ -481,28 +499,25 @@ def make_sub_image(
         if y1 < 0:
             y1 = 0
         y2 = int(pix[1]) + int(size[1] / 2)
-        subimages.append(data[x1:x2, y1:y2])
+        subimage = data[x1:x2, y1:y2]
 
         # Highest declination on top
         ra1, dec1 = w.all_pix2world(pix[0], y1, 0)
         ra2, dec2 = w.all_pix2world(pix[0], y2, 0)
         if dec1 > dec2:
-            origin.append("upper")
+            origin = "upper"
         else:
-            origin.append("lower")
+            origin = "lower"
+        origins.append(origin)
 
-        """
-        # Don't need the data anymore; delete all references to it
-        # so that it can be garbage collected
-        del hdul
-        del data
-        del header
-        # In some extreme cases files are opened and closed fast enough that 
-        # Python’s garbage collector does not free them (and hence free the 
-        # file handles) often enough. So manual call to garbage collector 
-        gc.collect()
-        """
-    return [subimages, headers, size_list, pixref, origin]
+        if fmt == "fits":
+            make_fits(subimage, outname, header, size, pixref, info_dict)
+
+        else:
+            make_figure(subimage, outname, origin, fmt, tit)
+
+        subimages.append(subimage)
+    return subimages, origins
 
 
 def make_fits(data, output_name, header, size, pixref, info_dict=None):
@@ -517,8 +532,9 @@ def make_fits(data, output_name, header, size, pixref, info_dict=None):
     if info_dict is not None:
         # Add information regarding the transients
         for key, value in info_dict.items():
+            # print (key, value)
             header[key] = value
-        if [data.shape[0], data.shape[1]] != size:
+        if data.shape[0] != size[0] and data.shape[1] != size[1]:
             header["edge"] = "True"
         else:
             header["edge"] = "False"
@@ -559,6 +575,7 @@ def combine_cutouts(
     size=[200, 200],
     FoV=-1,
     title=None,
+    fmts="png",
 ):
     """Create a png file with the cutouts from science image,
     reference image and substarcted image."""
@@ -567,26 +584,14 @@ def combine_cutouts(
     # May be provide the list of cutouts to create as inputs
     # to reuse the plt axes and avoid recreating a new pyplot
     # frame each time.
-    data1, _, _, _, origin1 = make_sub_image(
-        filenames[0],
-        OT_coords,
-        coords_type,
-        size,
-        FoV,
+    data1, origin1 = make_sub_image(
+        filenames[0], output_name, OT_coords, coords_type, size, FoV, None, title, fmts
     )
-    data2, _, _, _, origin2 = make_sub_image(
-        filenames[1],
-        OT_coords,
-        coords_type,
-        size,
-        FoV,
+    data2, origin2 = make_sub_image(
+        filenames[1], output_name, OT_coords, coords_type, size, FoV, None, title, fmts
     )
-    data3, _, _, _, origin3 = make_sub_image(
-        filenames[2],
-        OT_coords,
-        coords_type,
-        size,
-        FoV,
+    data3, origin3 = make_sub_image(
+        filenames[2], output_name, OT_coords, coords_type, size, FoV, None, title, fmts
     )
     # Outputs of make_sub_image are lists
     data1 = data1[0]

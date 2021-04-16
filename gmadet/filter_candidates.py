@@ -26,7 +26,7 @@ def filter_candidates(
     CNN_model=None,
     CNN_thres=0.0,
     makecutout=True,
-    size=100,
+    size=32,
     size_cnn=32,
     fmt="png",
     outLevel=1,
@@ -61,20 +61,23 @@ def filter_candidates(
     mask_FWHM = (FWHM_ratio >= FWHM_ratio_lower) & (FWHM_ratio <= FWHM_ratio_upper)
 
     mask_tot = mask_cat & mask_edge & mask_FWHM
-    # Use a trained CNN model to filter candidates.
-    if CNN_model is not None:
-        print("Create fits cutouts for CNN")
-        # Create fits cutouts to be be given to the CNN model
-        path_CNN_cutouts = os.path.join(path, "CNN_cutouts")
-        mkdir_p(path_CNN_cutouts)
+    # Create dictionary with fits info for cutouts to be be given to the CNN model
+    # or simply for making fits cutouts
+    if CNN_model is not None or fmt == "fits":
+
+        if CNN_model is not None:
+            path_CNN_cutouts = os.path.join(path, "CNN_cutouts")
+            mkdir_p(path_CNN_cutouts)
+            outnames = []
         args_data = []
-        outnames = []
         info_dicts = []
         for cand in sources:
             coords = [cand["_RAJ2000"], cand["_DEJ2000"]]
-            outname = os.path.join(
-                path_CNN_cutouts, "candidate_%d.fits" % (cand["idx"])
-            )
+            if CNN_model is not None:
+                outname = os.path.join(
+                    path_CNN_cutouts, "candidate_%d.fits" % (cand["idx"])
+                )
+                outnames.append(outname)
             info_dict = {}
             info_dict["RA"] = cand["_RAJ2000"]
             info_dict["DEC"] = cand["_DEJ2000"]
@@ -96,79 +99,33 @@ def filter_candidates(
                     -1,
                 ]
             )
-            outnames.append(outname)
+
             info_dicts.append(info_dict)
-        """
-        # Run the make_sub_image in asynchroneous parallel
-        # using many processes.
-        # Need to cut the args list in the number of required threads
-        # There is may be another way?
-        N_sources = len(sources)
-        # Check if there less data than number of threads.
-        if N_sources < nb_threads:
-            nb_threads = 1
-        Ncut = int(N_sources / nb_threads)
-        args_threads = []
-        idx_stop = []
-        for i in range(nb_threads):
-            if i == 0:
-                args_threads.append(args[i * Ncut : (i+1) * Ncut])
-                idx_stop.append((i+1) * Ncut)
-            elif i > 0 and i < nb_threads-1:
-                args_threads.append(args[i * Ncut : (i+1) * Ncut])
-                idx_stop.append((i+1) * Ncut)
-            elif i == nb_threads-1:
-                args_threads.append(args[i * Ncut : N_sources])
-                idx_stop.append(N_sources)
-            if idx_stop[-1] >= N_sources:
-                break
-        args_threads = np.array(args_threads)
-        """
+
+    # Use a trained CNN model to filter candidates.
+    if CNN_model is not None:
+        print("Create fits cutouts for CNN")
+
+        # Create sub-array
         args_data = np.array(args_data)
         pool = mp.Pool(nb_threads)
-        # call apply_async() without callback
-        """
-        result_objects = [pool.apply_async(make_sub_image,
-            args=(j[0,:], j[1,:], j[2,:], j[3,:], j[4,:]))
-            for j in args_threads]
-        """
-        result_objects = [
-            pool.apply_async(
-                make_sub_image,
-                args=(
-                    args_data[:, 0],
-                    args_data[:, 1],
-                    args_data[:, 2],
-                    args_data[:, 3],
-                    args_data[:, 4],
-                ),
-            )
-        ]
-
-        # result_objects is a list of pool.ApplyResult objects
-        results = [r.get() for r in result_objects]
-
-        # Don't forget to close
-        pool.close()
-        pool.join()
-        results = np.array(results[0])
-        # Create fits cutouts
-        p = mp.Pool(nb_threads)
         args = [
-            [a, b, c, d, e, f]
-            for a, b, c, d, e, f in zip(
-                results[0, :],
+            [a, b, c, d, e, f, g, h, i]
+            for a, b, c, d, e, f, g, h, i in zip(
+                args_data[:, 0],
                 outnames,
-                results[1, :],
-                results[2, :],
-                results[3, :],
+                args_data[:, 1],
+                args_data[:, 2],
+                args_data[:, 3],
+                args_data[:, 4],
                 info_dicts,
+                [None] * len(outnames)["fits"] * len(outnames),
             )
         ]
-        p.starmap(make_fits, args)
-        p.close()
 
-        # Run CNN model to associate a probability to each cutout
+        pool.starmap(make_sub_image, args)
+        pool.close()
+
         # The size of the cutout should be the same as the ones used
         # for the CNN training
         print("Use trained CNN model")
@@ -186,6 +143,9 @@ def filter_candidates(
 
     # Write output file.
     candidates = sources[mask_tot]
+
+    if fmt == "fits":
+        info_dicts_filtered = np.array(info_dicts)[mask_tot]
 
     # if no sources skip the following
     if len(candidates) == 0:
@@ -212,6 +172,7 @@ def filter_candidates(
         mkdir_p(path_cutout)
         args_data = []
         outnames = []
+        titles = []
         if combined:
             args_combined = []
             path_cutout_combined = os.path.join(path_cutout, "combined")
@@ -254,12 +215,14 @@ def filter_candidates(
                 if CNN_model is not None:
                     title += "     CNN proba: %.2f " % cand["P_True"]
 
+                titles.append(title)
+
             args_data.append(
                 [
                     cand["filenames"],
                     coords,
                     "world",
-                    [size_cnn, size_cnn],
+                    [size, size],
                     -1,
                 ]
             )
@@ -275,61 +238,35 @@ def filter_candidates(
                         [size, size],
                         -1,
                         title,
+                        [fmt] * len(outname_combined),
                     ]
                 )
+
+        if fmt != "fits":
+            info_dicts_filtered = [None] * len(outnames)
+        else:
+            titles = [None] * len(outnames)
 
         # Create sub-array
         args_data = np.array(args_data)
         pool = mp.Pool(nb_threads)
-
-        # call apply_async() without callback
-        result_objects = [
-            pool.apply_async(
-                make_sub_image,
-                args=(
-                    args_data[:, 0],
-                    args_data[:, 1],
-                    args_data[:, 2],
-                    args_data[:, 3],
-                    args_data[:, 4],
-                ),
+        args = [
+            [a, b, c, d, e, f, g, h, i]
+            for a, b, c, d, e, f, g, h, i in zip(
+                args_data[:, 0],
+                outnames,
+                args_data[:, 1],
+                args_data[:, 2],
+                args_data[:, 3],
+                args_data[:, 4],
+                info_dicts_filtered,
+                titles,
+                [fmt] * len(outnames),
             )
         ]
 
-        # result_objects is a list of pool.ApplyResult objects
-        results = [r.get() for r in result_objects]
-        # Don't forget to close
+        pool.starmap(make_sub_image, args)
         pool.close()
-        pool.join()
-        results = np.array(results[0])
-        # Create fits cutouts
-        p = mp.Pool(nb_threads)
-        if fmt != "fits":
-            args = [
-                [a, b, c, d, e]
-                for a, b, c, d, e in zip(
-                    results[0, :],
-                    outnames,
-                    results[4, :],
-                    [fmt] * len(candidates),
-                    title,
-                )
-            ]
-            p.starmap(make_figure, args)
-        elif fmt == "fits":
-            args = [
-                [a, b, c, d, e, f]
-                for a, b, c, d, e, f in zip(
-                    results[0, :],
-                    outnames,
-                    results[1, :],
-                    results[2, :],
-                    results[3, :],
-                    info_dicts,
-                )
-            ]
-            p.starmap(make_fits, args)
-        p.close()
 
         if combined:
             print("Make combined cutouts")
