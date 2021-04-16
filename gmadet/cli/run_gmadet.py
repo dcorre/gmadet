@@ -292,7 +292,7 @@ def main():
         dest="cutouts_size",
         required=False,
         type=int,
-        default=100,
+        default=32,
         help="Size of square array for cutouts other than for CNN. " "Defaut: 100. ",
     )
 
@@ -303,6 +303,14 @@ def main():
         type=int,
         default=32,
         help="Size of square array for CNN cutouts. Defaut: 32. ",
+    )
+
+    parser.add_argument(
+        "--cutouts-all",
+        dest="cutouts_all",
+        action="store_true",
+        help="Whether to create cutouts with science, reference and residual "
+        "on same plot. (Default: not set)",
     )
 
     parser.add_argument(
@@ -536,7 +544,7 @@ def main():
             fmt=args.cutouts_fmt,
             outLevel=1,
             nb_threads=args.threads,
-            combined=False,
+            combined=args.cutouts_all,
         )
 
         # If both arguments VOE_path and owncloud_path are provided
