@@ -12,6 +12,7 @@ import sys
 import importlib
 import time
 import gc
+import multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -379,6 +380,98 @@ def cut_image(filename, config, Nb_cuts=(2, 2), doAstrometry="scamp"):
     return image_table
 
 
+def extract_subimage(
+    data,
+    header,
+    w,
+    OT_coords,
+    coords_type,
+    size,
+    FoV,
+):
+    """Method that extracts a sub-image centerd on a given position"""
+
+    # Get physical coordinates of OT
+    if coords_type == "world":
+        # Get physical coordinates
+        c = coord.SkyCoord(
+            OT_coords[0], OT_coords[1], unit=(u.deg, u.deg), frame="icrs"
+        )
+        world = np.array([[c.ra.deg, c.dec.deg]])
+        pix1, pix2 = w.all_world2pix(world, 1)[0]
+        pix = [pix2, pix1]
+        pixref = OT_coords
+    elif coords_type == "pix":
+        pix = OT_coords
+        # ra, dec = w.all_pix2world(np.array(pix), 0)
+        ra, dec = w.all_pix2world(pix[0], pix[1], 0)
+        pixref = [float(ra), float(dec)]
+
+    if FoV > 0:
+        # Get pixel size in degrees
+        try:
+            pixSize = abs(float(header["CDELT1"]))
+        except BaseException:
+            pixSize = abs(float(header["CD1_1"]))
+        # Compute number of pixels to reach desired FoV in arcseconds
+        size = [int(FoV / (pixSize * 3600)), int(FoV / (pixSize * 3600))]
+
+    # Extract subimage from image starting from reference pixel
+    x1 = int(pix[0]) - int(size[0] / 2)
+    if x1 < 0:
+        x1 = 0
+    x2 = int(pix[0]) + int(size[0] / 2)
+    y1 = int(pix[1]) - int(size[1] / 2)
+    if y1 < 0:
+        y1 = 0
+    y2 = int(pix[1]) + int(size[1] / 2)
+    subimage = data[x1:x2, y1:y2]
+
+    # Highest declination on top
+    ra1, dec1 = w.all_pix2world(pix[0], y1, 0)
+    ra2, dec2 = w.all_pix2world(pix[0], y2, 0)
+    if dec1 > dec2:
+        origin = "upper"
+    else:
+        origin = "lower"
+
+    return subimage, origin, size, pixref
+
+
+def _make_sub_image(table, fname):
+    """Method to be used for multiprocessing"""
+    # for table, fname in zip(tables, fnames):
+    # Load file
+    hdul = fits.open(fname, memmap=False)
+    data = hdul[0].data
+    header = hdul[0].header
+    hdul.close()
+    w = WCS(header)
+    for row in table:
+
+        subimage, origin, size, pixref = extract_subimage(
+            data,
+            header,
+            w,
+            row["OT_coords"],
+            row["coords_type"],
+            row["sizes"],
+            row["FoVs"],
+        )
+
+        if row["fmts"] == "fits":
+            make_fits(
+                subimage, row["output_names"], header, size, pixref, row["info_dicts"]
+            )
+        else:
+            make_figure(
+                subimage, row["output_names"], origin, row["fmts"], row["title"]
+            )
+        # del subimage
+        # del w
+        # gc.collect()
+
+
 def make_sub_image(
     filenames,
     output_names,
@@ -389,6 +482,7 @@ def make_sub_image(
     info_dicts=None,
     title=None,
     fmts="fits",
+    nb_threads=4,
 ):
     """
     Extract sub-image around OT coordinates for the given size.
@@ -417,7 +511,6 @@ def make_sub_image(
               array of the data sub-image
     origin: string
             orientation of the figure
-
     """
     # Ensure all inputs are 1D
     filenames = np.atleast_1d(filenames)
@@ -449,75 +542,42 @@ def make_sub_image(
     pixref = []
     origins = []
 
-    for fname, outname, coords, _type, size, FoV, info_dict, tit, fmt in zip(
-        filenames,
-        output_names,
-        OT_coords,
-        coords_type,
-        sizes,
-        FoVs,
-        info_dicts,
-        title,
-        fmts,
-    ):
-        # Load file
-        hdul = fits.open(fname, memmap=False)
-        data = hdul[0].data
-        header = hdul[0].header
-        hdul.close()
-        # Get physical coordinates of OT
-        w = WCS(header)
-        if _type == "world":
-            # Get physical coordinates
-            c = coord.SkyCoord(coords[0], coords[1], unit=(u.deg, u.deg), frame="icrs")
-            world = np.array([[c.ra.deg, c.dec.deg]])
-            pix1, pix2 = w.all_world2pix(world, 1)[0]
-            pix = [pix2, pix1]
-            pixref = coords
-        elif _type == "pix":
-            pix = coords
-            # ra, dec = w.all_pix2world(np.array(pix), 0)
-            ra, dec = w.all_pix2world(pix[0], pix[1], 0)
-            pixref = [float(ra), float(dec)]
+    table = Table(
+        [
+            filenames,
+            output_names,
+            OT_coords,
+            coords_type,
+            sizes,
+            FoVs,
+            info_dicts,
+            title,
+            fmts,
+        ],
+        names=[
+            "filenames",
+            "output_names",
+            "OT_coords",
+            "coords_type",
+            "sizes",
+            "FoVs",
+            "info_dicts",
+            "title",
+            "fmts",
+        ],
+    )
 
-        if FoV > 0:
-            # Get pixel size in degrees
-            try:
-                pixSize = abs(float(header["CDELT1"]))
-            except BaseException:
-                pixSize = abs(float(header["CD1_1"]))
-            # Compute number of pixels to reach desired FoV in arcseconds
-            size = [int(FoV / (pixSize * 3600)), int(FoV / (pixSize * 3600))]
+    tables = []
+    fnames = []
+    for filename in table.group_by("filenames").groups.keys:
+        mask = table["filenames"] == filename[0]
+        fnames.append(filename[0])
+        tables.append(table[mask])
 
-        size_list.append(size)
-        # Extract subimage from image starting from reference pixel
-        x1 = int(pix[0]) - int(size[0] / 2)
-        if x1 < 0:
-            x1 = 0
-        x2 = int(pix[0]) + int(size[0] / 2)
-        y1 = int(pix[1]) - int(size[1] / 2)
-        if y1 < 0:
-            y1 = 0
-        y2 = int(pix[1]) + int(size[1] / 2)
-        subimage = data[x1:x2, y1:y2]
-
-        # Highest declination on top
-        ra1, dec1 = w.all_pix2world(pix[0], y1, 0)
-        ra2, dec2 = w.all_pix2world(pix[0], y2, 0)
-        if dec1 > dec2:
-            origin = "upper"
-        else:
-            origin = "lower"
-        origins.append(origin)
-
-        if fmt == "fits":
-            make_fits(subimage, outname, header, size, pixref, info_dict)
-
-        else:
-            make_figure(subimage, outname, origin, fmt, tit)
-
-        subimages.append(subimage)
-    return subimages, origins
+    pool = mp.Pool(nb_threads)
+    pool.starmap(_make_sub_image, np.array([tables, fnames]).T)
+    pool.close()
+    pool.join()
 
 
 def make_fits(data, output_name, header, size, pixref, info_dict=None):
@@ -534,12 +594,14 @@ def make_fits(data, output_name, header, size, pixref, info_dict=None):
         for key, value in info_dict.items():
             # print (key, value)
             header[key] = value
-        if data.shape[0] != size[0] and data.shape[1] != size[1]:
+        if data.shape[0] != size[0] or data.shape[1] != size[1]:
             header["edge"] = "True"
         else:
             header["edge"] = "False"
     hdu.header = header
     hdu.writeto(output_name, overwrite=True)
+    del hdu
+    gc.collect()
 
 
 def make_figure(data, output_name, origin, fmt, title=None):
@@ -567,6 +629,34 @@ def make_figure(data, output_name, origin, fmt, title=None):
     # plt.close()
 
 
+def _combined_cutouts(
+    filenames,
+    OT_coords,
+    coords_type,
+    size,
+    FoV,
+):
+    """Method that could be parallelised"""
+
+    subimages = []
+    origins = []
+    for filename in filenames:
+        hdul = fits.open(filename, memmap=False)
+        data = hdul[0].data
+        header = hdul[0].header
+        hdul.close()
+        w = WCS(header)
+
+        subimage, origin, size, pixref = extract_subimage(
+            data, header, w, OT_coords, coords_type, size, FoV
+        )
+
+        subimages.append(subimage)
+        origins.append(origin)
+
+    return subimages, origins
+
+
 def combine_cutouts(
     filenames,
     OT_coords,
@@ -584,35 +674,21 @@ def combine_cutouts(
     # May be provide the list of cutouts to create as inputs
     # to reuse the plt axes and avoid recreating a new pyplot
     # frame each time.
-    data1, origin1 = make_sub_image(
-        filenames[0], output_name, OT_coords, coords_type, size, FoV, None, title, fmts
-    )
-    data2, origin2 = make_sub_image(
-        filenames[1], output_name, OT_coords, coords_type, size, FoV, None, title, fmts
-    )
-    data3, origin3 = make_sub_image(
-        filenames[2], output_name, OT_coords, coords_type, size, FoV, None, title, fmts
-    )
-    # Outputs of make_sub_image are lists
-    data1 = data1[0]
-    data2 = data2[0]
-    data3 = data3[0]
-    origin1 = origin1[0]
-    origin2 = origin2[0]
-    origin3 = origin3[0]
+
+    datas, origins = _combined_cutouts(filenames, OT_coords, coords_type, size, FoV)
 
     norm1 = ImageNormalize(
-        data1,  # - np.median(data1),
+        datas[0],  # - np.median(data1),
         interval=ZScaleInterval(),
         stretch=LinearStretch(),
     )
     norm2 = ImageNormalize(
-        data2,  # - np.median(data2),
+        datas[1],  # - np.median(data2),
         interval=ZScaleInterval(),
         stretch=LinearStretch(),
     )
     norm3 = ImageNormalize(
-        data3,  # - np.median(data3),
+        datas[2],  # - np.median(data3),
         interval=ZScaleInterval(),
         stretch=LinearStretch(),
     )
@@ -623,13 +699,13 @@ def combine_cutouts(
     # when skybackground is important. It is not correct but just
     # used for illustration.
     # axs[1].imshow(data1 - np.median(data1),
-    axs[1].imshow(data1, cmap="gray", origin=origin1, norm=norm1)
+    axs[1].imshow(datas[0], cmap="gray", origin=origins[0], norm=norm1)
     axs[1].set_xlabel("Science", size=20)
     # axs[2].imshow(data2 - np.median(data2),
-    axs[2].imshow(data2, cmap="gray", origin=origin2, norm=norm2)
+    axs[2].imshow(datas[1], cmap="gray", origin=origins[1], norm=norm2)
     axs[2].set_xlabel("Reference", size=20)
     # axs[0].imshow(data3 #- np.median(data3),
-    axs[0].imshow(data3, cmap="gray", origin=origin3, norm=norm3)
+    axs[0].imshow(datas[2], cmap="gray", origin=origins[2], norm=norm3)
     axs[0].set_xlabel("Residuals", size=20)
     if title is not None:
         fig.suptitle(title, size=20)

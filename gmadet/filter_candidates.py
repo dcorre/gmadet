@@ -108,23 +108,18 @@ def filter_candidates(
 
         # Create sub-array
         args_data = np.array(args_data)
-        pool = mp.Pool(nb_threads)
-        args = [
-            [a, b, c, d, e, f, g, h, i]
-            for a, b, c, d, e, f, g, h, i in zip(
-                args_data[:, 0],
-                outnames,
-                args_data[:, 1],
-                args_data[:, 2],
-                args_data[:, 3],
-                args_data[:, 4],
-                info_dicts,
-                [None] * len(outnames)["fits"] * len(outnames),
-            )
-        ]
-
-        pool.starmap(make_sub_image, args)
-        pool.close()
+        make_sub_image(
+            args_data[:, 0],
+            outnames,
+            args_data[:, 1],
+            args_data[:, 2],
+            args_data[:, 3],
+            args_data[:, 4],
+            info_dicts,
+            [None] * len(outnames),
+            [fmt] * len(outnames),
+            nb_threads,
+        )
 
         # The size of the cutout should be the same as the ones used
         # for the CNN training
@@ -249,24 +244,19 @@ def filter_candidates(
 
         # Create sub-array
         args_data = np.array(args_data)
-        pool = mp.Pool(nb_threads)
-        args = [
-            [a, b, c, d, e, f, g, h, i]
-            for a, b, c, d, e, f, g, h, i in zip(
-                args_data[:, 0],
-                outnames,
-                args_data[:, 1],
-                args_data[:, 2],
-                args_data[:, 3],
-                args_data[:, 4],
-                info_dicts_filtered,
-                titles,
-                [fmt] * len(outnames),
-            )
-        ]
 
-        pool.starmap(make_sub_image, args)
-        pool.close()
+        make_sub_image(
+            args_data[:, 0],
+            outnames,
+            args_data[:, 1],
+            args_data[:, 2],
+            args_data[:, 3],
+            args_data[:, 4],
+            info_dicts_filtered,
+            titles,
+            [fmt] * len(outnames),
+            nb_threads,
+        )
 
         if combined:
             print("Make combined cutouts")

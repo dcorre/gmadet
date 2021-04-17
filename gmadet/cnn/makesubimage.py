@@ -253,14 +253,17 @@ def subimage(path, training, size=32, radius=1, flag_notsub=False, false=False):
             Naxis2 = hdr_input["NAXIS2"]
 
             # Extract small image
-            subimage, header, size_list, pixref, origin = make_sub_image(
+            # Only one threads as we provide one image after another
+            make_sub_image(
                 inputname,
+                outname,
                 OT_coords,
                 coords_type="world",
                 sizes=[size, size],
+                FoVs=-1,
+                fmts="fits",
+                nb_threads=1,
             )
-
-            make_fits(subimage[0], outname, header[0], size_list[0], pixref[0])
 
             # add information to header
             hdus = fits.open(outname, memmap=False)
