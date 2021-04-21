@@ -75,7 +75,7 @@ def filter_candidates(
             coords = [cand["_RAJ2000"], cand["_DEJ2000"]]
             if CNN_model is not None:
                 outname = os.path.join(
-                    path_CNN_cutouts, "candidate_%d.fits" % (cand["idx"])
+                    path_CNN_cutouts, "candidate_%d.fits" % (cand["cand_ID"])
                 )
                 outnames.append(outname)
             info_dict = {}
@@ -84,7 +84,7 @@ def filter_candidates(
             info_dict["XPOS"] = cand["Xpos"]
             info_dict["YPOS"] = cand["Ypos"]
             info_dict["FILE"] = cand["filenames"]
-            info_dict["CANDID"] = cand["idx"]
+            info_dict["CANDID"] = cand["cand_ID"]
             info_dict["MAG"] = cand["mag_calib"]
             info_dict["MAGERR"] = cand["mag_calib_err"]
             info_dict["FWHM"] = cand["FWHM"]
@@ -129,7 +129,7 @@ def filter_candidates(
         # Add the probability to the canidates table.
         infer_table = ascii.read(os.path.join(path_CNN_cutouts, "infer_results.dat"))
         sources = join(
-            sources, infer_table["idx", "label0", "label1"], join_type="left"
+            sources, infer_table["cand_ID", "label0", "label1"], join_type="left"
         )
 
         # keep only transients that are above the threshold
