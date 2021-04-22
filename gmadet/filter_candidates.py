@@ -75,7 +75,7 @@ def filter_candidates(
             coords = [cand["_RAJ2000"], cand["_DEJ2000"]]
             if CNN_model is not None:
                 outname = os.path.join(
-                    path_CNN_cutouts, "candidate_%d.fits" % (cand["cand_ID"])
+                    path_CNN_cutouts, "candidate_%d.fits" % (cand["idx"])
                 )
                 outnames.append(outname)
             info_dict = {}
@@ -84,7 +84,7 @@ def filter_candidates(
             info_dict["XPOS"] = cand["Xpos"]
             info_dict["YPOS"] = cand["Ypos"]
             info_dict["FILE"] = cand["filenames"]
-            info_dict["CANDID"] = cand["cand_ID"]
+            info_dict["CANDID"] = cand["idx"]
             info_dict["MAG"] = cand["mag_calib"]
             info_dict["MAGERR"] = cand["mag_calib_err"]
             info_dict["FWHM"] = cand["FWHM"]
