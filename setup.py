@@ -12,7 +12,8 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-        'numpy',
+        # tensorflow 2.3.2 requires numpy<1.19.0,>=1.16.0
+        'numpy==1.18.5',
         'astropy',
         'matplotlib',
         'pandas',
@@ -35,7 +36,7 @@ requirements = [
         'photutils',
         'keras',
         'keras-vis',
-        'tensorflow',
+        'tensorflow==2.3.2',
         'regions',
         'opencv-python-headless',
         'astroquery',

@@ -4,7 +4,7 @@ ARG Sextractor_version=2.25.0
 ARG PSFEX_version=3.21.1
 
 # Building image from
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 LABEL maintainer="David Corre <david.corre.fr@gmail.com>"
 
@@ -31,7 +31,7 @@ RUN  \
    && apt-get install software-properties-common -y \ 
    && add-apt-repository ppa:deadsnakes/ppa -y \ 
    && apt-get update \
-   && apt-get install -y --no-install-recommends wget curl vim build-essential ca-certificates libtool libatlas3-base libatlas-base-dev libplplot-dev libfftw3-dev libcurl4-openssl-dev autoconf automake git unzip gfortran python3.7 python3.7-dev python3-pip \
+   && apt-get install -y --no-install-recommends wget curl vim build-essential ca-certificates libtool libatlas3-base libatlas-base-dev libplplot-dev libfftw3-dev libcurl4-openssl-dev autoconf automake git unzip gfortran python3.8 python3.8-dev python3-pip \
    && rm -rf /var/lib/apt/lists/* \
    && curl -OL -m 3600 http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz \
    && tar zxf cfitsio_latest.tar.gz \
@@ -96,11 +96,12 @@ RUN  \
    && cp hotpants /usr/local/bin/ \
    && cd .. \
    && rm -fr astromatic hotpants cfitsio-* cdsclient-* \ 
-   && python3.7 -m pip install --upgrade pip \
-   && python3.7 -m pip install -U setuptools cmake \
-   && python3.7 -m pip install -U scikit-build  \
-   && python3.7 -m pip install -U numpy scipy matplotlib astropy pandas shapely requests h5py scikit-image lacosmic hjson voevent-parse xmltodict astroML photutils keras keras-vis tensorflow cython regions  opencv-python-headless astroscrappy pytest pytest-cov pytest-console-scripts pytest-html pytest-runner codecov coverage --use-feature=2020-resolver \
-   && python3.7 -m pip install --pre astroquery  \
+   && python3.8 -m pip install --upgrade pip \
+   && python3.8 -m pip install numpy==1.18.5 \
+   && python3.8 -m pip install setuptools cmake \
+   && python3.8 -m pip install scikit-build  \
+   && python3.8 -m pip install scipy matplotlib astropy pandas shapely requests h5py scikit-image lacosmic hjson voevent-parse xmltodict astroML photutils keras keras-vis cython regions  opencv-python-headless astroscrappy pytest pytest-cov pytest-console-scripts pytest-html pytest-runner codecov coverage astroquery \
+   && python3.8 -m pip install tensorflow==2.3.2  \
    && rm -fr /home/newuser/.cache/pip \
    && rm -fr /root/.cache/pip \
    && rm -fr /root/.cache/* \
@@ -131,7 +132,7 @@ ENV PATH="/home/${USR}/.local/bin:$PATH"
 WORKDIR /home/${USR}/gmadet
 
 # Install gmadet
-#RUN python3.7 -m pip install -e .
+#RUN python3.8 -m pip install -e .
 
 # define entrypoint which is the default executable at launch
 ENTRYPOINT ["bash"]
