@@ -57,7 +57,7 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
     """Run xmatch in parallel"""
 
     catalog_list = []
-    idx_stop = []
+    cand_ID_stop = []
     Ncat = len(coordinates)
     # Check if there less data than number of threads.
     if Ncat < nb_threads:
@@ -68,14 +68,14 @@ def run_xmatch(coordinates, catalog, radius, nb_threads):
     for i in range(nb_threads):
         if i == 0:
             catalog_list.append(coordinates[i * Ncut : (i + 1) * Ncut])
-            idx_stop.append((i + 1) * Ncut)
+            cand_ID_stop.append((i + 1) * Ncut)
         elif i > 0 and i < nb_threads - 1:
             catalog_list.append(coordinates[i * Ncut : (i + 1) * Ncut])
-            idx_stop.append((i + 1) * Ncut)
+            cand_ID_stop.append((i + 1) * Ncut)
         elif i == nb_threads - 1:
             catalog_list.append(coordinates[i * Ncut : Ncat])
-            idx_stop.append(Ncat)
-        if idx_stop[-1] >= Ncat:
+            cand_ID_stop.append(Ncat)
+        if cand_ID_stop[-1] >= Ncat:
             break
     pool = mp.Pool(nb_threads)
     # call apply_async() without callback
@@ -166,9 +166,9 @@ def catalogs(
             quadrant = split_file[1].split("_")[0]
             """
             if len(split_file[-1]) == 2:
-                idx = 3
+                cand_ID = 3
             elif len(split_file[-1]) == 3:
-                idx = 4
+                cand_ID = 4
             """
         _filename_list.append(original_name + ".oc")
 
@@ -240,7 +240,7 @@ def catalogs(
     detected_sources_tot["_RAJ2000"] *= u.deg
     detected_sources_tot["_DEJ2000"] *= u.deg
     # Add index for each source
-    detected_sources_tot["idx"] = np.arange(len(detected_sources_tot))
+    detected_sources_tot["cand_ID"] = np.arange(len(detected_sources_tot))
     #  Add a flag to indicate whether a source is crossmatched with
     #  a referenced source
     detected_sources_tot["Match"] = ["N"] * len(detected_sources_tot)
@@ -254,7 +254,7 @@ def catalogs(
         mask_sub = np.ones(len(detected_sources_tot), dtype=bool)
 
     candidates = deepcopy(
-        detected_sources_tot["_RAJ2000", "_DEJ2000", "idx", "Match", "FlagSub"][
+        detected_sources_tot["_RAJ2000", "_DEJ2000", "cand_ID", "Match", "FlagSub"][
             mask_sub
         ]
     )
@@ -278,12 +278,12 @@ def catalogs(
         # Do not consider duplicates
         #  Meaning that if there are several sources
         #  we consider it as a crossmatch
-        _, referenced_star_idx = np.unique(crossmatch["idx"], return_index=True)
-        # First keep only the first occurence to a given idx.
-        crossmatch = crossmatch[referenced_star_idx]
-        idx_match = np.isin(candidates["idx"], crossmatch["idx"])
+        _, referenced_star_cand_ID = np.unique(crossmatch["cand_ID"], return_index=True)
+        # First keep only the first occurence to a given cand_ID.
+        crossmatch = crossmatch[referenced_star_cand_ID]
+        cand_ID_match = np.isin(candidates["cand_ID"], crossmatch["cand_ID"])
         # Then apply it the candidates table to flag referenced sources.
-        candidates["Match"][idx_match] = "Y"
+        candidates["Match"][cand_ID_match] = "Y"
 
         #  Update Match mask
         mask_matched = candidates["Match"] == "N"
@@ -304,17 +304,17 @@ def catalogs(
             break
 
     #  Flag sources without any match in catalogs
-    idx_no_match = np.isin(detected_sources_tot["idx"], candidates["idx"][mask_matched])
-    # candidates = deepcopy(detected_sources_tot[keep_idx])
+    cand_ID_no_match = np.isin(detected_sources_tot["cand_ID"], candidates["cand_ID"][mask_matched])
+    # candidates = deepcopy(detected_sources_tot[keep_cand_ID])
     #  Add the Match flag in original table data
-    detected_sources_tot["Match"][~idx_no_match] = "Y"
+    detected_sources_tot["Match"][~cand_ID_no_match] = "Y"
 
     #  Get filename
     _filename = np.unique(_filename_list)[0]
     # Write candidates file.
     # If substraction was performed, split transients into specific files
     if subFiles is not None:
-        mask = (detected_sources_tot["FlagSub"] == "Y") & idx_no_match
+        mask = (detected_sources_tot["FlagSub"] == "Y") & cand_ID_no_match
         detected_sources_tot[mask].write(
             os.path.splitext(_filename)[0] + "_sub.oc",
             format="ascii.commented_header",
@@ -328,7 +328,7 @@ def catalogs(
         )
 
     else:
-        mask = idx_no_match
+        mask = cand_ID_no_match
         detected_sources_tot[mask].write(
             _filename, format="ascii.commented_header", overwrite=True
         )
