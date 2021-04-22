@@ -44,9 +44,18 @@ def main():
         help="Path to the cutouts used for the training.",
     )
 
+    parser.add_argument(
+        "--frac_true",
+        dest="frac_true",
+        required=True,
+        type=float,
+        help="Fraction of true candidates to be included in the training set.",
+    )
+
     args = parser.parse_args()
     convert(args.path_datacube, cubename=args.cubename,
-            path_cutouts=args.path_cutouts)
+            path_cutouts=args.path_cutouts,
+            frac_true=args.frac_true)
 
 
 if __name__ == "__main__":
