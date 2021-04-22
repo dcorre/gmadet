@@ -4,7 +4,7 @@ ARG Sextractor_version=2.25.0
 ARG PSFEX_version=3.21.1
 
 # Building image from
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 LABEL maintainer="David Corre <david.corre.fr@gmail.com>"
 
