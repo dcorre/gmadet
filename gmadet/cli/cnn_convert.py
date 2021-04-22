@@ -54,7 +54,8 @@ def main():
 
     args = parser.parse_args()
     convert(args.path_datacube, cubename=args.cubename,
-            path_cutouts=args.path_cutouts,frac_true=args.frac_true)
+            path_cutouts=args.path_cutouts,
+            frac_true=args.frac_true)
 
 
 if __name__ == "__main__":
