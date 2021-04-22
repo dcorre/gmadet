@@ -36,7 +36,7 @@ Then you need to install ``gmadet`` inside the docker image:
 
 .. code-block:: console
 
-   python3.7 setup.py develop --user && cd ..
+   python3.8 setup.py develop --user && cd ..
 
 This must be done each time you run the Docker image.
 

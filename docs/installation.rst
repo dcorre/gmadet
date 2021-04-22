@@ -156,7 +156,7 @@ Install gmadet inside the Docker image.
 
 .. code-block:: console
 
-   python3.7 setup.py develop --user
+   python3.8 setup.py develop --user
 
 You will need to do it each time you run the Docker image, as everything is lost when you exit it (except the files created/edited in the mounted volumes).
 
