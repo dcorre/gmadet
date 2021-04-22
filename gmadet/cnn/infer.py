@@ -174,7 +174,7 @@ def infer(path_cutouts, path_model, probratio):
             "magerr",
             "FWHM",
             "FWHMPSF",
-            "idx",
+            "cand_ID",
             "label0",
             "label1",
         ],
