@@ -111,9 +111,10 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
         counter_false = counter_false+1
 
     print("The datacube contains",
-          str(Ncand),"candidates with Ntrue =",
+          str(Ncand),
+          "candidates with Ntrue =",
           str(counter_true),"and Nfalse =",
-          +str(counter_false))
+          str(counter_false))
     print("Converting and reshaping arrays ...")
     # Convert lists to B.I.P. NumPy arrays
     # Check whether all candidates has 64x64 pixels
