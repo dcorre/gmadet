@@ -49,12 +49,13 @@ def main():
         dest="frac_true",
         required=True,
         type=float,
-        help="Fraction of true candidates to be contained in the training set.",
+        help="Fraction of true candidates to be included in the training set.",
     )
 
     args = parser.parse_args()
     convert(args.path_datacube, cubename=args.cubename,
-            path_cutouts=args.path_cutouts,frac_true=args.frac_true)
+            path_cutouts=args.path_cutouts,
+            frac_true=args.frac_true)
 
 
 if __name__ == "__main__":

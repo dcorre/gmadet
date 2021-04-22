@@ -71,7 +71,7 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
     filters = []
     counter_true = 0
     for cand in truelist:
-        if counter_true<Ncand_true_max:
+        if counter_true < Ncand_true_max:
             hdus = fits.open(cand, memmap=False)
             head = hdus[0].header
             # Exclude cases too close to the edge
@@ -90,13 +90,13 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
 
     counter_false = 0
     for cand in falselist:
-        if counter_false<Ncand_false_max:
+        if counter_false < Ncand_false_max:
             hdus = fits.open(cand, memmap=False)
             head = hdus[0].header
             # if hdus[0].data.shape != (64, 64):
             #    print ('skip %s as its shape is not (64,64): (%d,%d)'
             #           % (cand, hdus[0].data.shape[0], hdus[0].data.shape[1]))
-                            # Exclude cases too close to the edge
+            # Exclude cases too close to the edge
             # Meaning they are located at less than the defined size
             # of the small images
             if head["EDGE"] == "False":
@@ -110,8 +110,12 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
             break
         counter_false = counter_false+1
 
-    print("The datacube contains "+str(Ncand)+" candidates with Ntrue = "+\
-    str(counter_true)+" and Nfalse = "+str(counter_false))
+    print("The datacube contains",
+          str(Ncand),
+          "candidates with Ntrue =",
+          str(counter_true),
+          "and Nfalse =",
+          str(counter_false))
     print("Converting and reshaping arrays ...")
     # Convert lists to B.I.P. NumPy arrays
     # Check whether all candidates has 64x64 pixels
