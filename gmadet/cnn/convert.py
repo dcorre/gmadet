@@ -113,7 +113,8 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
     print("The datacube contains",
           str(Ncand),
           "candidates with Ntrue =",
-          str(counter_true),"and Nfalse =",
+          str(counter_true),
+          "and Nfalse =",
           str(counter_false))
     print("Converting and reshaping arrays ...")
     # Convert lists to B.I.P. NumPy arrays
