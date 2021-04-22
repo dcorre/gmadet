@@ -15,7 +15,7 @@ before_install:
 
 script:
   # run tests
-  - docker run -v $(pwd):/home/newuser/gmadet/ gmadet:travis -c 'python3.7 -m pip install -e . ;pytest tests' || exit 1;
+  - docker run -v $(pwd):/home/newuser/gmadet/ gmadet:travis -c 'python3.8 -m pip install -e . ;pytest tests' || exit 1;
 cache:
   directories:
   - $HOME/.cache/pip
