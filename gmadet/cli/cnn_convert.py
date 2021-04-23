@@ -49,7 +49,7 @@ def main():
         dest="frac_true",
         required=True,
         type=float,
-        help="Fraction of true candidates to be included in the training set.",
+        help="Fraction of true candidates to be included in the training set. Flat between 0 and 1.",
     )
 
     args = parser.parse_args()
