@@ -68,6 +68,7 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
     labels = []
     mags = []
     errmags = []
+    cand_ids = []
     filters = []
     counter_true = 0
     for cand in truelist:
@@ -82,6 +83,7 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
                 mags += [head["MAG"]]
                 errmags += [head["MAGERR"]]
                 filters += [head["FILTER"]]
+                cand_ids += [head["CANDID"]]
                 cube.append(hdus[0].data)
             hdus.close()
         else:
@@ -104,6 +106,7 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
                 mags += [head["MAG"]]
                 errmags += [head["MAGERR"]]
                 filters += [head["FILTER"]]
+                cand_ids += [head["CANDID"]]
                 cube.append(hdus[0].data)
             hdus.close()
         else:
@@ -143,6 +146,7 @@ def convert(path_datacube, cubename, path_cutouts, frac_true):
         mags=mags,
         errmags=errmags,
         filters=filters,
+        candids=cand_ids
     )
 
     print("Saved to " + os.path.join(outdir, npz_name))
