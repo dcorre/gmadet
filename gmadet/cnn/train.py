@@ -67,6 +67,7 @@ def train(path_cube, path_model, modelname, epochs,
     mag = data["mags"]
     errmag = data["errmags"]
     band = data["filters"]
+    cand_ids = data["candids"]
     nclass = lab.shape[1]
     n = ima.shape[0]
     nt = int(n * fract)
@@ -79,6 +80,7 @@ def train(path_cube, path_model, modelname, epochs,
     mag = mag[randomize]
     errmag = errmag[randomize]
     band = band[randomize]
+    cand_ids = cand_ids[randomize]
 
     print("Splitting dataset ...", end="\r", flush=True)
     imal = ima[nt:]
@@ -86,12 +88,14 @@ def train(path_cube, path_model, modelname, epochs,
     magl = mag[nt:]
     errmagl = errmag[nt:]
     bandl = band[nt:]
+    cand_idsl = cand_ids[nt:]
 
     imat = ima[:nt]
     labt = lab[:nt]
     magt = mag[:nt]
     errmagt = errmag[:nt]
     bandt = band[:nt]
+    cand_idst = cand_ids[:nt]
 
     model = keras.models.Sequential()
 
