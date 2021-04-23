@@ -118,8 +118,7 @@ Once you have activated the environment, install the packages that are not avail
 
 .. code-block:: console
 
-    python3 -m pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis tensorflow cython regions  opencv-python-headless
-    python3 -m pip install --pre astroquery
+    python3 -m pip install lacosmic hjson voevent-parse xmltodict astroML regions photutils keras keras-vis tensorflow cython regions opencv-python-headless astroquery
 
 Install C dependencies:
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -141,29 +140,67 @@ Testing that it is working
 Run Docker
 ^^^^^^^^^^^^^^
 
-Run the Docker image:
+Run the Docker image in the background:
 
 .. code-block:: console
 
-   docker run -v /your_path_to_gmadet/:/home/newuser/gmadet/ -v /path_to_your_data/:/home/newuser/data/ --rm -it dcorre/gmadet
+   docker run --name gmad -dit -v /your_path_to_gmadet/:/home/newuser/gmadet/ -v /path_to_your_data/:/home/newuser/data/ dcorre/gmadet
 
-This means that you run interactively in a bash terminal the Docker image named dcorre/gmadet.
-The -v option means that you mount a volume in the Docker pointing to a directory on your computer. This allows to exchange data between the Docker and your machine. The first volume is pointing to the gmadet directory on your machine (the directory where the setup.py is). The second volume is pointing to the directory containing your images on your machine. For both cases, you need to edit the path before the ``:``.
+| This means that you run the docker image `dcorre/gmadet`, give the name `gmad` to the created container.
+| `-d` runs the container in backgound.   
+| `-i` gives the possibility to enter in the container to run commands interactively in a bash terminal.
+| `-t` allocates a pseudo-TTY. 
+| The -v option means that you mount a volume in the Docker pointing to a directory on your computer. This allows to exchange data between the Docker and your machine.
+| The first volume is pointing to the gmadet directory on your machine (the directory where the setup.py is). The second volume is pointing to the directory containing your images on your machine. For both cases, you need to edit the path before the ``:``.
 
-
-Install gmadet inside the Docker image.
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Once you have executed this command, you can run any command in the container by typing:
 
 .. code-block:: console
 
-   python3.8 setup.py develop --user
+   docker exec gmad ls
+   docker exec gmad pwd
+   
+to make a `ls` or a `pwd` in the container named `gmad`, or any other bash commands.
 
-You will need to do it each time you run the Docker image, as everything is lost when you exit it (except the files created/edited in the mounted volumes).
+**In the following, if you are using a Docker image just prepend the command `docker exec gmad` to run the given commands within the container instead of your machine.** 
 
-If you are not using Docker, you can type ``python3 setup.py develop`` and the following is exactly the same.
+The container is alive as long as you do not shut down your machine. It is important to know that you can not give the same name to two containers. So if for some reasons you need to remove the current container to start a new one, type:
+
+.. code-block:: console
+
+   docker rm gmad
+
+You can list the containers, active or not, on your machine with:
+
+.. code-block:: console
+
+   docker ps -a
 
 
-Run gmadet on a test image.
+
+Install gmadet
+^^^^^^^^^^^^^^
+-------------------------
+Inside the Docker image
+-------------------------
+
+.. code-block:: console
+
+   docker exec gmad python3.8 setup.py develop --user
+
+It is valid as long as the container is alive. You will need to do it each time you start a new container.  the Docker image, as everything is lost when you exit it (except the files created/edited in the mounted volumes).
+
+--------------------
+Without Docker image
+--------------------
+
+.. code-block:: console
+
+   python3 setup.py develop
+
+
+
+Run gmadet on a test image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To test if gmadet is running normally:

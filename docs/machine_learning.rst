@@ -19,27 +19,32 @@ We can also simulate point like objects in these astronomical images and run the
 Process
 -------
 
-Run the Doker image
+Launch the Doker image
 ^^^^^^^^^^^^^^^^^^^
 
-If you are using the Docker image you need to run it first.
+
+
+If you are using the Docker image, remember to launch once the container:
 
 .. code-block:: console
 
-   docker run -v /your_path_to_gmadet/:/home/newuser/gmadet/ -v /path_to_your_data/:/home/newuser/data/ --rm -it dcorre/gmadet
+   docker run --name gmad -dit -v /your_path_to_gmadet/:/home/newuser/gmadet/ -v /path_to_your_data/:/home/newuser/data/  dcorre/gmadet
 
 Replace:
+
+
 * ``/your_path_to_gmadet/`` with the path on your machine pointing to the gamdet directory containing the ``setup.py``.
-* ``/path_to_your_data/`` with the path on your machine pointing to the data you want to use for the CNN training.
+* ``/path_to_your_data/`` with the path on your machine pointing to the data you want to analyse.
 
 Then you need to install ``gmadet`` inside the docker image:
 
 .. code-block:: console
 
-   python3.8 setup.py develop --user && cd ..
+   python3.8 setup.py develop --user
 
-This must be done each time you run the Docker image.
+This must be done each time you launch the Docker image.
 
+Then you only need to prepend `docker exec gmad` to the commands given below to execute them within the container instead of your machine.
 
 
 Simulate point-like sources in your images
