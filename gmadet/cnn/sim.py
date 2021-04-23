@@ -24,13 +24,13 @@ from skimage.feature import register_translation
 from gmadet.utils import rm_p, mkdir_p
 
 
-def sim(datapath, filenames, Ntrans=50, size=48,
-        magrange=[14, 22], gain=None, magzp=30):
+def sim(datapath, telescope, filenames, Ntrans=50, size=48, magrange=[14, 22],
+        gain=1, magzp=30, radec=None, magnitude=None):
     """Insert point sources in real images """
 
     filenames = np.atleast_1d(filenames)
 
-    #simdir = os.path.join(datapath, "simulation")
+    # simdir = os.path.join(datapath, "simulation")
     simdir = datapath
     mkdir_p(simdir)
 
@@ -38,12 +38,13 @@ def sim(datapath, filenames, Ntrans=50, size=48,
 
     hcutsize = cutsize // 2
 
-    #  List to store position of simulated transients
+    # List to store position of simulated transients
     trans_pix = []
     trans_wcs = []
     filelist = []
     maglist = []
     filterlist = []
+    trans_count = []
     cpsf1 = np.zeros((cutsize[1], cutsize[0]))
 
     counter = 0
@@ -89,30 +90,45 @@ def sim(datapath, filenames, Ntrans=50, size=48,
                 filelist.append(os.path.abspath(newfile))
 
                 filterlist.append(band)
+                if radec is None:
+                    pos[j] = np.random.random_sample(
+                        2) * (imsize - cutsize) + cutsize / 2.0
+                    # store positions
+                    ra, dec = w.wcs_pix2world(pos[j][1], pos[j][0], 1)
+                    trans_pix.append(pos[j])
+                    trans_wcs.append([ra, dec])
 
-                pos[j] = np.random.random_sample(
-                    2) * (imsize - cutsize) + cutsize / 2.0
-                # store positions
-                ra, dec = w.wcs_pix2world(pos[j][1], pos[j][0], 1)
-                trans_pix.append(pos[j])
-                trans_wcs.append([ra, dec])
-
-                # get pixels indexes in the image
-                ipos = pos[j].astype(int)
-                # extract subimage centered on position of the object and
-                # store in cima1
-                # same for weight maps
-                iposrange = np.s_[
-                    ipos[0] - hcutsize[0]: ipos[0] + hcutsize[0],
-                    ipos[1] - hcutsize[1]: ipos[1] + hcutsize[1],
-                ]
-
+                    # get pixels indexes in the image
+                    ipos = pos[j].astype(int)
+                    # extract subimage centered on position of the object and
+                    # store in cima1
+                    # same for weight maps
+                    iposrange = np.s_[
+                        ipos[0] - hcutsize[0]: ipos[0] + hcutsize[0],
+                        ipos[1] - hcutsize[1]: ipos[1] + hcutsize[1],
+                        ]
+                else:
+                    ra, dec = radec[j][0], radec[j][1]
+                    # print('ra, dec = ', ra, dec)
+                    pos[j] = w.all_world2pix(ra, dec, 0)
+                    # print(pos[j])
+                    trans_pix.append(pos[j])
+                    trans_wcs.append([ra, dec])
+                    # get pixels indexes in the image
+                    ipos = pos[j].astype(int)
+                    # print(ipos)
+                    # extract subimage centered on position of the object
+                    # and store in cima1
+                    # same for weight maps
+                    iposrange = np.s_[
+                        ipos[1] - hcutsize[1]: ipos[1] + hcutsize[1],
+                        ipos[0] - hcutsize[0]: ipos[0] + hcutsize[0]]
                 # Select the PSF corresponding to the image area,
                 # in case there are more than one PSF estimated per axis
                 if nb_psf_snaps == 1:
                     psf1 = psfs1
                 else:
-                    #  get position with respect to number of PSF snapshots
+                    # get position with respect to number of PSF snapshots
                     ppos = (pos[j] * posfac).astype(int)
                     psf1 = psfs1[ppos[0], ppos[1]]
                 # step1 is psf_samp parameter from psfex, used in mat1 and 2
@@ -132,13 +148,17 @@ def sim(datapath, filenames, Ntrans=50, size=48,
 
                 # define the object magnitude using this random number and
                 # predefined ranges
-                mag = np.random.uniform(
-                    low=magrange[0], high=magrange[1], size=(1,))
-                # convert the magnitude in ADU using the zeropoint magnitude.
-                # Note that the zeropoint magnitude is define as 30,
-                # so did not care of the exact value.
-                # simply needed to draw random magnitudes. We could estimate
-                # the proper one for our telescopes
+                if magnitude is None:
+                    mag = np.random.uniform(
+                        low=magrange[0], high=magrange[1], size=(1,))
+                    # convert the magnitude in ADU using the zeropoint
+                    # magnitude.
+                    # Note that the zeropoint magnitude is define as 30,
+                    # so did not care of the exact value.
+                    # simply needed to draw random magnitudes.
+                    # We could estimate the proper one for our telescopes
+                else:
+                    mag = np.array([magnitude[j]])
                 maglist.append(mag[0])
                 amp1 = np.exp(0.921034 * (magzp - mag))
 
@@ -150,9 +170,11 @@ def sim(datapath, filenames, Ntrans=50, size=48,
                 noisy_object1 = noisy_object1 / gain
 
                 ima1[iposrange] += noisy_object1
+                count = np.sum(noisy_object1)
+                trans_count.append(count)
 
             hdusi1[0].data = ima1
-            #  Write new fits file
+            #  Write new fits file
             hdusi1.writeto(newfile, overwrite=True)
 
             hdusi1.close()
@@ -171,6 +193,7 @@ def sim(datapath, filenames, Ntrans=50, size=48,
             wcspos[:, 1],
             maglist,
             filterlist,
+            trans_count
         ],
         names=[
             "idx",
@@ -180,7 +203,8 @@ def sim(datapath, filenames, Ntrans=50, size=48,
             "RA",
             "Dec",
             "mag",
-            "filter"],
+            "filter",
+            "count_ADU"],
     )
     table.write(
         os.path.join(simdir, "simulated_objects.list"),
@@ -188,4 +212,3 @@ def sim(datapath, filenames, Ntrans=50, size=48,
         overwrite=True,
     )
     return table
-
