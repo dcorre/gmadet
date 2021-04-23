@@ -20,7 +20,7 @@ def test_psf(script_runner):
 
 
 def test_astrometry(script_runner):
-    "test gmadet-astrometry"
+    """test gmadet-astrometry"""
     ret = script_runner.run(
         'gmadet-astrometry',
         'gmadet/data_test/test_image.fits',
@@ -32,7 +32,7 @@ def test_astrometry(script_runner):
 
 
 def test_stacking(script_runner):
-    "test gmadet-stacking. Only with one file but it is just a test"
+    """test gmadet-stacking. Only with one file but it is just a test"""
     ret = script_runner.run(
         'gmadet-stacking',
         'gmadet/data_test/stacking/',
@@ -45,7 +45,7 @@ def test_stacking(script_runner):
 
 
 def test_subBkg(script_runner):
-    "test gmadet-subBkg"
+    """test gmadet-subBkg"""
     ret = script_runner.run(
         'gmadet-subBkg',
         'gmadet/data_test/test_image.fits',
@@ -56,7 +56,7 @@ def test_subBkg(script_runner):
 
 
 def test_remove_cosmics(script_runner):
-    "test gmadet-cosmics"
+    """test gmadet-cosmics"""
     ret = script_runner.run(
         'gmadet-cosmics',
         'gmadet/data_test/test_image.fits',
@@ -67,7 +67,7 @@ def test_remove_cosmics(script_runner):
 
 
 def test_gmadet_run_noSub(script_runner):
-    "test gmadet-run without substraction."
+    """test gmadet-run without substraction."""
     ret = script_runner.run(
         'gmadet-run',
         'gmadet/data_test/test_image.fits',
@@ -86,7 +86,7 @@ def test_gmadet_run_noSub(script_runner):
 
 
 def test_gmadet_run_Sub_individual(script_runner):
-    "test gmadet-run with substraction."
+    """test gmadet-run with substraction."""
     ret = script_runner.run(
         'gmadet-run',
         'gmadet/data_test/test_image.fits',
@@ -105,7 +105,7 @@ def test_gmadet_run_Sub_individual(script_runner):
 
 
 def test_gmadet_run_Sub_mosaic(script_runner):
-    "test gmadet-run with substraction."
+    """test gmadet-run with substraction."""
     ret = script_runner.run(
         'gmadet-run',
         'gmadet/data_test/test_image.fits',
@@ -117,6 +117,118 @@ def test_gmadet_run_Sub_mosaic(script_runner):
         '--threshold', '4',
         '--sub', 'ps1',
         '--ps1-method', 'mosaic',
+    )
+    assert ret.success
+    assert ret.stderr == ''
+
+
+def test_gmadet_sim(script_runner):
+    """test gmadet-sim."""
+    ret = script_runner.run(
+        'gmadet-sim',
+        'gmadet/data_test/test_image.fits',
+        '--results', 'gmadet/data_test/gmadet_sim',
+        '--telescope', 'IRIS',
+        '--ntrans', '100',
+        '--magrange', '14', ' 23',
+        '--zp', '30'
+    )
+    assert ret.success
+    assert ret.stderr == ''
+
+def test_gmadet_run_sim(script_runner):
+    """test gmadet-run for simulation."""
+    ret = script_runner.run(
+        'gmadet-run',
+        'gmadet/data_test/gmadet_sim',
+        '--results', 'gmadet/data_test/gmadet_sim_results',
+        '--telescope', 'IRIS',
+        '--fwhm', 'psfex',
+        '--astrometry', 'scamp',
+        '--radius-crossmatch', '3',
+        '--threshold', '4',
+        '--sub', 'ps1',
+        '--ps1-method', 'individual',
+    )
+    assert ret.success
+    assert ret.stderr == ''
+
+
+def test_gmadet_cutouts(script_runner):
+    """test gmadet-cutouts."""
+    ret = script_runner.run(
+        'gmadet-cutouts',
+        'gmadet/data_test/gmadet_sim_results',
+        '--training',
+        '--false'
+    )
+    assert ret.success
+    assert ret.stderr == ''
+
+
+def test_gmadet_checksim(script_runner):
+    """test gmadet-checksim."""
+    ret = script_runner.run(
+        'gmadet-checksim',
+        'gmadet/data_test/gmadet_sim_results',
+    )
+    assert ret.success
+    assert ret.stderr == ''
+
+
+def test_gmadet_cnn_convert(script_runner):
+    """test gmadet-cnn_convert."""
+    ret = script_runner.run(
+        'gmadet-cnn_convert',
+        '--path', 'gmadet/data_test/gmadet_cnn',
+        '--cube', 'cube',
+        '--cutouts',  'gmadet/data_test/gmadet_sim_results/candidates_training/',
+        '--frac_true', '0.5'
+    )
+    assert ret.success
+    assert ret.stderr == ''
+
+
+def test_gmadet_cnn_train(script_runner):
+    """test gmadet-cnn_train."""
+    ret = script_runner.run(
+        'gmadet-cnn_train',
+        '--cube', 'gmadet/data_test/gmadet_cnn/datacube/cube.npz',
+        '--model-path', 'gmadet/data_test/gmadet_cnn',
+        '--model-name', 'model'
+    )
+    assert ret.success
+    assert ret.stderr == ''
+
+
+def test_gmadet_cnn_infer(script_runner):
+    """test gmadet-cnn_infer."""
+    # Create cutouts without classifying them in true or false folders
+    ret1 = script_runner.run(
+        'gmadet-cutouts',
+        'gmadet/data_test/gmadet_sim_results'
+    )
+
+    assert ret1.success
+    assert ret1.stderr == ''
+
+
+    ret2 = script_runner.run(
+        'gmadet-cnn_infer',
+        '--cutouts', 'gmadet/data_test/gmadet_sim_results/candidates_training/',
+        '--model', 'gmadet/data_test/gmadet_cnn/CNN_training/model.h5',
+    )
+    assert ret2.success
+    assert ret2.stderr == ''
+
+
+def test_gmadet_cnn_checkinfer(script_runner):
+    """test gmadet-cnn_checkinfer."""
+    ret = script_runner.run(
+        'gmadet-cnn_checkinfer',
+        '--plots', 'gmadet/data_test/gmadet_sim_results/',
+        '--crossmatch', 'gmadet/data_test/gmadet_sim_results/',
+        '--infer', 'gmadet/data_test/gmadet_sim_results/candidates/',
     )
     assert ret.success
     assert ret.stderr == ''
