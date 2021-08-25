@@ -36,7 +36,7 @@ requirements = [
         'photutils',
         'keras',
         'keras-vis',
-        'tensorflow==2.3.2',
+        'tensorflow==2.5.1',
         'regions',
         'opencv-python-headless',
         'astroquery',
