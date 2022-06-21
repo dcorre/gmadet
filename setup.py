@@ -13,7 +13,7 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
         # tensorflow 2.3.2 requires numpy<1.19.0,>=1.16.0
-        'numpy==1.18.5',
+        'numpy==1.22.0',
         'astropy',
         'matplotlib',
         'pandas',
